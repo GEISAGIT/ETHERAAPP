@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { categories, type Category } from '@/lib/data';
@@ -50,6 +50,7 @@ const formSchema = z.object({
   amount: z.coerce.number().positive('O valor deve ser positivo'),
   type: z.enum(['income', 'expense']),
   category: z.string().min(1, 'Por favor, selecione uma categoria'),
+  costType: z.enum(['fixed', 'variable']).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -70,6 +71,11 @@ export function AddTransactionDialog() {
       type: 'expense',
       category: '',
     },
+  });
+  
+  const transactionType = useWatch({
+    control: form.control,
+    name: 'type',
   });
 
   const handleDescriptionChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -237,29 +243,55 @@ export function AddTransactionDialog() {
                 )}
               />
             </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+                 <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Categoria</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma categoria" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories.map(cat => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {transactionType === 'expense' && (
+                    <FormField
+                    control={form.control}
+                    name="costType"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Tipo de Custo</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Fixo ou Variável" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            <SelectItem value="fixed">Custo Fixo</SelectItem>
+                            <SelectItem value="variable">Custo Variável</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                )}
+            </div>
 
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Categoria</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma categoria" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map(cat => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <DialogFooter className="pt-4">
               <DialogClose asChild>
                 <Button type="button" variant="ghost">Cancelar</Button>

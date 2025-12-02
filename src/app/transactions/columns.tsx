@@ -1,6 +1,6 @@
 'use client';
 
-import type { Transaction } from '@/lib/types';
+import type { Transaction, ExpenseTransaction } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Timestamp } from 'firebase/firestore';
 
@@ -42,6 +42,22 @@ export const columns = [
         <Badge variant={isIncome ? 'default' : 'secondary'} className={isIncome ? 'bg-emerald-500/20 text-emerald-700 border-emerald-500/30 hover:bg-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : ''}>
           {typeText}
         </Badge>
+      );
+    },
+  },
+  {
+    accessorKey: 'costType',
+    header: 'Tipo de Custo',
+    cell: ({ row }: { row: { original: Transaction } }) => {
+      if (row.original.type === 'income') return null;
+
+      const costType = (row.original as ExpenseTransaction).costType;
+      if (!costType) return <Badge variant="outline">N/A</Badge>;
+
+      const costTypeText = costType === 'fixed' ? 'Fixo' : 'Variável';
+      const variant = costType === 'fixed' ? 'destructive' : 'secondary';
+      return (
+        <Badge variant={variant}>{costTypeText}</Badge>
       );
     },
   },

@@ -1,13 +1,26 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type Transaction = {
+export type IncomeTransaction = {
   id: string;
   date: Timestamp;
   description: string;
   amount: number;
-  type: 'income' | 'expense';
+  type: 'income';
   category: Category;
-};
+}
+
+export type ExpenseTransaction = {
+  id: string;
+  date: Timestamp;
+  description: string;
+  amount: number;
+  type: 'expense';
+  category: Category;
+  costType?: 'fixed' | 'variable';
+}
+
+export type Transaction = IncomeTransaction | ExpenseTransaction;
+
 
 export type Budget = {
   id: string;
