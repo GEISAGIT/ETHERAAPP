@@ -30,7 +30,7 @@ export function LoginForm() {
 
     if (!userDocSnap.exists()) {
       // Use setDocumentNonBlocking with the specific user UID as the document ID
-      setDocumentNonBlocking(userDocRef, {
+      setDocumentNonBlocking(doc(firestore, 'users', user.uid), {
           uid: user.uid,
           displayName: user.displayName,
           email: user.email,
