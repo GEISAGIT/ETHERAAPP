@@ -13,18 +13,18 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
 
   const formatCurrency = (value: number, type: 'income' | 'expense') => {
     const sign = type === 'income' ? '+' : '-';
-    return `${sign}${new Intl.NumberFormat('en-US', {
+    return `${sign}${new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'BRL',
     }).format(value)}`;
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-headline text-xl">Recent Transactions</CardTitle>
+        <CardTitle className="font-headline text-xl">Transações Recentes</CardTitle>
         <CardDescription>
-          Your latest financial activities.
+          Suas últimas atividades financeiras.
         </CardDescription>
       </CardHeader>
       <CardContent>

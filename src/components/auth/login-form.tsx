@@ -27,17 +27,17 @@ export function LoginForm() {
         <CardContent className="space-y-4 pt-6">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="m@example.com" required disabled={isLoading} defaultValue="demo@clinicflow.com" />
+            <Input id="email" type="email" placeholder="email@exemplo.com" required disabled={isLoading} defaultValue="demo@clinicflow.com" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Senha</Label>
             <Input id="password" type="password" required disabled={isLoading} defaultValue="password"/>
           </div>
         </CardContent>
         <CardFooter>
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign In
+            Entrar
           </Button>
         </CardFooter>
       </Card>

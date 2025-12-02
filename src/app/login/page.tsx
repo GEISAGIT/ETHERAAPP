@@ -9,10 +9,10 @@ export default function LoginPage() {
            <ClinicFlowLogo className="h-16 w-16" />
         </div>
         <h1 className="mb-2 text-center font-headline text-3xl font-bold text-foreground">
-          Welcome to ClinicFlow
+          Bem-vindo ao ClinicFlow
         </h1>
         <p className="mb-8 text-center text-muted-foreground">
-          Sign in to manage your clinic's finances.
+          Faça login para gerenciar as finanças da sua clínica.
         </p>
         <LoginForm />
       </div>

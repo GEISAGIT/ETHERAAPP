@@ -19,19 +19,19 @@ export function StatsCards({ transactions }: StatsCardsProps) {
 
   const stats = [
     {
-      title: 'Total Income',
+      title: 'Receita Total',
       value: totalIncome,
       icon: TrendingUp,
       color: 'text-emerald-500',
     },
     {
-      title: 'Total Expenses',
+      title: 'Despesa Total',
       value: totalExpenses,
       icon: TrendingDown,
       color: 'text-red-500',
     },
     {
-      title: 'Net Profit',
+      title: 'Lucro Líquido',
       value: netProfit,
       icon: DollarSign,
       color: netProfit >= 0 ? 'text-emerald-500' : 'text-red-500',
@@ -39,9 +39,9 @@ export function StatsCards({ transactions }: StatsCardsProps) {
   ];
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'BRL',
     }).format(value);
   };
 
@@ -58,7 +58,7 @@ export function StatsCards({ transactions }: StatsCardsProps) {
               {formatCurrency(stat.value)}
             </div>
             <p className="text-xs text-muted-foreground">
-              from last month
+              do último mês
             </p>
           </CardContent>
         </Card>

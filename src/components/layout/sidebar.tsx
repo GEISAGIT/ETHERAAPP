@@ -13,10 +13,10 @@ import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank } from 'lucide-re
 import Link from 'next/link';
 
 const menuItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/transactions', label: 'Transactions', icon: ArrowRightLeft },
-  { href: '/budgets', label: 'Budgets', icon: PiggyBank },
-  { href: '/reports', label: 'Reports', icon: BarChart3 },
+  { href: '/dashboard', label: 'Painel', icon: LayoutDashboard },
+  { href: '/transactions', label: 'Transações', icon: ArrowRightLeft },
+  { href: '/budgets', label: 'Orçamentos', icon: PiggyBank },
+  { href: '/reports', label: 'Relatórios', icon: BarChart3 },
 ];
 
 export function AppSidebar() {

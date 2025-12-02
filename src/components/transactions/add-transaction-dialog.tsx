@@ -39,20 +39,21 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   date: z.date(),
-  description: z.string().min(3, 'Description is too short'),
-  amount: z.coerce.number().positive('Amount must be positive'),
+  description: z.string().min(3, 'A descrição é muito curta'),
+  amount: z.coerce.number().positive('O valor deve ser positivo'),
   type: z.enum(['income', 'expense']),
-  category: z.string().min(1, 'Please select a category'),
+  category: z.string().min(1, 'Por favor, selecione uma categoria'),
 });
 
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
-  const { toast } from useToast();
+  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -79,12 +80,12 @@ export function AddTransactionDialog() {
         if (result.category && categories.includes(result.category as Category)) {
           form.setValue('category', result.category);
           toast({
-            title: 'Category Suggested',
-            description: `We've suggested "${result.category}" based on the description.`,
+            title: 'Categoria Sugerida',
+            description: `Sugerimos "${result.category}" com base na descrição.`,
           });
         }
       } catch (error) {
-        console.error('AI suggestion failed:', error);
+        console.error('Falha na sugestão da IA:', error);
       } finally {
         setIsSuggesting(false);
       }
@@ -95,8 +96,8 @@ export function AddTransactionDialog() {
     console.log(values);
     // Here you would typically call a server action to save the data
     toast({
-      title: 'Transaction Added',
-      description: 'Your transaction has been successfully recorded.',
+      title: 'Transação Adicionada',
+      description: 'Sua transação foi registrada com sucesso.',
     });
     form.reset();
     setOpen(false);
@@ -107,14 +108,14 @@ export function AddTransactionDialog() {
       <DialogTrigger asChild>
         <Button>
           <PlusCircle className="mr-2 h-4 w-4" />
-          Add Transaction
+          Adicionar Transação
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle className="font-headline">New Transaction</DialogTitle>
+          <DialogTitle className="font-headline">Nova Transação</DialogTitle>
           <DialogDescription>
-            Add a new income or expense to your records.
+            Adicione uma nova receita ou despesa aos seus registros.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -124,16 +125,16 @@ export function AddTransactionDialog() {
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Type</FormLabel>
+                  <FormLabel>Tipo</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select transaction type" />
+                        <SelectValue placeholder="Selecione o tipo de transação" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="expense">Expense</SelectItem>
-                      <SelectItem value="income">Income</SelectItem>
+                      <SelectItem value="expense">Despesa</SelectItem>
+                      <SelectItem value="income">Receita</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -146,10 +147,10 @@ export function AddTransactionDialog() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Descrição</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Input placeholder="e.g. Office supplies" {...field} onChange={handleDescriptionChange} />
+                      <Input placeholder="ex: Material de escritório" {...field} onChange={handleDescriptionChange} />
                       {isSuggesting && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
                     </div>
                   </FormControl>
@@ -164,9 +165,9 @@ export function AddTransactionDialog() {
                 name="amount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Amount</FormLabel>
+                    <FormLabel>Valor</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0.00" {...field} />
+                      <Input type="number" placeholder="0,00" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -177,7 +178,7 @@ export function AddTransactionDialog() {
                 name="date"
                 render={({ field }) => (
                   <FormItem className="flex flex-col pt-2">
-                    <FormLabel>Transaction Date</FormLabel>
+                    <FormLabel>Data da Transação</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -189,9 +190,9 @@ export function AddTransactionDialog() {
                             )}
                           >
                             {field.value ? (
-                              format(field.value, "PPP")
+                              format(field.value, "PPP", { locale: ptBR })
                             ) : (
-                              <span>Pick a date</span>
+                              <span>Escolha uma data</span>
                             )}
                             <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
@@ -203,6 +204,7 @@ export function AddTransactionDialog() {
                           selected={field.value}
                           onSelect={field.onChange}
                           initialFocus
+                          locale={ptBR}
                         />
                       </PopoverContent>
                     </Popover>
@@ -217,11 +219,11 @@ export function AddTransactionDialog() {
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Category</FormLabel>
+                  <FormLabel>Categoria</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
+                        <SelectValue placeholder="Selecione uma categoria" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -236,9 +238,9 @@ export function AddTransactionDialog() {
             />
             <DialogFooter className="pt-4">
               <DialogClose asChild>
-                <Button type="button" variant="ghost">Cancel</Button>
+                <Button type="button" variant="ghost">Cancelar</Button>
               </DialogClose>
-              <Button type="submit">Save Transaction</Button>
+              <Button type="submit">Salvar Transação</Button>
             </DialogFooter>
           </form>
         </Form>

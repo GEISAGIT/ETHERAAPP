@@ -13,19 +13,19 @@ export function DashboardClient() {
     <div className="flex flex-col gap-8">
       <header>
         <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Dashboard
+          Painel
         </h1>
         <p className="text-muted-foreground">
-          Welcome back! Here's a summary of your clinic's finances.
+          Bem-vindo de volta! Aqui está um resumo das finanças da sua clínica.
         </p>
       </header>
 
       {overspentBudgets.length > 0 && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Budget Alert!</AlertTitle>
+          <AlertTitle>Alerta de Orçamento!</AlertTitle>
           <AlertDescription>
-            You have exceeded your budget for:{' '}
+            Você excedeu seu orçamento para:{' '}
             {overspentBudgets.map(b => b.name).join(', ')}.
           </AlertDescription>
         </Alert>

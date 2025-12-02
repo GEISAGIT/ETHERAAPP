@@ -10,10 +10,10 @@ export function TransactionsClient({ data }: { data: Transaction[] }) {
        <header className="flex items-center justify-between">
           <div>
             <h1 className="font-headline text-3xl font-bold tracking-tight">
-              Transactions
+              Transações
             </h1>
             <p className="text-muted-foreground">
-              Track all your income and expenses.
+              Acompanhe todas as suas receitas e despesas.
             </p>
           </div>
           <AddTransactionDialog />

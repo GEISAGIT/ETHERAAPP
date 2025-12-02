@@ -10,43 +10,44 @@ import { Badge } from '@/components/ui/badge';
 export const columns = [
   {
     accessorKey: 'date',
-    header: 'Date',
+    header: 'Data',
     cell: ({ row }: { row: { original: Transaction } }) => (
-      <span>{row.original.date.toLocaleDateString()}</span>
+      <span>{row.original.date.toLocaleDateString('pt-BR')}</span>
     ),
   },
   {
     accessorKey: 'description',
-    header: 'Description',
+    header: 'Descrição',
   },
   {
     accessorKey: 'category',
-    header: 'Category',
+    header: 'Categoria',
     cell: ({ row }: { row: { original: Transaction } }) => (
         <Badge variant="outline">{row.original.category}</Badge>
     ),
   },
   {
     accessorKey: 'type',
-    header: 'Type',
+    header: 'Tipo',
     cell: ({ row }: { row: { original: Transaction } }) => {
       const isIncome = row.original.type === 'income';
+      const typeText = isIncome ? 'Receita' : 'Despesa';
       return (
         <Badge variant={isIncome ? 'default' : 'secondary'} className={isIncome ? 'bg-emerald-500/20 text-emerald-700 border-emerald-500/30 hover:bg-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : ''}>
-          {row.original.type}
+          {typeText}
         </Badge>
       );
     },
   },
   {
     accessorKey: 'amount',
-    header: () => <div className="text-right">Amount</div>,
+    header: () => <div className="text-right">Valor</div>,
     cell: ({ row }: { row: { original: Transaction } }) => {
       const amount = parseFloat(row.original.amount.toString());
       const isIncome = row.original.type === 'income';
-      const formatted = new Intl.NumberFormat('en-US', {
+      const formatted = new Intl.NumberFormat('pt-BR', {
         style: 'currency',
-        currency: 'USD',
+        currency: 'BRL',
       }).format(amount);
 
       return <div className={`text-right font-medium ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>{formatted}</div>;

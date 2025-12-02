@@ -15,14 +15,14 @@ export type Budget = {
 };
 
 export type Category = 
-  | 'Salaries'
-  | 'Rent'
-  | 'Supplies'
-  | 'Equipment'
+  | 'Salários'
+  | 'Aluguel'
+  | 'Suprimentos'
+  | 'Equipamentos'
   | 'Marketing'
-  | 'Insurance'
-  | 'Utilities'
-  | 'Patient Income'
-  | 'Investment Income'
-  | 'Loan Payment'
-  | 'Other';
+  | 'Seguros'
+  | 'Serviços Públicos'
+  | 'Receita de Paciente'
+  | 'Receita de Investimento'
+  | 'Pagamento de Empréstimo'
+  | 'Outros';

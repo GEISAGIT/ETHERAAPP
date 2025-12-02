@@ -13,7 +13,7 @@ export function OverviewChart({ transactions }: OverviewChartProps) {
     const monthlyData: { [key: string]: { income: number; expense: number } } = {};
     
     transactions.forEach(t => {
-      const month = t.date.toLocaleString('default', { month: 'short' });
+      const month = t.date.toLocaleString('pt-BR', { month: 'short' });
       if (!monthlyData[month]) {
         monthlyData[month] = { income: 0, expense: 0 };
       }
@@ -32,8 +32,8 @@ export function OverviewChart({ transactions }: OverviewChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-headline text-xl">Overview</CardTitle>
-        <CardDescription>Income vs. Expenses</CardDescription>
+        <CardTitle className="font-headline text-xl">Visão Geral</CardTitle>
+        <CardDescription>Receitas vs. Despesas</CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
         <ResponsiveContainer width="100%" height={350}>
@@ -50,17 +50,18 @@ export function OverviewChart({ transactions }: OverviewChartProps) {
               fontSize={12}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(value) => `$${value / 1000}k`}
+              tickFormatter={(value) => `R$${value / 1000}k`}
             />
             <Tooltip
               contentStyle={{
                 backgroundColor: 'hsl(var(--background))',
                 borderColor: 'hsl(var(--border))',
               }}
+              formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)}
             />
             <Legend />
-            <Bar dataKey="income" fill="hsl(var(--chart-1))" name="Income" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="expense" fill="hsl(var(--chart-2))" name="Expense" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="income" fill="hsl(var(--chart-1))" name="Receitas" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="expense" fill="hsl(var(--chart-2))" name="Despesas" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

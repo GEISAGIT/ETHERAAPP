@@ -6,9 +6,9 @@ import { useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
 
 const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'BRL',
     }).format(value);
   };
   
@@ -56,40 +56,40 @@ export function ReportsClient({ data }: { data: Transaction[] }) {
     <div className="space-y-8">
       <header>
         <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Financial Reports
+          Relatórios Financeiros
         </h1>
         <p className="text-muted-foreground">
-          Analyze your clinic's financial performance.
+          Analise o desempenho financeiro da sua clínica.
         </p>
       </header>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
         <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle className="font-headline">Profit &amp; Loss Summary</CardTitle>
-            <CardDescription>A summary of your income and expenses.</CardDescription>
+            <CardTitle className="font-headline">Resumo de Lucros e Perdas</CardTitle>
+            <CardDescription>Um resumo de suas receitas e despesas.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Description</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     <TableRow>
-                        <TableCell className="font-medium">Total Income</TableCell>
+                        <TableCell className="font-medium">Receita Total</TableCell>
                         <TableCell className="text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(totalIncome)}</TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell className="font-medium">Total Expenses</TableCell>
+                        <TableCell className="font-medium">Despesa Total</TableCell>
                         <TableCell className="text-right">{formatCurrency(totalExpenses)}</TableCell>
                     </TableRow>
                 </TableBody>
                 <TableFooter>
                     <TableRow>
-                        <TableHead>Net Profit</TableHead>
+                        <TableHead>Lucro Líquido</TableHead>
                         <TableHead className={`text-right ${netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(netProfit)}</TableHead>
                     </TableRow>
                 </TableFooter>
@@ -99,8 +99,8 @@ export function ReportsClient({ data }: { data: Transaction[] }) {
         
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="font-headline">Expense Breakdown</CardTitle>
-            <CardDescription>How your expenses are distributed.</CardDescription>
+            <CardTitle className="font-headline">Detalhamento de Despesas</CardTitle>
+            <CardDescription>Como suas despesas são distribuídas.</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -122,7 +122,9 @@ export function ReportsClient({ data }: { data: Transaction[] }) {
                 <Tooltip contentStyle={{
                     backgroundColor: 'hsl(var(--background))',
                     borderColor: 'hsl(var(--border))',
-                }}/>
+                }}
+                formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)}
+                />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>

@@ -26,7 +26,7 @@ export function DataTablePagination({
   return (
     <div className="flex items-center justify-between px-2">
       <div className="flex-1 text-sm text-muted-foreground">
-        Page {pageIndex + 1} of {pageCount}
+        Página {pageIndex + 1} de {pageCount}
       </div>
       <div className="flex items-center space-x-2">
         <Button
@@ -35,7 +35,7 @@ export function DataTablePagination({
           onClick={() => setPageIndex(0)}
           disabled={!canPreviousPage}
         >
-          <span className="sr-only">Go to first page</span>
+          <span className="sr-only">Ir para a primeira página</span>
           <ChevronsLeft className="h-4 w-4" />
         </Button>
         <Button
@@ -44,7 +44,7 @@ export function DataTablePagination({
           onClick={() => setPageIndex(pageIndex - 1)}
           disabled={!canPreviousPage}
         >
-          <span className="sr-only">Go to previous page</span>
+          <span className="sr-only">Ir para a página anterior</span>
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <Button
@@ -53,7 +53,7 @@ export function DataTablePagination({
           onClick={() => setPageIndex(pageIndex + 1)}
           disabled={!canNextPage}
         >
-          <span className="sr-only">Go to next page</span>
+          <span className="sr-only">Ir para a próxima página</span>
           <ChevronRight className="h-4 w-4" />
         </Button>
         <Button
@@ -62,7 +62,7 @@ export function DataTablePagination({
           onClick={() => setPageIndex(pageCount - 1)}
           disabled={!canNextPage}
         >
-          <span className="sr-only">Go to last page</span>
+          <span className="sr-only">Ir para a última página</span>
           <ChevronsRight className="h-4 w-4" />
         </Button>
       </div>

@@ -31,26 +31,26 @@ const prompt = ai.definePrompt({
   name: 'categorizeTransactionPrompt',
   input: {schema: CategorizeTransactionInputSchema},
   output: {schema: CategorizeTransactionOutputSchema},
-  prompt: `You are an expert financial assistant specializing in categorizing financial transactions for a clinic.
+  prompt: `Você é um assistente financeiro especialista em categorizar transações financeiras para uma clínica.
 
-  Given the description and type of the transaction, predict the most appropriate category.
-  Return a confidence level between 0 and 1 representing the certainty of your prediction.
+  Dada a descrição e o tipo da transação, preveja a categoria mais apropriada.
+  Retorne um nível de confiança entre 0 e 1 representando a certeza da sua previsão.
 
-  Transaction Description: {{{transactionDescription}}}
-  Transaction Type: {{{transactionType}}}
+  Descrição da Transação: {{{transactionDescription}}}
+  Tipo da Transação: {{{transactionType}}}
 
-  Consider the following categories:
-  - Salaries
-  - Rent
-  - Supplies
-  - Equipment
+  Considere as seguintes categorias:
+  - Salários
+  - Aluguel
+  - Suprimentos
+  - Equipamentos
   - Marketing
-  - Insurance
-  - Utilities
-  - Patient Income
-  - Investment Income
-  - Loan Payment
-  - Other
+  - Seguros
+  - Serviços Públicos
+  - Receita de Paciente
+  - Receita de Investimento
+  - Pagamento de Empréstimo
+  - Outros
 `,
 });
 
