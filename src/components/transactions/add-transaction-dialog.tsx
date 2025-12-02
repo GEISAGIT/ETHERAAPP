@@ -83,14 +83,14 @@ export function AddTransactionDialog() {
   });
 
   const incomeCategoriesQuery = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user?.uid) return null;
     return query(collection(firestore, 'users', user.uid, 'incomeCategories'));
-  }, [firestore, user]);
+  }, [firestore, user?.uid]);
 
   const expenseCategoriesQuery = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user?.uid) return null;
     return query(collection(firestore, 'users', user.uid, 'expenseCategories'));
-  }, [firestore, user]);
+  }, [firestore, user?.uid]);
 
   const { data: incomeCategories } = useCollection<IncomeCategory>(incomeCategoriesQuery);
   const { data: expenseCategories } = useCollection<ExpenseCategory>(expenseCategoriesQuery);
@@ -133,11 +133,11 @@ export function AddTransactionDialog() {
   };
   
   const onSubmit = (values: FormValues) => {
-    if (!user) {
+    if (!user?.uid) {
       toast({
         variant: 'destructive',
         title: 'Erro',
-        description: 'Você precisa estar logado para adicionar uma transação.',
+        description: 'Usuário não autenticado. Por favor, faça login novamente.',
       });
       return;
     }
