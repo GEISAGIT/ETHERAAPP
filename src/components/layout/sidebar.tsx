@@ -9,7 +9,7 @@ import {
   SidebarHeader,
 } from '@/components/ui/sidebar';
 import { ClinicFlowLogo } from '@/components/icons';
-import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank } from 'lucide-react';
+import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings } from 'lucide-react';
 import Link from 'next/link';
 
 const menuItems = [
@@ -17,6 +17,7 @@ const menuItems = [
   { href: '/transactions', label: 'Transações', icon: ArrowRightLeft },
   { href: '/budgets', label: 'Orçamentos', icon: PiggyBank },
   { href: '/reports', label: 'Relatórios', icon: BarChart3 },
+  { href: '/settings', label: 'Configurações', icon: Settings },
 ];
 
 export function AppSidebar() {
