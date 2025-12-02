@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -16,10 +16,10 @@ import { UploadCloud, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import Papa from 'papaparse';
-import { addDocumentNonBlocking, useFirestore, useUser } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
-import type { Transaction, Category } from '@/lib/types';
-import { categories } from '@/lib/data';
+import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, Timestamp, query } from 'firebase/firestore';
+import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
+
 
 const requiredHeaders = ['date', 'description', 'amount', 'type', 'category'];
 
@@ -30,6 +30,26 @@ export function ImportTransactionsDialog() {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
+
+  const incomeCategoriesQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(firestore, 'users', user.uid, 'incomeCategories'));
+  }, [firestore, user]);
+
+  const expenseCategoriesQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(firestore, 'users', user.uid, 'expenseCategories'));
+  }, [firestore, user]);
+
+  const { data: incomeCategories } = useCollection<IncomeCategory>(incomeCategoriesQuery);
+  const { data: expenseCategories } = useCollection<ExpenseCategory>(expenseCategoriesQuery);
+  
+  const allCategories = useMemo(() => {
+    const incomeNames = incomeCategories?.map(c => c.name) ?? [];
+    const expenseNames = expenseCategories?.map(c => c.name) ?? [];
+    return [...incomeNames, ...expenseNames];
+  }, [incomeCategories, expenseCategories]);
+
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -89,16 +109,20 @@ export function ImportTransactionsDialog() {
               throw new Error(`Tipo inválido na linha ${index + 2}: ${row.type}. Use 'income' ou 'expense'.`);
             }
             
-            if (!categories.includes(row.category as Category)) {
+            if (!allCategories.includes(row.category)) {
               throw new Error(`Categoria inválida na linha ${index + 2}: ${row.category}`);
             }
 
-            const transactionData = {
+            const transactionData: any = {
               date: Timestamp.fromDate(new Date(row.date)),
               description: row.description,
               amount: amount,
-              category: row.category as Category,
+              category: row.category,
             };
+            
+            if(type === 'expense' && row.costType && ['fixed', 'variable'].includes(row.costType)) {
+                transactionData.costType = row.costType;
+            }
 
             const collectionName = type === 'income' ? 'incomes' : 'expenses';
             const transactionsCollection = collection(firestore, 'users', user.uid, collectionName);
@@ -141,7 +165,13 @@ export function ImportTransactionsDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (!isOpen) {
+            setFile(null);
+            setIsLoading(false);
+        }
+    }}>
       <DialogTrigger asChild>
         <Button variant="outline">
           <UploadCloud className="mr-2 h-4 w-4" />

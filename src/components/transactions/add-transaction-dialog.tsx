@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -32,7 +32,6 @@ import {
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { categories, type Category } from '@/lib/data';
 import { suggestCategory } from '@/app/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -41,8 +40,9 @@ import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { addDocumentNonBlocking, useFirestore, useUser } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, Timestamp, query } from 'firebase/firestore';
+import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
 
 const formSchema = z.object({
   date: z.date(),
@@ -78,18 +78,39 @@ export function AddTransactionDialog() {
     name: 'type',
   });
 
+  const incomeCategoriesQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(firestore, 'users', user.uid, 'incomeCategories'));
+  }, [firestore, user]);
+
+  const expenseCategoriesQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(firestore, 'users', user.uid, 'expenseCategories'));
+  }, [firestore, user]);
+
+  const { data: incomeCategories } = useCollection<IncomeCategory>(incomeCategoriesQuery);
+  const { data: expenseCategories } = useCollection<ExpenseCategory>(expenseCategoriesQuery);
+  
+  const categories = useMemo(() => {
+    if (transactionType === 'income') {
+      return incomeCategories?.map(c => c.name) ?? [];
+    }
+    return expenseCategories?.map(c => c.name) ?? [];
+  }, [transactionType, incomeCategories, expenseCategories]);
+
+
   const handleDescriptionChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     form.setValue('description', e.target.value);
     const description = e.target.value;
     const type = form.getValues('type');
-    if (description.length > 5) {
+    if (description.length > 5 && categories.length > 0) {
       setIsSuggesting(true);
       try {
         const result = await suggestCategory({
           transactionDescription: description,
           transactionType: type,
         });
-        if (result.category && categories.includes(result.category as Category)) {
+        if (result.category && categories.includes(result.category)) {
           form.setValue('category', result.category);
           toast({
             title: 'Categoria Sugerida',
@@ -120,7 +141,6 @@ export function AddTransactionDialog() {
     const transactionData = {
       ...values,
       date: Timestamp.fromDate(values.date),
-      // Firebase security rules will enforce userId, but it's good practice to have it here too
     };
 
     addDocumentNonBlocking(transactionsCollection, transactionData);
@@ -156,7 +176,10 @@ export function AddTransactionDialog() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tipo</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={(value) => {
+                      field.onChange(value);
+                      form.setValue('category', '');
+                  }} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o tipo de transação" />
@@ -296,7 +319,10 @@ export function AddTransactionDialog() {
               <DialogClose asChild>
                 <Button type="button" variant="ghost">Cancelar</Button>
               </DialogClose>
-              <Button type="submit">Salvar Transação</Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Salvar Transação
+              </Button>
             </DialogFooter>
           </form>
         </Form>
