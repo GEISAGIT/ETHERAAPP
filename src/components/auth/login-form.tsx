@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { useAuth, setDocumentNonBlocking, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile, type User } from 'firebase/auth';
-import { doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 export function LoginForm() {
   const router = useRouter();
@@ -26,16 +26,25 @@ export function LoginForm() {
   const createUserDocument = (user: User) => {
     if (!firestore) return;
     const userDocRef = doc(firestore, 'users', user.uid);
-    // getDoc is async, so we should handle this inside a promise if we need to wait
+    const userData = {
+      uid: user.uid,
+      displayName: user.displayName,
+      email: user.email,
+      photoURL: user.photoURL,
+      createdAt: serverTimestamp(),
+    };
+
     getDoc(userDocRef).then(userDocSnap => {
         if (!userDocSnap.exists()) {
-            setDocumentNonBlocking(doc(firestore, 'users', user.uid), {
-                uid: user.uid,
-                displayName: user.displayName,
-                email: user.email,
-                photoURL: user.photoURL,
-                createdAt: serverTimestamp(),
-            });
+            setDoc(userDocRef, userData, { merge: true })
+              .catch((error) => {
+                const permissionError = new FirestorePermissionError({
+                  path: userDocRef.path,
+                  operation: 'create',
+                  requestResourceData: userData,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+              });
         }
     });
   };
@@ -56,21 +65,17 @@ export function LoginForm() {
       if (isSignUp) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
-        // O objeto do usuário pode não ser atualizado imediatamente com o nome de exibição,
-        // então passamos o usuário novo do userCredential.
         createUserDocument(userCredential.user);
-        await sendEmailVerification(userCredential.user);
+        // await sendEmailVerification(userCredential.user);
         
         toast({
           title: "Cadastro realizado com sucesso!",
-          description: "Enviamos um e-mail de verificação para você. Por favor, confirme seu e-mail.",
+          description: "Sua conta foi criada. Você já pode fazer login.",
         });
-        setIsSignUp(false); // Alterna para a visualização de login após o cadastro bem-sucedido
+        setIsSignUp(false);
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // Após o login bem-sucedido, garante que o documento do usuário exista.
         createUserDocument(userCredential.user);
-        // onAuthStateChanged no provider cuidará do redirecionamento para o painel.
       }
     } catch (error: any) {
       let message = "Ocorreu um erro. Tente novamente.";
