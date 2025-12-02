@@ -1,9 +1,9 @@
 'use client';
 import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, MoreVertical, Trash2, Edit } from 'lucide-react';
+import { PlusCircle, MoreVertical, Trash2, Edit, Search } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import {
   Table,
@@ -19,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from '@/components/ui/input';
 import { AddCategoryDialog } from './add-category-dialog';
 import { useFirestore, useUser, addDocumentNonBlocking } from '@/firebase';
 import { collection } from 'firebase/firestore';
@@ -34,56 +35,79 @@ interface CategoryTableProps {
 }
 
 function CategoryTable({ title, description, categories, onAdd, onEdit, onDelete }: CategoryTableProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredCategories = useMemo(() => {
+    if (!searchTerm) {
+      return categories;
+    }
+    return categories.filter(category =>
+      category.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [categories, searchTerm]);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead className="w-[64px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {categories.length > 0 ? (
-              categories.map((category) => (
-                <TableRow key={category.id}>
-                  <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Abrir menu</span>
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(category.id)} disabled>
-                          <Edit className="mr-2 h-4 w-4" />
-                          <span>Editar (Em breve)</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onDelete(category.id)} className="text-red-600" disabled>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Excluir (Em breve)</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+      <CardContent className="space-y-4">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Pesquisar categoria..."
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead className="w-[64px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredCategories.length > 0 ? (
+                filteredCategories.map((category) => (
+                  <TableRow key={category.id}>
+                    <TableCell className="font-medium">{category.name}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Abrir menu</span>
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onEdit(category.id)} disabled>
+                            <Edit className="mr-2 h-4 w-4" />
+                            <span>Editar (Em breve)</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onDelete(category.id)} className="text-red-600" disabled>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            <span>Excluir (Em breve)</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={2} className="h-24 text-center">
+                    Nenhuma categoria encontrada.
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={2} className="h-24 text-center">
-                  Nenhuma categoria encontrada.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
       <CardFooter>
         <Button onClick={onAdd} variant="outline">
