@@ -105,13 +105,17 @@ export function LoginForm() {
       await sendPasswordResetEmail(auth, email);
       toast({
         title: "Email de redefinição enviado",
-        description: "Verifique sua caixa de entrada para redefinir sua senha.",
+        description: "Verifique sua caixa de entrada e pasta de spam para redefinir sua senha.",
       });
     } catch (error: any) {
+      let message = "Não foi possível enviar o email de redefinição.";
+      if (error.code === 'auth/user-not-found') {
+        message = "Este email não está cadastrado. Verifique o email digitado.";
+      }
       toast({
         variant: "destructive",
         title: "Erro ao enviar email",
-        description: "Não foi possível enviar o email de redefinição. Verifique o email digitado.",
+        description: message,
       });
     } finally {
       setIsLoading(false);
@@ -149,7 +153,7 @@ export function LoginForm() {
             <Label htmlFor="email">Email</Label>
             <Input 
               id="email" 
-              type="email" 
+              type="email"
               placeholder="email@exemplo.com" 
               required 
               disabled={isLoading} 
@@ -164,7 +168,7 @@ export function LoginForm() {
               type="password" 
               placeholder="••••••••"
               required 
-              disabled={isLoading} 
+              disabled={isLoading} D
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
