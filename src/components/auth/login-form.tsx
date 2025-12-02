@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { useAuth, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
+import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile, type User } from 'firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp } from 'firebase/firestore';
 
 export function LoginForm() {
   const router = useRouter();
@@ -36,15 +36,7 @@ export function LoginForm() {
 
     getDoc(userDocRef).then(userDocSnap => {
         if (!userDocSnap.exists()) {
-            setDoc(userDocRef, userData, { merge: true })
-              .catch((error) => {
-                const permissionError = new FirestorePermissionError({
-                  path: userDocRef.path,
-                  operation: 'create',
-                  requestResourceData: userData,
-                });
-                errorEmitter.emit('permission-error', permissionError);
-              });
+            setDocumentNonBlocking(userDocRef, userData, { merge: true });
         }
     });
   };

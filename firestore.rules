@@ -62,6 +62,19 @@ service cloud.firestore {
       return isOwner(userId) && resource != null;
     }
 
+    // Rule for the top-level user document.
+    match /users/{userId} {
+       // A user can read their own profile document.
+       allow get: if isOwner(userId);
+       // A user can create their own profile document.
+       allow create: if isOwner(userId);
+       // A user can update their own profile document.
+       allow update: if isOwner(userId);
+       // Users cannot delete their profile or list other users.
+       allow delete: if false;
+       allow list: if false;
+    }
+    
     // Match all user-specific subcollections (incomes, expenses, categories, budgets).
     // This single rule block enforces a consistent ownership policy across all of a user's private data.
     match /users/{userId}/{subcollection}/{docId} {
