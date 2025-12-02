@@ -7,17 +7,54 @@ import { Skeleton } from '../ui/skeleton';
 import { ImportTransactionsDialog } from './import-transactions-dialog';
 import { useState } from 'react';
 import { EditTransactionDialog } from './edit-transaction-dialog';
+import { DeleteTransactionAlert } from './delete-transaction-alert';
+import { useFirestore, useUser, deleteDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 export function TransactionsClient({ data, isLoading }: { data: Transaction[], isLoading: boolean }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
 
   const handleEdit = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
     setIsEditOpen(true);
   };
   
-  const dynamicColumns = columns({ onEdit: handleEdit });
+  const handleDelete = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setIsDeleteAlertOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!user || !selectedTransaction) {
+        toast({
+            variant: 'destructive',
+            title: 'Erro',
+            description: 'Não foi possível excluir a transação. Tente novamente.',
+        });
+        return;
+    }
+
+    const collectionName = selectedTransaction.type === 'income' ? 'incomes' : 'expenses';
+    const docRef = doc(firestore, 'users', user.uid, collectionName, selectedTransaction.id);
+    
+    deleteDocumentNonBlocking(docRef);
+
+    toast({
+        title: 'Transação Excluída',
+        description: 'A transação foi excluída com sucesso.',
+    });
+    
+    setIsDeleteAlertOpen(false);
+    setSelectedTransaction(null);
+  }
+  
+  const dynamicColumns = columns({ onEdit: handleEdit, onDelete: handleDelete });
 
   if (isLoading) {
     return (
@@ -76,6 +113,11 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
         open={isEditOpen}
         onOpenChange={setIsEditOpen}
         transaction={selectedTransaction}
+      />
+      <DeleteTransactionAlert
+        open={isDeleteAlertOpen}
+        onOpenChange={setIsDeleteAlertOpen}
+        onConfirm={handleConfirmDelete}
       />
       <div className="space-y-8">
         <header className="flex items-center justify-between">

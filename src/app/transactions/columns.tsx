@@ -28,9 +28,10 @@ const formatDate = (timestamp: Timestamp) => {
 
 interface ColumnsProps {
     onEdit: (transaction: Transaction) => void;
+    onDelete: (transaction: Transaction) => void;
 }
 
-export const columns = ({ onEdit }: ColumnsProps) => [
+export const columns = ({ onEdit, onDelete }: ColumnsProps) => [
   {
     accessorKey: 'date',
     header: 'Data',
@@ -127,9 +128,9 @@ export const columns = ({ onEdit }: ColumnsProps) => [
               <Edit className="mr-2 h-4 w-4" />
               Editar
             </DropdownMenuItem>
-            <DropdownMenuItem disabled className="text-red-500">
+            <DropdownMenuItem onClick={() => onDelete(transaction)} className="text-red-500 focus:text-red-500">
               <Trash2 className="mr-2 h-4 w-4" />
-              Excluir (Em breve)
+              Excluir
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
