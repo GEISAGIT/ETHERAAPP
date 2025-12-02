@@ -10,26 +10,28 @@ export default function DashboardPage() {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const queries = useMemoFirebase(() => {
+  const incomesQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return {
-      incomesRef: collection(firestore, 'users', user.uid, 'incomes'),
-      expensesRef: collection(firestore, 'users', user.uid, 'expenses'),
-      budgetsRef: collection(firestore, 'users', user.uid, 'budgets'),
-    };
+    const incomesRef = collection(firestore, 'users', user.uid, 'incomes');
+    return query(incomesRef, orderBy('date', 'desc'), limit(50));
   }, [firestore, user]);
 
-  const { data: incomesData, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(
-    queries ? query(queries.incomesRef, orderBy('date', 'desc'), limit(50)) : null
-  );
-  
-  const { data: expensesData, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(
-    queries ? query(queries.expensesRef, orderBy('date', 'desc'), limit(50)) : null
-  );
+  const expensesQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    const expensesRef = collection(firestore, 'users', user.uid, 'expenses');
+    return query(expensesRef, orderBy('date', 'desc'), limit(50));
+  }, [firestore, user]);
 
-  const { data: budgets, isLoading: budgetsLoading } = useCollection<Budget>(
-    queries ? queries.budgetsRef : null
-  );
+  const budgetsQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(firestore, 'users', user.uid, 'budgets');
+  }, [firestore, user]);
+
+  const { data: incomesData, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
+  
+  const { data: expensesData, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(expensesQuery);
+
+  const { data: budgets, isLoading: budgetsLoading } = useCollection<Budget>(budgetsQuery);
 
   const transactions = useMemo(() => {
     if (!incomesData || !expensesData) return [];
