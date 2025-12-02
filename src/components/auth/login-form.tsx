@@ -66,16 +66,17 @@ export function LoginForm() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
         createUserDocument(userCredential.user);
-        // await sendEmailVerification(userCredential.user);
+        await sendEmailVerification(userCredential.user);
         
         toast({
           title: "Cadastro realizado com sucesso!",
-          description: "Sua conta foi criada. Você já pode fazer login.",
+          description: "Um email de verificação foi enviado. Sua conta foi criada e você já pode fazer login.",
         });
         setIsSignUp(false);
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         createUserDocument(userCredential.user);
+        router.push('/dashboard');
       }
     } catch (error: any) {
       let message = "Ocorreu um erro. Tente novamente.";
