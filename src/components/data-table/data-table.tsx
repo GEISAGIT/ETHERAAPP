@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
   Table,
   TableHeader,
@@ -10,9 +10,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { DataTablePagination } from './data-table-pagination';
-import { DataTableToolbar } from './data-table-toolbar';
 import type { Transaction } from '@/lib/types';
-import { isSameDay } from 'date-fns';
 
 
 interface DataTableProps<TData, TValue> {
@@ -25,68 +23,25 @@ export function DataTable<TData extends Transaction, TValue>({
   data,
 }: DataTableProps<TData, TValue>) {
   const [pageIndex, setPageIndex] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
-
   const pageSize = 10;
 
-  const allCategories = useMemo(() => {
-    const categories = data.map(item => item.category);
-    return ['all', ...Array.from(new Set(categories))];
-  }, [data]);
-
-
-  const filteredData = useMemo(() => {
-    let filtered = data;
-
-    if (searchTerm) {
-      filtered = filtered.filter(item =>
-        item.description.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    if (filterType !== 'all') {
-      filtered = filtered.filter(item => item.type === filterType);
-    }
-
-    if (filterCategory !== 'all') {
-      filtered = filtered.filter(item => item.category === filterCategory);
-    }
-
-    if (filterDate) {
-      filtered = filtered.filter(item => isSameDay(item.date.toDate(), filterDate));
-    }
-
-    return filtered;
-
-  }, [data, searchTerm, filterType, filterCategory, filterDate]);
-
-
-  const paginatedData = filteredData.slice(
+  const paginatedData = data.slice(
     pageIndex * pageSize,
     (pageIndex + 1) * pageSize
   );
-  const pageCount = Math.ceil(filteredData.length / pageSize);
+  const pageCount = Math.ceil(data.length / pageSize);
 
   const getCellValue = (row: any, accessorKey: string) => {
     return accessorKey.split('.').reduce((acc, part) => acc && acc[part], row);
   }
 
+  // Reset page index when data changes to avoid being on a non-existent page
+  useState(() => {
+    setPageIndex(0);
+  }, [data]);
+
   return (
     <div className="space-y-4">
-       <DataTableToolbar
-        searchTerm={searchTerm}
-        onSearchTermChange={setSearchTerm}
-        filterType={filterType}
-        onFilterTypeChange={setFilterType}
-        filterCategory={filterCategory}
-        onFilterCategoryChange={setFilterCategory}
-        allCategories={allCategories}
-        filterDate={filterDate}
-        onFilterDateChange={setFilterDate}
-      />
       <div className="rounded-md border">
         <Table>
           <TableHeader>
