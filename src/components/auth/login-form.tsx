@@ -7,8 +7,9 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { useAuth, initiateEmailSignIn } from '@/firebase';
+import { useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
 export function LoginForm() {
   const router = useRouter();
@@ -18,9 +19,9 @@ export function LoginForm() {
   const [email, setEmail] = useState('demo@clinicflow.com');
   const [password, setPassword] = useState('password');
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!email || !password) {
+    if (!auth || !email || !password) {
       toast({
         variant: "destructive",
         title: "Erro de Login",
@@ -29,18 +30,35 @@ export function LoginForm() {
       return;
     }
     setIsLoading(true);
-    
-    // Non-blocking sign-in
-    initiateEmailSignIn(auth, email, password);
 
-    // We don't await the result here. The useUser hook will detect the auth state change.
-    // We'll optimistically navigate. If there's an error, onAuthStateChanged will catch it,
-    // but a better implementation would handle the error from initiateEmailSignIn promise.
-    // For now, let's keep it simple. We'll add a small delay to allow firebase to process.
-    setTimeout(() => {
-        // The redirection is now handled by the root page based on auth state
-        // router.push('/dashboard');
-    }, 1000);
+    try {
+      // Tenta criar um novo usuário.
+      await createUserWithEmailAndPassword(auth, email, password);
+      // O onAuthStateChanged irá redirecionar para o dashboard.
+    } catch (creationError: any) {
+      // Se o usuário já existe, tenta fazer o login.
+      if (creationError.code === 'auth/email-already-in-use') {
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+          // O onAuthStateChanged irá redirecionar para o dashboard.
+        } catch (signInError: any) {
+          toast({
+            variant: "destructive",
+            title: "Erro de Login",
+            description: "A senha está incorreta. Por favor, tente novamente.",
+          });
+        }
+      } else {
+        // Outros erros durante a criação da conta.
+        toast({
+          variant: "destructive",
+          title: "Erro de Cadastro",
+          description: creationError.message,
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
