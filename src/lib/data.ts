@@ -1,6 +1,6 @@
 
-export const defaultExpenseCategories = [
-  // CUSTOS FIXOS
+
+const rawExpenseCategories = [
   "Aluguel",
   "Condomínio",
   "IPTU",
@@ -18,7 +18,6 @@ export const defaultExpenseCategories = [
   "Taxas de Cartão",
   "Anuidades de Conselhos",
   "Outros Custos Fixos",
-  // CUSTOS VARIÁVEIS
   "Material de escritório",
   "Material de limpeza",
   "Material médico descartável",
@@ -31,6 +30,10 @@ export const defaultExpenseCategories = [
   "Viagens e Deslocamentos",
   "Outros Custos Variáveis",
 ];
+
+// Remove duplicates to prevent React key errors
+export const defaultExpenseCategories = [...new Set(rawExpenseCategories)];
+
 
 export const defaultIncomeCategories = [
   "Receita de Paciente",
