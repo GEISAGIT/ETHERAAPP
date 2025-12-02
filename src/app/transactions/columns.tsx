@@ -47,8 +47,8 @@ export const columns = ({ onEdit, onDelete }: ColumnsProps) => [
          {row.original.notes && (
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger>
-                <FileText className="h-4 w-4 text-muted-foreground" />
+              <TooltipTrigger asChild>
+                <FileText className="h-4 w-4 text-muted-foreground cursor-pointer" />
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs">{row.original.notes}</p>
