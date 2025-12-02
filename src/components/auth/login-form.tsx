@@ -23,21 +23,21 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
 
-  const createUserDocument = async (user: User) => {
+  const createUserDocument = (user: User) => {
     if (!firestore) return;
     const userDocRef = doc(firestore, 'users', user.uid);
-    const userDocSnap = await getDoc(userDocRef);
-
-    if (!userDocSnap.exists()) {
-      // Use setDocumentNonBlocking com o UID do usuário como ID do documento
-      setDocumentNonBlocking(doc(firestore, 'users', user.uid), {
-          uid: user.uid,
-          displayName: user.displayName,
-          email: user.email,
-          photoURL: user.photoURL,
-          createdAt: serverTimestamp(),
-      });
-    }
+    // getDoc is async, so we should handle this inside a promise if we need to wait
+    getDoc(userDocRef).then(userDocSnap => {
+        if (!userDocSnap.exists()) {
+            setDocumentNonBlocking(doc(firestore, 'users', user.uid), {
+                uid: user.uid,
+                displayName: user.displayName,
+                email: user.email,
+                photoURL: user.photoURL,
+                createdAt: serverTimestamp(),
+            });
+        }
+    });
   };
 
   const handleAuthAction = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -58,7 +58,7 @@ export function LoginForm() {
         await updateProfile(userCredential.user, { displayName: name });
         // O objeto do usuário pode não ser atualizado imediatamente com o nome de exibição,
         // então passamos o usuário novo do userCredential.
-        await createUserDocument(userCredential.user);
+        createUserDocument(userCredential.user);
         await sendEmailVerification(userCredential.user);
         
         toast({
@@ -69,7 +69,7 @@ export function LoginForm() {
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         // Após o login bem-sucedido, garante que o documento do usuário exista.
-        await createUserDocument(userCredential.user);
+        createUserDocument(userCredential.user);
         // onAuthStateChanged no provider cuidará do redirecionamento para o painel.
       }
     } catch (error: any) {
