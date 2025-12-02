@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Loader2, Check, ChevronsUpDown } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -30,6 +30,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -60,6 +68,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -102,7 +111,7 @@ export function AddTransactionDialog() {
       categoryNames = expenseCategories?.map(c => c.name) ?? [];
     }
     // Garantir que não há duplicatas que possam causar problemas de chave
-    return [...new Set(categoryNames)];
+    return [...new Set(categoryNames)].sort();
   }, [transactionType, incomeCategories, expenseCategories]);
 
 
@@ -287,22 +296,59 @@ export function AddTransactionDialog() {
                   control={form.control}
                   name="category"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex flex-col">
                       <FormLabel>Categoria</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma categoria" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {categories.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
-                              {cat}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className={cn(
+                                "w-full justify-between",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value
+                                ? categories.find(
+                                    (cat) => cat === field.value
+                                  )
+                                : "Selecione uma categoria"}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[200px] p-0">
+                           <Command>
+                             <CommandInput placeholder="Pesquisar categoria..." />
+                             <CommandList>
+                                <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
+                                <CommandGroup>
+                                  {categories.map((cat) => (
+                                    <CommandItem
+                                      value={cat}
+                                      key={cat}
+                                      onSelect={() => {
+                                        form.setValue("category", cat);
+                                        setComboboxOpen(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          cat === field.value
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                      />
+                                      {cat}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                             </CommandList>
+                           </Command>
+                        </PopoverContent>
+                      </Popover>
                       <FormMessage />
                     </FormItem>
                   )}
