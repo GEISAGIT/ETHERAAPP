@@ -29,7 +29,7 @@ export function LoginForm() {
     const userDocSnap = await getDoc(userDocRef);
 
     if (!userDocSnap.exists()) {
-      // Use setDocumentNonBlocking with the specific user UID as the document ID
+      // Use setDocumentNonBlocking com o UID do usuário como ID do documento
       setDocumentNonBlocking(doc(firestore, 'users', user.uid), {
           uid: user.uid,
           displayName: user.displayName,
@@ -56,8 +56,8 @@ export function LoginForm() {
       if (isSignUp) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
-        // The user object might not be immediately updated with the display name,
-        // so we pass the fresh user from userCredential.
+        // O objeto do usuário pode não ser atualizado imediatamente com o nome de exibição,
+        // então passamos o usuário novo do userCredential.
         await createUserDocument(userCredential.user);
         await sendEmailVerification(userCredential.user);
         
@@ -65,12 +65,12 @@ export function LoginForm() {
           title: "Cadastro realizado com sucesso!",
           description: "Enviamos um e-mail de verificação para você. Por favor, confirme seu e-mail.",
         });
-        setIsSignUp(false); // Switch to login view after successful sign-up
+        setIsSignUp(false); // Alterna para a visualização de login após o cadastro bem-sucedido
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // After successful sign-in, ensure the user document exists.
+        // Após o login bem-sucedido, garante que o documento do usuário exista.
         await createUserDocument(userCredential.user);
-        // onAuthStateChanged in the provider will handle redirecting to the dashboard.
+        // onAuthStateChanged no provider cuidará do redirecionamento para o painel.
       }
     } catch (error: any) {
       let message = "Ocorreu um erro. Tente novamente.";
