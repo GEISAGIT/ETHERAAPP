@@ -146,10 +146,21 @@ export function AddTransactionDialog() {
     const collectionName = values.type === 'income' ? 'incomes' : 'expenses';
     const transactionsCollection = collection(firestore, 'users', user.uid, collectionName);
 
-    const transactionData = {
-      ...values,
+    const transactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
+      description: values.description,
+      amount: values.amount,
+      category: values.category,
     };
+
+    if (values.notes) {
+      transactionData.notes = values.notes;
+    }
+
+    if (values.type === 'expense' && values.costType) {
+      transactionData.costType = values.costType;
+    }
+
 
     addDocumentNonBlocking(transactionsCollection, transactionData);
     
@@ -311,8 +322,8 @@ export function AddTransactionDialog() {
                                 <CommandItem
                                   value={cat}
                                   key={cat}
-                                  onSelect={() => {
-                                    form.setValue("category", cat)
+                                  onSelect={(currentValue) => {
+                                    form.setValue("category", currentValue === field.value ? "" : currentValue)
                                     setComboboxOpen(false)
                                   }}
                                 >
