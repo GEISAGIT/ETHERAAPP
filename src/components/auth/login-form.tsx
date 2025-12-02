@@ -168,7 +168,7 @@ export function LoginForm() {
               type="password" 
               placeholder="••••••••"
               required 
-              disabled={isLoading} D
+              disabled={isLoading} 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
