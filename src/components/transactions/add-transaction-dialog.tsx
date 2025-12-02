@@ -371,6 +371,7 @@ export function AddTransactionDialog() {
         </DialogContent>
       </Dialog>
       <CommandDialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+         <DialogTitle className="sr-only">Selecione uma categoria</DialogTitle>
         <CommandInput placeholder="Pesquisar categoria..." />
         <CommandList>
           <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
