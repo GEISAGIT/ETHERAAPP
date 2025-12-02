@@ -1,6 +1,6 @@
 'use client';
 import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MoreVertical, Trash2, Edit, Search } from 'lucide-react';
@@ -24,6 +24,7 @@ import { AddCategoryDialog } from './add-category-dialog';
 import { useFirestore, useUser, addDocumentNonBlocking } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { defaultExpenseCategories, defaultIncomeCategories } from '@/lib/data';
 
 interface CategoryTableProps {
   title: string;
@@ -135,6 +136,26 @@ export function SettingsClient({
   const { user } = useUser();
   const { toast } = useToast();
     
+  useEffect(() => {
+    if (!isLoading && user && firestore) {
+      if (incomeCategories.length === 0) {
+        console.log("Seeding income categories...");
+        const incomeCollection = collection(firestore, 'users', user.uid, 'incomeCategories');
+        defaultIncomeCategories.forEach(name => {
+          addDocumentNonBlocking(incomeCollection, { name });
+        });
+      }
+      if (expenseCategories.length === 0) {
+        console.log("Seeding expense categories...");
+        const expenseCollection = collection(firestore, 'users', user.uid, 'expenseCategories');
+        defaultExpenseCategories.forEach(name => {
+          addDocumentNonBlocking(expenseCollection, { name });
+        });
+      }
+    }
+  }, [isLoading, user, firestore, incomeCategories, expenseCategories]);
+
+
   if (isLoading) {
     return (
       <div className="space-y-8">
