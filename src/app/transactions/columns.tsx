@@ -60,6 +60,9 @@ export const columns = ({ onEdit, onDelete }: ColumnsProps) => [
         </Badge>
       );
     },
+    filterFn: (row: any, id: any, value: any) => {
+      return value.includes(row.getValue(id))
+    },
   },
   {
     accessorKey: 'costType',
