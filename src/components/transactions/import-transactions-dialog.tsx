@@ -44,11 +44,8 @@ export function ImportTransactionsDialog() {
   const { data: incomeCategories } = useCollection<IncomeCategory>(incomeCategoriesQuery);
   const { data: expenseCategories } = useCollection<ExpenseCategory>(expenseCategoriesQuery);
   
-  const allCategories = useMemo(() => {
-    const incomeNames = incomeCategories?.map(c => c.name) ?? [];
-    const expenseNames = expenseCategories?.map(c => c.name) ?? [];
-    return [...incomeNames, ...expenseNames];
-  }, [incomeCategories, expenseCategories]);
+  const incomeCategoryNames = useMemo(() => incomeCategories?.map(c => c.name) ?? [], [incomeCategories]);
+  const expenseCategoryNames = useMemo(() => expenseCategories?.map(c => c.name) ?? [], [expenseCategories]);
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,8 +106,9 @@ export function ImportTransactionsDialog() {
               throw new Error(`Tipo inválido na linha ${index + 2}: ${row.type}. Use 'income' ou 'expense'.`);
             }
             
-            if (!allCategories.includes(row.category)) {
-              throw new Error(`Categoria inválida na linha ${index + 2}: ${row.category}`);
+            const categoryList = type === 'income' ? incomeCategoryNames : expenseCategoryNames;
+            if (!categoryList.includes(row.category)) {
+              throw new Error(`Categoria inválida para o tipo '${type}' na linha ${index + 2}: ${row.category}`);
             }
 
             const transactionData: any = {
