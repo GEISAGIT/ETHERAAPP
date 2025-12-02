@@ -41,6 +41,8 @@ import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { addDocumentNonBlocking, useFirestore, useUser } from '@/firebase';
+import { collection, Timestamp } from 'firebase/firestore';
 
 const formSchema = z.object({
   date: z.date(),
@@ -50,12 +52,16 @@ const formSchema = z.object({
   category: z.string().min(1, 'Por favor, selecione uma categoria'),
 });
 
+type FormValues = z.infer<typeof formSchema>;
+
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       date: new Date(),
@@ -92,9 +98,27 @@ export function AddTransactionDialog() {
     }
   };
   
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    console.log(values);
-    // Here you would typically call a server action to save the data
+  const onSubmit = (values: FormValues) => {
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Você precisa estar logado para adicionar uma transação.',
+      });
+      return;
+    }
+    
+    const collectionName = values.type === 'income' ? 'incomes' : 'expenses';
+    const transactionsCollection = collection(firestore, 'users', user.uid, collectionName);
+
+    const transactionData = {
+      ...values,
+      date: Timestamp.fromDate(values.date),
+      // Firebase security rules will enforce userId, but it's good practice to have it here too
+    };
+
+    addDocumentNonBlocking(transactionsCollection, transactionData);
+    
     toast({
       title: 'Transação Adicionada',
       description: 'Sua transação foi registrada com sucesso.',

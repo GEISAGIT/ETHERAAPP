@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
+import { Skeleton } from '../ui/skeleton';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -22,7 +23,7 @@ const COLORS = [
   '#ffc658'
 ];
 
-export function ReportsClient({ data }: { data: Transaction[] }) {
+export function ReportsClient({ data, isLoading }: { data: Transaction[], isLoading: boolean }) {
   const { expenseData, totalIncome, totalExpenses, netProfit } = useMemo(() => {
     const expensesByCategory: { [key: string]: number } = {};
     let totalIncome = 0;
@@ -51,6 +52,20 @@ export function ReportsClient({ data }: { data: Transaction[] }) {
 
   }, [data]);
   
+  if (isLoading) {
+    return (
+        <div className="space-y-8">
+            <header>
+                <Skeleton className="h-9 w-80" />
+                <Skeleton className="h-5 w-96 mt-2" />
+            </header>
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
+                <Skeleton className="lg:col-span-3 h-56" />
+                <Skeleton className="lg:col-span-2 h-96" />
+            </div>
+        </div>
+    )
+  }
 
   return (
     <div className="space-y-8">
@@ -70,6 +85,11 @@ export function ReportsClient({ data }: { data: Transaction[] }) {
             <CardDescription>Um resumo de suas receitas e despesas.</CardDescription>
           </CardHeader>
           <CardContent>
+           {data.length === 0 ? (
+                <div className="flex h-32 items-center justify-center">
+                    <p className="text-muted-foreground">Nenhum dado para exibir.</p>
+                </div>
+           ) : (
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -94,6 +114,7 @@ export function ReportsClient({ data }: { data: Transaction[] }) {
                     </TableRow>
                 </TableFooter>
             </Table>
+           )}
           </CardContent>
         </Card>
         
@@ -103,6 +124,11 @@ export function ReportsClient({ data }: { data: Transaction[] }) {
             <CardDescription>Como suas despesas são distribuídas.</CardDescription>
           </CardHeader>
           <CardContent>
+            {expenseData.length === 0 ? (
+                 <div className="flex h-[300px] items-center justify-center">
+                    <p className="text-muted-foreground">Nenhuma despesa registrada.</p>
+                 </div>
+            ) : (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -128,6 +154,7 @@ export function ReportsClient({ data }: { data: Transaction[] }) {
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>

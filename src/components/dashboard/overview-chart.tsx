@@ -13,7 +13,7 @@ export function OverviewChart({ transactions }: OverviewChartProps) {
     const monthlyData: { [key: string]: { income: number; expense: number } } = {};
     
     transactions.forEach(t => {
-      const month = t.date.toLocaleString('pt-BR', { month: 'short' });
+      const month = t.date.toDate().toLocaleString('pt-BR', { month: 'short' });
       if (!monthlyData[month]) {
         monthlyData[month] = { income: 0, expense: 0 };
       }
@@ -24,16 +24,29 @@ export function OverviewChart({ transactions }: OverviewChartProps) {
       }
     });
 
-    return Object.entries(monthlyData)
-      .map(([name, values]) => ({ name, ...values }))
-      .reverse(); // Assuming chronological data is preferred
+    // Ensure we have data for the last 6 months, even if it's zero
+    const last6Months: string[] = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        last6Months.push(d.toLocaleString('pt-BR', { month: 'short' }));
+    }
+    
+    return last6Months.map(monthName => {
+        return {
+            name: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+            income: monthlyData[monthName]?.income || 0,
+            expense: monthlyData[monthName]?.expense || 0,
+        }
+    });
+
   }, [transactions]);
   
   return (
     <Card>
       <CardHeader>
         <CardTitle className="font-headline text-xl">Visão Geral</CardTitle>
-        <CardDescription>Receitas vs. Despesas</CardDescription>
+        <CardDescription>Receitas vs. Despesas (Últimos 6 meses)</CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
         <ResponsiveContainer width="100%" height={350}>

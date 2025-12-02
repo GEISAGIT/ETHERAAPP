@@ -2,17 +2,23 @@
 
 import type { Transaction } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
+import { Timestamp } from 'firebase/firestore';
 
 // This is a simplified column definition without sorting/filtering actions
 // to avoid adding @tanstack/react-table.
 // A real implementation would use `import type { ColumnDef } from '@tanstack/react-table'`
+
+const formatDate = (timestamp: Timestamp) => {
+    if (!timestamp) return '';
+    return timestamp.toDate().toLocaleDateString('pt-BR');
+}
 
 export const columns = [
   {
     accessorKey: 'date',
     header: 'Data',
     cell: ({ row }: { row: { original: Transaction } }) => (
-      <span>{row.original.date.toLocaleDateString('pt-BR')}</span>
+      <span>{formatDate(row.original.date)}</span>
     ),
   },
   {

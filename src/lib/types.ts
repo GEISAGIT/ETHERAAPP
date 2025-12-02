@@ -1,6 +1,8 @@
+import { Timestamp } from 'firebase/firestore';
+
 export type Transaction = {
   id: string;
-  date: Date;
+  date: Timestamp;
   description: string;
   amount: number;
   type: 'income' | 'expense';
@@ -12,6 +14,18 @@ export type Budget = {
   name: Category;
   amount: number;
   spent: number;
+};
+
+export type IncomeCategory = {
+  id: string;
+  name: string;
+  description?: string;
+};
+
+export type ExpenseCategory = {
+  id: string;
+  name: string;
+  description?: string;
 };
 
 export type Category = 
