@@ -92,10 +92,14 @@ export function AddTransactionDialog() {
   const { data: expenseCategories } = useCollection<ExpenseCategory>(expenseCategoriesQuery);
   
   const categories = useMemo(() => {
+    let categoryNames: string[];
     if (transactionType === 'income') {
-      return incomeCategories?.map(c => c.name) ?? [];
+      categoryNames = incomeCategories?.map(c => c.name) ?? [];
+    } else {
+      categoryNames = expenseCategories?.map(c => c.name) ?? [];
     }
-    return expenseCategories?.map(c => c.name) ?? [];
+    // Ensure the list is unique before returning to prevent key errors.
+    return [...new Set(categoryNames)];
   }, [transactionType, incomeCategories, expenseCategories]);
 
 
