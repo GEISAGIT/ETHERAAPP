@@ -11,21 +11,22 @@ export default function TransactionsPage() {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const transactionsQuery = useMemoFirebase(() => {
+  const incomesQuery = useMemoFirebase(() => {
     if (!user) return null;
-    const incomesRef = collection(firestore, 'users', user.uid, 'incomes');
-    const expensesRef = collection(firestore, 'users', user.uid, 'expenses');
-    // It's not straightforward to query two collections at once client-side.
-    // We'll fetch them separately.
-    return { incomesRef, expensesRef };
+    return query(collection(firestore, 'users', user.uid, 'incomes'), orderBy('date', 'desc'));
+  }, [firestore, user]);
+
+  const expensesQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(firestore, 'users', user.uid, 'expenses'), orderBy('date', 'desc'));
   }, [firestore, user]);
 
   const { data: incomes, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(
-    transactionsQuery ? query(transactionsQuery.incomesRef, orderBy('date', 'desc')) : null
+    incomesQuery
   );
 
   const { data: expenses, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(
-    transactionsQuery ? query(transactionsQuery.expensesRef, orderBy('date', 'desc')) : null
+    expensesQuery
   );
 
   const data = useMemo(() => {

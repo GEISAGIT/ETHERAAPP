@@ -10,20 +10,22 @@ export default function ReportsPage() {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const transactionsQuery = useMemoFirebase(() => {
+  const incomesQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return {
-      incomesRef: collection(firestore, 'users', user.uid, 'incomes'),
-      expensesRef: collection(firestore, 'users', user.uid, 'expenses'),
-    };
+    return query(collection(firestore, 'users', user.uid, 'incomes'), orderBy('date', 'desc'));
+  }, [firestore, user]);
+
+  const expensesQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(firestore, 'users', user.uid, 'expenses'), orderBy('date', 'desc'));
   }, [firestore, user]);
 
   const { data: incomes, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(
-    transactionsQuery ? query(transactionsQuery.incomesRef, orderBy('date', 'desc')) : null
+    incomesQuery
   );
 
   const { data: expenses, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(
-    transactionsQuery ? query(transactionsQuery.expensesRef, orderBy('date', 'desc')) : null
+    expensesQuery
   );
 
   const data = useMemo(() => {
