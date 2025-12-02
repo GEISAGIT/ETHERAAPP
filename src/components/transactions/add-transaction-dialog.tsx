@@ -319,10 +319,10 @@ export function AddTransactionDialog() {
                                 <CommandGroup>
                                 {categories.map((cat) => (
                                     <CommandItem
-                                    value={cat}
                                     key={cat}
-                                    onSelect={(currentValue) => {
-                                        form.setValue("category", currentValue === field.value ? "" : cat)
+                                    value={cat}
+                                    onSelect={() => {
+                                        form.setValue("category", cat)
                                         setComboboxOpen(false)
                                     }}
                                     >
