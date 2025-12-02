@@ -371,7 +371,7 @@ export function AddTransactionDialog() {
         </DialogContent>
       </Dialog>
       <CommandDialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
-         <DialogTitle className="sr-only">Selecione uma categoria</DialogTitle>
+        <DialogTitle className="sr-only">Selecione uma categoria</DialogTitle>
         <CommandInput placeholder="Pesquisar categoria..." />
         <CommandList>
           <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
@@ -381,7 +381,7 @@ export function AddTransactionDialog() {
                 key={cat}
                 value={cat}
                 onSelect={(currentValue) => {
-                  form.setValue("category", currentValue === form.getValues("category") ? "" : currentValue);
+                  form.setValue("category", currentValue);
                   setCategoryDialogOpen(false);
                 }}
               >
