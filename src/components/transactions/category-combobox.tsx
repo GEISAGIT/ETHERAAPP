@@ -60,7 +60,7 @@ export function CategoryCombobox({
                 <CommandItem
                   key={category}
                   onSelect={() => {
-                    onChange(category);
+                    onChange(category === value ? '' : category);
                     setOpen(false);
                   }}
                 >
