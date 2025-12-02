@@ -3,20 +3,13 @@
 import type { Transaction, ExpenseTransaction } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Timestamp } from 'firebase/firestore';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { FileText, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
@@ -44,18 +37,6 @@ export const columns = ({ onEdit, onDelete }: ColumnsProps) => [
     header: 'Descrição',
     cell: ({ row }: { row: { original: Transaction } }) => (
       <div className="flex items-center gap-2">
-         {row.original.notes && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <FileText className="h-4 w-4 text-muted-foreground cursor-pointer" />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="max-w-xs">{row.original.notes}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
         <span className="max-w-[200px] truncate" title={row.original.description}>{row.original.description}</span>
       </div>
     ),
@@ -109,6 +90,15 @@ export const columns = ({ onEdit, onDelete }: ColumnsProps) => [
 
       return <div className={`text-right font-medium ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>{formatted}</div>;
     },
+  },
+  {
+    accessorKey: 'notes',
+    header: 'Observação',
+    cell: ({ row }: { row: { original: Transaction } }) => (
+      <span className="max-w-[200px] truncate block" title={row.original.notes}>
+        {row.original.notes || '-'}
+      </span>
+    ),
   },
   {
     id: 'actions',
