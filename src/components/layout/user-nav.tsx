@@ -37,11 +37,11 @@ export function UserNav() {
           <DropdownMenuItem>Configurações</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <Link href="/login">
-          <DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/login">
             Sair
-          </DropdownMenuItem>
-        </Link>
+          </Link>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
