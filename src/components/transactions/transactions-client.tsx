@@ -4,6 +4,7 @@ import { columns } from '@/app/transactions/columns';
 import { DataTable } from '../data-table/data-table';
 import { AddTransactionDialog } from './add-transaction-dialog';
 import { Skeleton } from '../ui/skeleton';
+import { ImportTransactionsDialog } from './import-transactions-dialog';
 
 export function TransactionsClient({ data, isLoading }: { data: Transaction[], isLoading: boolean }) {
   if (isLoading) {
@@ -14,7 +15,10 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
                     <Skeleton className="h-9 w-64" />
                     <Skeleton className="h-5 w-80 mt-2" />
                 </div>
-                <Skeleton className="h-10 w-44" />
+                <div className="flex gap-2">
+                    <Skeleton className="h-10 w-28" />
+                    <Skeleton className="h-10 w-44" />
+                </div>
             </header>
             <div className="space-y-4">
                 <div className="rounded-md border">
@@ -65,7 +69,10 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
               Acompanhe todas as suas receitas e despesas.
             </p>
           </div>
-          <AddTransactionDialog />
+          <div className="flex items-center gap-2">
+            <ImportTransactionsDialog />
+            <AddTransactionDialog />
+          </div>
       </header>
       <DataTable columns={columns} data={data} />
     </div>
