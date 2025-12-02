@@ -1,4 +1,4 @@
-// categorize-transactions.ts
+
 'use server';
 /**
  * @fileOverview An AI agent to categorize transactions.
@@ -40,16 +40,85 @@ const prompt = ai.definePrompt({
   Tipo da Transação: {{{transactionType}}}
 
   Considere as seguintes categorias:
-  - Salários
   - Aluguel
-  - Suprimentos
-  - Equipamentos
+  - Luz
+  - Condomínio
+  - IPTU
+  - Celular recarga
+  - Internet
+  - Empréstimo
   - Marketing
-  - Seguros
-  - Serviços Públicos
+  - Tráfego pago
+  - Salário Fernanda Aleixo
+  - Salário Kelly
+  - Salário Liliane
+  - 13° Salário
+  - Oxigênio
+  - FGTS
+  - DARF
+  - DAS
+  - Aux. funeral
+  - Cont. assistencial
+  - Limpeza
+  - Contabilidade (Córion + Ethera)
+  - Estacionamento
+  - Capital social Unicred
+  - Plus Sante
+  - Impressora
+  - Feegow
+  - C2 manutenção ar cond
+  - Material médico
+  - Insat medicina trabalho
+  - Tirzepatida
+  - Injetáveis
+  - Mercado + material limpeza
+  - Itens escritório
+  - Ressarcimento Lilli (mercado +)
+  - Banco
+  - Le Care
+  - Taxa renovação Unicred
+  - Metrolbras calibração equipamentos
+  - Uber
+  - Vistoria bombeiros / taxa vigilância sanitária
+  - Comodato dispenser + material Sentax
+  - Material gráfico
+  - Medx sistema
+  - Certificado digital
+  - CRM
+  - Seguro
+  - DEA+ kit emergência
+  - Enfermeira
+  - Estratégia Mkt
+  - Uniformes
+  - Material spa
+  - Chaveiro
+  - Dedetização
+  - Adesivos
+  - Presentes / recompensa funcionárias
+  - Raísa acompanhamento obra
+  - Luiz Engenharia
+  - Material obra
+  - Ar condicionado
+  - Persianas
+  - Marcenaria Maiks ASP
+  - Marmoraria
+  - Poltronas
+  - Paisagismo
+  - Macas
+  - Vidraçaria Montrelux
+  - Louças / filtro água
+  - Impermeabilização
+  - Extintores
+  - Marido de Aluguel / Vandir
+  - Pintura pendentes
+  - Decoração
+  - Nobreak conserto
+  - Computador / teclado e mouse
+  - Lixeiras
+  - Eletrônicos (tv, cabos)
+  - Eletricista
   - Receita de Paciente
   - Receita de Investimento
-  - Pagamento de Empréstimo
   - Outros
 `,
 });
