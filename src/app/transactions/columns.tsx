@@ -9,7 +9,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { FileText } from 'lucide-react';
+import { FileText, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 
 const formatDate = (timestamp: Timestamp) => {
@@ -17,7 +26,11 @@ const formatDate = (timestamp: Timestamp) => {
     return timestamp.toDate().toLocaleDateString('pt-BR');
 }
 
-export const columns = [
+interface ColumnsProps {
+    onEdit: (transaction: Transaction) => void;
+}
+
+export const columns = ({ onEdit }: ColumnsProps) => [
   {
     accessorKey: 'date',
     header: 'Data',
@@ -42,7 +55,7 @@ export const columns = [
             </Tooltip>
           </TooltipProvider>
         )}
-        <span>{row.original.description}</span>
+        <span className="max-w-[200px] truncate" title={row.original.description}>{row.original.description}</span>
       </div>
     ),
   },
@@ -94,6 +107,33 @@ export const columns = [
       }).format(amount);
 
       return <div className={`text-right font-medium ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>{formatted}</div>;
+    },
+  },
+  {
+    id: 'actions',
+    cell: ({ row }: { row: { original: Transaction } }) => {
+      const transaction = row.original;
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Abrir menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Ações</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => onEdit(transaction)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled className="text-red-500">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir (Em breve)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
     },
   },
 ];

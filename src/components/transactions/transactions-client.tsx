@@ -5,8 +5,20 @@ import { DataTable } from '../data-table/data-table';
 import { AddTransactionDialog } from './add-transaction-dialog';
 import { Skeleton } from '../ui/skeleton';
 import { ImportTransactionsDialog } from './import-transactions-dialog';
+import { useState } from 'react';
+import { EditTransactionDialog } from './edit-transaction-dialog';
 
 export function TransactionsClient({ data, isLoading }: { data: Transaction[], isLoading: boolean }) {
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
+  const handleEdit = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setIsEditOpen(true);
+  };
+  
+  const dynamicColumns = columns({ onEdit: handleEdit });
+
   if (isLoading) {
     return (
         <div className="space-y-8">
@@ -59,22 +71,29 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
   }
   
   return (
-    <div className="space-y-8">
-       <header className="flex items-center justify-between">
-          <div>
-            <h1 className="font-headline text-3xl font-bold tracking-tight">
-              Transações
-            </h1>
-            <p className="text-muted-foreground">
-              Acompanhe todas as suas receitas e despesas.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <ImportTransactionsDialog />
-            <AddTransactionDialog />
-          </div>
-      </header>
-      <DataTable columns={columns} data={data} />
-    </div>
+    <>
+      <EditTransactionDialog 
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        transaction={selectedTransaction}
+      />
+      <div className="space-y-8">
+        <header className="flex items-center justify-between">
+            <div>
+              <h1 className="font-headline text-3xl font-bold tracking-tight">
+                Transações
+              </h1>
+              <p className="text-muted-foreground">
+                Acompanhe todas as suas receitas e despesas.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <ImportTransactionsDialog />
+              <AddTransactionDialog />
+            </div>
+        </header>
+        <DataTable columns={dynamicColumns} data={data} />
+      </div>
+    </>
   );
 }
