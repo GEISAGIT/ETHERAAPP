@@ -36,7 +36,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { suggestCategory } from '@/app/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '../ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
@@ -296,6 +296,7 @@ export function AddTransactionDialog() {
                             <Button
                               variant="outline"
                               role="combobox"
+                              aria-expanded={comboboxOpen}
                               className={cn(
                                 "w-full justify-between",
                                 !field.value && "text-muted-foreground"
@@ -313,29 +314,31 @@ export function AddTransactionDialog() {
                         <PopoverContent className="w-[200px] p-0">
                           <Command>
                             <CommandInput placeholder="Pesquisar categoria..." />
-                            <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
-                            <CommandGroup>
-                              {categories.map((cat) => (
-                                <CommandItem
-                                  value={cat}
-                                  key={cat}
-                                  onSelect={() => {
-                                    form.setValue("category", cat)
-                                    setComboboxOpen(false)
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      cat === field.value
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    )}
-                                  />
-                                  {cat}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
+                            <CommandList>
+                                <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
+                                <CommandGroup>
+                                {categories.map((cat) => (
+                                    <CommandItem
+                                    value={cat}
+                                    key={cat}
+                                    onSelect={(currentValue) => {
+                                        form.setValue("category", currentValue === field.value ? "" : currentValue)
+                                        setComboboxOpen(false)
+                                    }}
+                                    >
+                                    <Check
+                                        className={cn(
+                                        "mr-2 h-4 w-4",
+                                        field.value === cat
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                    />
+                                    {cat}
+                                    </CommandItem>
+                                ))}
+                                </CommandGroup>
+                            </CommandList>
                           </Command>
                         </PopoverContent>
                       </Popover>
