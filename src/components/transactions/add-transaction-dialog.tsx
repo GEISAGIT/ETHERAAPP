@@ -44,7 +44,6 @@ import { cn } from '@/lib/utils';
 import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, Timestamp, query } from 'firebase/firestore';
 import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
-import { CategoryCombobox } from './category-combobox';
 
 
 const formSchema = z.object({
@@ -288,15 +287,22 @@ export function AddTransactionDialog() {
                     control={form.control}
                     name="category"
                     render={({ field }) => (
-                      <FormItem className="flex flex-col">
+                       <FormItem>
                         <FormLabel>Categoria</FormLabel>
-                        <FormControl>
-                           <CategoryCombobox
-                              categories={categories}
-                              value={field.value}
-                              onChange={(value) => form.setValue("category", value)}
-                            />
-                        </FormControl>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione uma categoria" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {categories.map((cat) => (
+                              <SelectItem key={cat} value={cat}>
+                                {cat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
