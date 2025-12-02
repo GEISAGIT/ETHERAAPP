@@ -151,11 +151,8 @@ export function AddTransactionDialog() {
       description: values.description,
       amount: values.amount,
       category: values.category,
+      notes: values.notes,
     };
-
-    if (values.notes) {
-      transactionData.notes = values.notes;
-    }
 
     if (values.type === 'expense' && values.costType) {
       transactionData.costType = values.costType;
@@ -322,8 +319,8 @@ export function AddTransactionDialog() {
                                 <CommandItem
                                   value={cat}
                                   key={cat}
-                                  onSelect={(currentValue) => {
-                                    form.setValue("category", currentValue === field.value ? "" : currentValue)
+                                  onSelect={() => {
+                                    form.setValue("category", cat)
                                     setComboboxOpen(false)
                                   }}
                                 >
