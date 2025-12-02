@@ -114,7 +114,7 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
       Observação: t.notes || '',
     }));
 
-    const csv = Papa.unparse(dataToExport);
+    const csv = Papa.unparse(dataToExport, { delimiter: ';' });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
