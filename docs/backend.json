@@ -1,0 +1,280 @@
+{
+  "entities": {
+    "Income": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Income",
+      "type": "object",
+      "description": "Represents a single income record for the clinic.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the income record."
+        },
+        "date": {
+          "type": "string",
+          "description": "Date the income was received.",
+          "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of income received."
+        },
+        "source": {
+          "type": "string",
+          "description": "Source of the income (e.g., 'Patient payment', 'Insurance reimbursement')."
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "Reference to IncomeCategory. (Relationship: IncomeCategory 1:N Income)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description or notes about the income."
+        }
+      },
+      "required": [
+        "id",
+        "date",
+        "amount",
+        "source",
+        "categoryId"
+      ]
+    },
+    "Expense": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Expense",
+      "type": "object",
+      "description": "Represents a single expense record for the clinic.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the expense record."
+        },
+        "date": {
+          "type": "string",
+          "description": "Date the expense was incurred.",
+          "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of the expense."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description or notes about the expense."
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "Reference to ExpenseCategory. (Relationship: ExpenseCategory 1:N Expense)"
+        },
+        "vendor": {
+          "type": "string",
+          "description": "Name of the vendor the expense was paid to."
+        }
+      },
+      "required": [
+        "id",
+        "date",
+        "amount",
+        "categoryId",
+        "vendor"
+      ]
+    },
+    "IncomeCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "IncomeCategory",
+      "type": "object",
+      "description": "Represents a category for classifying income sources.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the income category."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the income category (e.g., 'Patient Payments', 'Insurance')."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of the income category."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "ExpenseCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ExpenseCategory",
+      "type": "object",
+      "description": "Represents a category for classifying expenses.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the expense category."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the expense category (e.g., 'Rent', 'Supplies', 'Salaries')."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of the expense category."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Budget": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Budget",
+      "type": "object",
+      "description": "Represents a budget for a specific category and time period.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the budget."
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "Reference to either IncomeCategory or ExpenseCategory.  (Relationship: Category 1:N Budget)"
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Start date of the budget period.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "End date of the budget period.",
+          "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Budgeted amount for the period."
+        }
+      },
+      "required": [
+        "id",
+        "categoryId",
+        "startDate",
+        "endDate",
+        "amount"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}/incomes/{incomeId}",
+        "definition": {
+          "entityName": "Income",
+          "schema": {
+            "$ref": "#/backend/entities/Income"
+          },
+          "description": "Stores income records for a specific user. Each income document is owned by the user identified by {userId}.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the income record."
+            },
+            {
+              "name": "incomeId",
+              "description": "The ID of the income record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/expenses/{expenseId}",
+        "definition": {
+          "entityName": "Expense",
+          "schema": {
+            "$ref": "#/backend/entities/Expense"
+          },
+          "description": "Stores expense records for a specific user. Each expense document is owned by the user identified by {userId}.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the expense record."
+            },
+            {
+              "name": "expenseId",
+              "description": "The ID of the expense record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/incomeCategories/{incomeCategoryId}",
+        "definition": {
+          "entityName": "IncomeCategory",
+          "schema": {
+            "$ref": "#/backend/entities/IncomeCategory"
+          },
+          "description": "Stores income categories for a specific user. Each category is owned by the user identified by {userId}.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the income category."
+            },
+            {
+              "name": "incomeCategoryId",
+              "description": "The ID of the income category."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/expenseCategories/{expenseCategoryId}",
+        "definition": {
+          "entityName": "ExpenseCategory",
+          "schema": {
+            "$ref": "#/backend/entities/ExpenseCategory"
+          },
+          "description": "Stores expense categories for a specific user. Each category is owned by the user identified by {userId}.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the expense category."
+            },
+            {
+              "name": "expenseCategoryId",
+              "description": "The ID of the expense category."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/budgets/{budgetId}",
+        "definition": {
+          "entityName": "Budget",
+          "schema": {
+            "$ref": "#/backend/entities/Budget"
+          },
+          "description": "Stores budget records for a specific user. Each budget is owned by the user identified by {userId}.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the budget."
+            },
+            {
+              "name": "budgetId",
+              "description": "The ID of the budget record."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to manage financial data for the ClinicFlow application, focusing on income, expenses, budgeting, and related categories. User-specific data is segregated under the `/users/{userId}` path to ensure data privacy and security. This design adheres to the principle of Authorization Independence by avoiding hierarchical authorization dependencies. All authorization rules will be based solely on the `request.auth.uid` and data present within each document, eliminating the need for `get()` calls in security rules. The structure supports QAPs (Rules are not Filters) by segregating data based on ownership and providing clear paths for data access.\n\nSpecifically:\n\n*   **Authorization Independence:** Each document under `/users/{userId}` contains all necessary information for authorization. No `get()` calls are required to check parent document properties.\n*   **Structural Segregation:** Different data types (income, expenses, budgets, categories) are stored in separate collections under the user's document, each with its own security rules.\n*   **Access Modeling:** Path-based ownership (`/users/{userId}/...`) is used to define user-specific data.\n*   **QAPs:** List operations are secured by path-based rules, ensuring that users can only access data under their own user ID.\n\nThis structure enables simple, robust, and easily debuggable security rules."
+  }
+}
