@@ -3,10 +3,14 @@
 import type { Transaction, ExpenseTransaction } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Timestamp } from 'firebase/firestore';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { FileText } from 'lucide-react';
 
-// This is a simplified column definition without sorting/filtering actions
-// to avoid adding @tanstack/react-table.
-// A real implementation would use `import type { ColumnDef } from '@tanstack/react-table'`
 
 const formatDate = (timestamp: Timestamp) => {
     if (!timestamp) return '';
@@ -24,6 +28,23 @@ export const columns = [
   {
     accessorKey: 'description',
     header: 'Descrição',
+    cell: ({ row }: { row: { original: Transaction } }) => (
+      <div className="flex items-center gap-2">
+         {row.original.notes && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">{row.original.notes}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        <span>{row.original.description}</span>
+      </div>
+    ),
   },
   {
     accessorKey: 'category',

@@ -30,6 +30,10 @@
         "description": {
           "type": "string",
           "description": "Optional description or notes about the income."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional extra notes about the income."
         }
       },
       "required": [
@@ -61,7 +65,7 @@
         },
         "description": {
           "type": "string",
-          "description": "Optional description or notes about the expense."
+          "description": "Description of the expense."
         },
         "categoryId": {
           "type": "string",
@@ -70,6 +74,10 @@
         "vendor": {
           "type": "string",
           "description": "Name of the vendor the expense was paid to."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional extra notes about the expense."
         }
       },
       "required": [
@@ -77,7 +85,8 @@
         "date",
         "amount",
         "categoryId",
-        "vendor"
+        "vendor",
+        "description"
       ]
     },
     "IncomeCategory": {

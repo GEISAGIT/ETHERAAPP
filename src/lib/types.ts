@@ -7,6 +7,7 @@ export type IncomeTransaction = {
   amount: number;
   type: 'income';
   category: string;
+  notes?: string;
 }
 
 export type ExpenseTransaction = {
@@ -17,6 +18,7 @@ export type ExpenseTransaction = {
   type: 'expense';
   category: string;
   costType?: 'fixed' | 'variable';
+  notes?: string;
 }
 
 export type Transaction = IncomeTransaction | ExpenseTransaction;

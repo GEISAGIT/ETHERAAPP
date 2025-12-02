@@ -22,6 +22,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -51,6 +52,7 @@ const formSchema = z.object({
   type: z.enum(['income', 'expense']),
   category: z.string().min(1, 'Por favor, selecione uma categoria'),
   costType: z.enum(['fixed', 'variable']).optional(),
+  notes: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -70,6 +72,7 @@ export function AddTransactionDialog() {
       amount: 0,
       type: 'expense',
       category: '',
+      notes: '',
     },
   });
   
@@ -98,7 +101,7 @@ export function AddTransactionDialog() {
     } else {
       categoryNames = expenseCategories?.map(c => c.name) ?? [];
     }
-    // Ensure the list is unique before returning to prevent key errors.
+    // Ensure the list is unique to prevent key errors.
     return [...new Set(categoryNames)];
   }, [transactionType, incomeCategories, expenseCategories]);
 
@@ -318,6 +321,24 @@ export function AddTransactionDialog() {
                     />
                 )}
             </div>
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Observação (Opcional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Adicione uma nota ou detalhe extra sobre a transação..."
+                      className="resize-none"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <DialogFooter className="pt-4">
               <DialogClose asChild>
