@@ -53,15 +53,16 @@ service cloud.firestore {
     /**
      * @description Manages user documents and their subcollections.
      * @path /users/{userId}
-     * @allow (N/A) - Direct access to a user document is denied. Access is granted to subcollections.
+     * @allow (create) - An authenticated user (uid: 'user123') tries to create their own user document at `/users/user123`.
      * @deny (list) - An authenticated user tries to list all documents in the `/users` collection.
-     * @principle Prevents data leakage by disallowing enumeration of all application users.
+     * @deny (get, update, delete) - Direct modification or reading of user profile docs is restricted.
+     * @principle Allows users to create their own profile on sign-up but prevents enumeration or direct modification by others.
      */
     match /users/{userId} {
-      allow get: if false;
+      allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if false;
-      allow update: if false;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
       allow delete: if false;
 
       /**
