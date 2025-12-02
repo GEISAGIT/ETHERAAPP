@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/select';
 import {
   Command,
+  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -68,7 +69,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
-  const [comboboxOpen, setComboboxOpen] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -110,7 +111,6 @@ export function AddTransactionDialog() {
     } else {
       categoryNames = expenseCategories?.map(c => c.name) ?? [];
     }
-    // Garantir que não há duplicatas que possam causar problemas de chave
     return [...new Set(categoryNames)].sort();
   }, [transactionType, incomeCategories, expenseCategories]);
 
@@ -166,7 +166,6 @@ export function AddTransactionDialog() {
       transactionData.costType = values.costType;
     }
 
-
     addDocumentNonBlocking(transactionsCollection, transactionData);
     
     toast({
@@ -178,236 +177,225 @@ export function AddTransactionDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Adicionar Transação
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle className="font-headline">Nova Transação</DialogTitle>
-          <DialogDescription>
-            Adicione uma nova receita ou despesa aos seus registros.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo</FormLabel>
-                  <Select onValueChange={(value) => {
-                      field.onChange(value);
-                      form.setValue('category', '');
-                  }} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo de transação" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="expense">Despesa</SelectItem>
-                      <SelectItem value="income">Receita</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descrição</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Input placeholder="ex: Material de escritório" {...field} onChange={handleDescriptionChange} />
-                      {isSuggesting && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Adicionar Transação
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="font-headline">Nova Transação</DialogTitle>
+            <DialogDescription>
+              Adicione uma nova receita ou despesa aos seus registros.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="amount"
+                name="type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Valor</FormLabel>
+                    <FormLabel>Tipo</FormLabel>
+                    <Select onValueChange={(value) => {
+                        field.onChange(value);
+                        form.setValue('category', '');
+                    }} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o tipo de transação" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="expense">Despesa</SelectItem>
+                        <SelectItem value="income">Receita</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="0,00" {...field} />
+                      <div className="relative">
+                        <Input placeholder="ex: Material de escritório" {...field} onChange={handleDescriptionChange} />
+                        {isSuggesting && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col pt-2">
-                    <FormLabel>Data da Transação</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP", { locale: ptBR })
-                            ) : (
-                              <span>Escolha uma data</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                          locale={ptBR}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-                 <FormField
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
                   control={form.control}
-                  name="category"
+                  name="amount"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Categoria</FormLabel>
-                      <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                    <FormItem>
+                      <FormLabel>Valor</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="0,00" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col pt-2">
+                      <FormLabel>Data da Transação</FormLabel>
+                      <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button
-                              variant="outline"
-                              role="combobox"
+                              variant={"outline"}
                               className={cn(
-                                "w-full justify-between",
+                                "w-full pl-3 text-left font-normal",
                                 !field.value && "text-muted-foreground"
                               )}
                             >
-                              {field.value
-                                ? categories.find(
-                                    (cat) => cat === field.value
-                                  )
-                                : "Selecione uma categoria"}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              {field.value ? (
+                                format(field.value, "PPP", { locale: ptBR })
+                              ) : (
+                                <span>Escolha uma data</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[200px] p-0">
-                           <Command>
-                             <CommandInput placeholder="Pesquisar categoria..." />
-                             <CommandList>
-                                <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
-                                <CommandGroup>
-                                  {categories.map((cat) => (
-                                    <CommandItem
-                                      value={cat}
-                                      key={cat}
-                                      onSelect={(currentValue) => {
-                                        form.setValue("category", currentValue === field.value ? "" : currentValue);
-                                        setComboboxOpen(false);
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          cat === field.value
-                                            ? "opacity-100"
-                                            : "opacity-0"
-                                        )}
-                                      />
-                                      {cat}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                             </CommandList>
-                           </Command>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            initialFocus
+                            locale={ptBR}
+                          />
                         </PopoverContent>
                       </Popover>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                {transactionType === 'expense' && (
-                    <FormField
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                  <FormField
                     control={form.control}
-                    name="costType"
+                    name="category"
                     render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Tipo de Custo</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Fixo ou Variável" />
-                            </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            <SelectItem value="fixed">Custo Fixo</SelectItem>
-                            <SelectItem value="variable">Custo Variável</SelectItem>
-                            </SelectContent>
-                        </Select>
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Categoria</FormLabel>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="justify-start font-normal"
+                          onClick={() => setCategoryDialogOpen(true)}
+                        >
+                          {field.value ? (
+                            <span className="truncate">{field.value}</span>
+                          ) : (
+                            "Selecione uma categoria"
+                          )}
+                        </Button>
                         <FormMessage />
-                        </FormItem>
+                      </FormItem>
                     )}
-                    />
+                  />
+                  {transactionType === 'expense' && (
+                      <FormField
+                      control={form.control}
+                      name="costType"
+                      render={({ field }) => (
+                          <FormItem>
+                          <FormLabel>Tipo de Custo</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Fixo ou Variável" />
+                              </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                              <SelectItem value="fixed">Custo Fixo</SelectItem>
+                              <SelectItem value="variable">Custo Variável</SelectItem>
+                              </SelectContent>
+                          </Select>
+                          <FormMessage />
+                          </FormItem>
+                      )}
+                      />
+                  )}
+              </div>
+
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Observação (Opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Adicione uma nota ou detalhe extra sobre a transação..."
+                        className="resize-none"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-            </div>
+              />
 
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Observação (Opcional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Adicione uma nota ou detalhe extra sobre a transação..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter className="pt-4">
-              <DialogClose asChild>
-                <Button type="button" variant="ghost">Cancelar</Button>
-              </DialogClose>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Salvar Transação
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+              <DialogFooter className="pt-4">
+                <DialogClose asChild>
+                  <Button type="button" variant="ghost">Cancelar</Button>
+                </DialogClose>
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Salvar Transação
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      <CommandDialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <CommandInput placeholder="Pesquisar categoria..." />
+        <CommandList>
+          <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
+          <CommandGroup>
+            {categories.map((cat) => (
+              <CommandItem
+                key={cat}
+                value={cat}
+                onSelect={(currentValue) => {
+                  form.setValue("category", currentValue === form.getValues("category") ? "" : currentValue);
+                  setCategoryDialogOpen(false);
+                }}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    form.getValues("category") === cat ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                {cat}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
+    </>
   );
 }
