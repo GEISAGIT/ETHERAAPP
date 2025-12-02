@@ -59,9 +59,7 @@ export function CategoryCombobox({
               {categories.map((category) => (
                 <CommandItem
                   key={category}
-                  onSelect={(currentValue) => {
-                    // This is how cmdk expects the onSelect to work.
-                    // currentValue is the value of the selected item, which is the category name string.
+                  onSelect={() => {
                     onChange(category);
                     setOpen(false);
                   }}
