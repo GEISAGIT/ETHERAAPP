@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { useAuth, addDocumentNonBlocking, useFirestore } from '@/firebase';
+import { useAuth, setDocumentNonBlocking, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile } from 'firebase/auth';
-import { collection, doc, getDoc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile, type User } from 'firebase/auth';
+import { doc, getDoc, serverTimestamp } from 'firebase/firestore';
 
 export function LoginForm() {
   const router = useRouter();
@@ -23,18 +23,19 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
 
-  const createUserDocument = async (user: any) => {
+  const createUserDocument = async (user: User) => {
     if (!firestore) return;
     const userDocRef = doc(firestore, 'users', user.uid);
     const userDocSnap = await getDoc(userDocRef);
 
     if (!userDocSnap.exists()) {
-      addDocumentNonBlocking(collection(firestore, 'users'), {
+      // Use setDocumentNonBlocking with the specific user UID as the document ID
+      setDocumentNonBlocking(userDocRef, {
           uid: user.uid,
           displayName: user.displayName,
           email: user.email,
           photoURL: user.photoURL,
-          createdAt: new Date(),
+          createdAt: serverTimestamp(),
       });
     }
   };
@@ -55,18 +56,21 @@ export function LoginForm() {
       if (isSignUp) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
-        await sendEmailVerification(userCredential.user);
+        // The user object might not be immediately updated with the display name,
+        // so we pass the fresh user from userCredential.
         await createUserDocument(userCredential.user);
+        await sendEmailVerification(userCredential.user);
         
         toast({
           title: "Cadastro realizado com sucesso!",
           description: "Enviamos um e-mail de verificação para você. Por favor, confirme seu e-mail.",
         });
-        setIsSignUp(false); // Switch to login view
+        setIsSignUp(false); // Switch to login view after successful sign-up
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // After successful sign-in, ensure the user document exists.
         await createUserDocument(userCredential.user);
-        // onAuthStateChanged will handle redirect
+        // onAuthStateChanged in the provider will handle redirecting to the dashboard.
       }
     } catch (error: any) {
       let message = "Ocorreu um erro. Tente novamente.";
@@ -167,7 +171,7 @@ export function LoginForm() {
           </div>
           {!isSignUp && (
              <div className="text-right">
-                <Button type="button" variant="link" size="sm" className="p-0 h-auto font-normal" onClick={handlePasswordReset}>
+                <Button type="button" variant="link" size="sm" className="p-0 h-auto font-normal" onClick={handlePasswordReset} disabled={isLoading}>
                   Esqueceu a senha?
                 </Button>
             </div>
@@ -178,7 +182,7 @@ export function LoginForm() {
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isSignUp ? 'Cadastrar' : 'Entrar'}
           </Button>
-           <Button type="button" variant="link" size="sm" onClick={() => setIsSignUp(!isSignUp)}>
+           <Button type="button" variant="link" size="sm" onClick={() => setIsSignUp(!isSignUp)} disabled={isLoading}>
             {isSignUp ? 'Já tem uma conta? Faça login' : 'Não tem uma conta? Cadastre-se'}
           </Button>
         </CardFooter>
