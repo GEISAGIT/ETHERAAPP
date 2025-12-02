@@ -7,11 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { useAuth, useUser, addDocumentNonBlocking } from '@/firebase';
+import { useAuth, addDocumentNonBlocking, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile } from 'firebase/auth';
-import { collection } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
+import { collection, doc, getDoc, setDoc } from 'firebase/firestore';
 
 export function LoginForm() {
   const router = useRouter();
@@ -23,6 +22,22 @@ export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+
+  const createUserDocument = async (user: any) => {
+    if (!firestore) return;
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const userDocSnap = await getDoc(userDocRef);
+
+    if (!userDocSnap.exists()) {
+      addDocumentNonBlocking(collection(firestore, 'users'), {
+          uid: user.uid,
+          displayName: user.displayName,
+          email: user.email,
+          photoURL: user.photoURL,
+          createdAt: new Date(),
+      });
+    }
+  };
 
   const handleAuthAction = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -41,17 +56,7 @@ export function LoginForm() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
         await sendEmailVerification(userCredential.user);
-        
-        if (firestore) {
-            const userDocRef = collection(firestore, 'users');
-            addDocumentNonBlocking(userDocRef, {
-                uid: userCredential.user.uid,
-                displayName: name,
-                email: email,
-                photoURL: userCredential.user.photoURL,
-                createdAt: new Date(),
-            });
-        }
+        await createUserDocument(userCredential.user);
         
         toast({
           title: "Cadastro realizado com sucesso!",
@@ -59,7 +64,8 @@ export function LoginForm() {
         });
         setIsSignUp(false); // Switch to login view
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        await createUserDocument(userCredential.user);
         // onAuthStateChanged will handle redirect
       }
     } catch (error: any) {
