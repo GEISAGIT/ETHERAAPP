@@ -379,9 +379,8 @@ export function AddTransactionDialog() {
             {categories.map((cat) => (
               <CommandItem
                 key={cat}
-                value={cat}
-                onSelect={(currentValue) => {
-                  form.setValue("category", currentValue);
+                onSelect={() => {
+                  form.setValue("category", cat);
                   setCategoryDialogOpen(false);
                 }}
               >
