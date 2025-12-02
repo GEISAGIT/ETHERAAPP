@@ -103,6 +103,7 @@ export function AddTransactionDialog() {
     } else {
       categoryNames = expenseCategories?.map(c => c.name) ?? [];
     }
+    // Garantir que não há duplicatas que possam causar problemas de chave
     return [...new Set(categoryNames)];
   }, [transactionType, incomeCategories, expenseCategories]);
 
@@ -322,8 +323,8 @@ export function AddTransactionDialog() {
                                       value={cat}
                                       key={cat}
                                       onSelect={() => {
-                                        form.setValue("category", cat)
-                                        setComboboxOpen(false)
+                                        form.setValue("category", cat);
+                                        setComboboxOpen(false);
                                       }}
                                     >
                                     <Check
