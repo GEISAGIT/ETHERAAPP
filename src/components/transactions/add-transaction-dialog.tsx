@@ -321,9 +321,9 @@ export function AddTransactionDialog() {
                                     <CommandItem
                                     key={cat}
                                     value={cat}
-                                    onSelect={() => {
-                                        form.setValue("category", cat)
-                                        setComboboxOpen(false)
+                                    onSelect={(currentValue) => {
+                                      form.setValue("category", currentValue === field.value ? "" : currentValue);
+                                      setComboboxOpen(false);
                                     }}
                                     >
                                     <Check
