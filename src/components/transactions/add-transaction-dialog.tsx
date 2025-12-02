@@ -322,7 +322,7 @@ export function AddTransactionDialog() {
                                     value={cat}
                                     key={cat}
                                     onSelect={(currentValue) => {
-                                        form.setValue("category", currentValue === field.value ? "" : currentValue)
+                                        form.setValue("category", currentValue === field.value ? "" : cat)
                                         setComboboxOpen(false)
                                     }}
                                     >
