@@ -1,5 +1,6 @@
 'use client';
 import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MoreVertical, Trash2, Edit } from 'lucide-react';
@@ -18,6 +19,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AddCategoryDialog } from './add-category-dialog';
+import { useFirestore, useUser, addDocumentNonBlocking } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 interface CategoryTableProps {
   title: string;
@@ -59,11 +64,11 @@ function CategoryTable({ title, description, categories, onAdd, onEdit, onDelete
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => onEdit(category.id)} disabled>
                           <Edit className="mr-2 h-4 w-4" />
-                          <span>Editar</span>
+                          <span>Editar (Em breve)</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onDelete(category.id)} className="text-red-600" disabled>
                           <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Excluir</span>
+                          <span>Excluir (Em breve)</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -81,7 +86,7 @@ function CategoryTable({ title, description, categories, onAdd, onEdit, onDelete
         </Table>
       </CardContent>
       <CardFooter>
-        <Button onClick={onAdd} variant="outline" disabled>
+        <Button onClick={onAdd} variant="outline">
           <PlusCircle className="mr-2 h-4 w-4" />
           Adicionar Categoria
         </Button>
@@ -100,6 +105,11 @@ export function SettingsClient({
     expenseCategories: ExpenseCategory[], 
     isLoading: boolean 
 }) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [categoryType, setCategoryType] = useState<'income' | 'expense'>('income');
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
     
   if (isLoading) {
     return (
@@ -116,9 +126,30 @@ export function SettingsClient({
     );
   }
 
-  const handleAddCategory = (type: 'income' | 'expense') => {
-    // Logic to open a dialog to add a new category
-    console.log(`Add new ${type} category`);
+  const handleAddCategoryClick = (type: 'income' | 'expense') => {
+    setCategoryType(type);
+    setIsDialogOpen(true);
+  };
+
+  const handleAddCategory = (name: string) => {
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro de autenticação',
+        description: 'Você precisa estar logado para adicionar uma categoria.'
+      });
+      return;
+    }
+
+    const collectionName = categoryType === 'income' ? 'incomeCategories' : 'expenseCategories';
+    const categoryCollection = collection(firestore, 'users', user.uid, collectionName);
+    
+    addDocumentNonBlocking(categoryCollection, { name });
+
+    toast({
+      title: 'Categoria Adicionada',
+      description: `A categoria "${name}" foi adicionada com sucesso.`
+    });
   };
 
   const handleEditCategory = (id: string) => {
@@ -130,33 +161,41 @@ export function SettingsClient({
   };
 
   return (
-    <div className="space-y-8">
-      <header>
-        <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Configurações
-        </h1>
-        <p className="text-muted-foreground">
-          Gerencie as categorias de receitas e despesas do seu aplicativo.
-        </p>
-      </header>
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <CategoryTable
-          title="Categorias de Receita"
-          description="Categorias usadas para classificar suas fontes de receita."
-          categories={incomeCategories}
-          onAdd={() => handleAddCategory('income')}
-          onEdit={handleEditCategory}
-          onDelete={handleDeleteCategory}
-        />
-        <CategoryTable
-          title="Categorias de Despesa"
-          description="Categorias usadas para classificar seus diferentes tipos de despesas."
-          categories={expenseCategories}
-          onAdd={() => handleAddCategory('expense')}
-          onEdit={handleEditCategory}
-          onDelete={handleDeleteCategory}
-        />
+    <>
+      <AddCategoryDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onAddCategory={handleAddCategory}
+        categoryType={categoryType}
+      />
+      <div className="space-y-8">
+        <header>
+          <h1 className="font-headline text-3xl font-bold tracking-tight">
+            Configurações
+          </h1>
+          <p className="text-muted-foreground">
+            Gerencie as categorias de receitas e despesas do seu aplicativo.
+          </p>
+        </header>
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+          <CategoryTable
+            title="Categorias de Receita"
+            description="Categorias usadas para classificar suas fontes de receita."
+            categories={incomeCategories}
+            onAdd={() => handleAddCategoryClick('income')}
+            onEdit={handleEditCategory}
+            onDelete={handleDeleteCategory}
+          />
+          <CategoryTable
+            title="Categorias de Despesa"
+            description="Categorias usadas para classificar seus diferentes tipos de despesas."
+            categories={expenseCategories}
+            onAdd={() => handleAddCategoryClick('expense')}
+            onEdit={handleEditCategory}
+            onDelete={handleDeleteCategory}
+          />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
