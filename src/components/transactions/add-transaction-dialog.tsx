@@ -328,8 +328,8 @@ export function AddTransactionDialog() {
                                     <CommandItem
                                       value={cat}
                                       key={cat}
-                                      onSelect={() => {
-                                        form.setValue("category", cat);
+                                      onSelect={(currentValue) => {
+                                        form.setValue("category", currentValue === field.value ? "" : currentValue);
                                         setComboboxOpen(false);
                                       }}
                                     >
