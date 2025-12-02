@@ -319,12 +319,12 @@ export function AddTransactionDialog() {
                                 <CommandGroup>
                                 {categories.map((cat) => (
                                     <CommandItem
-                                    key={cat}
-                                    value={cat}
-                                    onSelect={(currentValue) => {
-                                      form.setValue("category", currentValue);
-                                      setComboboxOpen(false);
-                                    }}
+                                      key={cat}
+                                      value={cat}
+                                      onSelect={(currentValue) => {
+                                        form.setValue("category", currentValue === field.value ? "" : currentValue);
+                                        setComboboxOpen(false);
+                                      }}
                                     >
                                     <Check
                                         className={cn(
@@ -404,3 +404,5 @@ export function AddTransactionDialog() {
     </Dialog>
   );
 }
+
+    
