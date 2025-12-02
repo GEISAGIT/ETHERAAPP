@@ -1,144 +1,82 @@
 /**
- * Core Philosophy: This ruleset enforces a strict user-ownership security model. All data is segregated into user-specific subcollections, and a user can only access data for which their authenticated UID matches the user ID in the document path. This ensures complete data privacy between users.
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model. All user-generated
+ * data, including financial records like incomes, expenses, categories, and
+ * budgets, is stored in subcollections specific to each user. Access is
+ * granted only if the requesting user's UID matches the user ID in the
+ * document path, ensuring complete data isolation between users.
  *
- * Data Structure: The entire database is structured under a top-level `users` collection. Each user's data, including incomes, expenses, budgets, and their respective categories, is nested within their own document path, e.g., `/users/{userId}/incomes/{incomeId}`.
+ * Data Structure:
+ * All data is organized under a top-level `/users` collection. Each user's
+ * data is segregated into a document tree identified by their unique user ID
+ * (e.g., `/users/{userId}/incomes/{incomeId}`). This structure is fundamental
+ * to the security model.
  *
  * Key Security Decisions:
- * - User Isolation: A user has full control over their own data but is strictly prohibited from reading or writing another user's data.
- * - No Public Data: There are no publicly readable collections. All access requires authentication.
- * - User Listing Disabled: It is not possible to list all users in the database, protecting user privacy.
- * - Prototyping Flexibility: While authorization is strict, the rules do not enforce the specific shape or data types of documents. This allows for rapid development and schema iteration on the client-side.
+ * - Strict Data Isolation: Users can ONLY read and write data within their
+ *   own data tree (`/users/{userId}`). Cross-user access is explicitly denied.
+ * - No Public Data: There are no globally readable collections. All access
+ *   requires authentication.
+ * - No User Listing: It is not possible to list documents in the top-level
+ *   `/users` collection, preventing enumeration of all application users.
+ * - Ownership-Based Writes: All write operations (create, update, delete)
+ *   are strictly limited to the owner of the data.
  *
- * Denormalization for Authorization: The data structure inherently supports efficient authorization. By placing all of a user's documents within a path containing their user ID (e.g., `/users/{userId}/...`), we can enforce ownership without needing to read other documents (avoiding `get()` calls) or denormalize ownership fields onto every document.
+ * Denormalization for Authorization:
+ * This ruleset leverages a path-based security model, which is a form of
+ * denormalization. The owner's `userId` is part of the document path,
+ * eliminating the need for slow and costly `get()` calls to other documents
+ * to verify ownership. Rules are fast and efficient.
  *
- * Structural Segregation: Each type of financial data (incomes, expenses, budgets, categories) is stored in its own dedicated subcollection under the user's path. This organizes the data logically and allows for clear, targeted security rules for each data type.
+ * Structural Segregation:
+ * The data model inherently uses structural segregation by creating separate
+ * subcollections (`incomes`, `expenses`, etc.) for each user. This is more
+ * secure and performant than co-mingling data from multiple users in a single
+ * top-level collection.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions to promote readable, reusable, and maintainable rules.
+    // Helper functions for improved readability and maintainability.
 
     /**
-     * isSignedIn
-     * @description Checks if the user is authenticated.
-     * @returns {boolean} True if the user has a valid auth object.
+     * Checks if the user is authenticated.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * isOwner
-     * @description Checks if the authenticated user's UID matches the provided userId.
-     * This is the cornerstone of the user-ownership security model.
-     * @param {string} userId - The user ID to check against, typically from the resource path.
-     * @returns {boolean} True if the user is signed in and their UID matches the userId.
+     * Verifies if the authenticated user's ID matches the owner ID from the path.
      */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
+    
     /**
-     * isExistingOwner
-     * @description Checks if a document exists AND the requester is the owner.
-     * Used for safe update and delete operations to prevent modifying non-existent data.
-     * @param {string} userId - The user ID from the resource path.
-     * @returns {boolean} True if the document exists and the requester is the owner.
+     * Verifies ownership for an existing document. Used for update and delete
+     * operations to prevent acting on non-existent data.
      */
     function isExistingOwner(userId) {
       return isOwner(userId) && resource != null;
     }
 
-    /**
-     * @description Manages user documents and their subcollections.
-     * @path /users/{userId}
-     * @allow (create) - An authenticated user (uid: 'user123') tries to create their own user document at `/users/user123`.
-     * @deny (list) - An authenticated user tries to list all documents in the `/users` collection.
-     * @deny (get, update, delete) - Direct modification or reading of user profile docs is restricted.
-     * @principle Allows users to create their own profile on sign-up but prevents enumeration or direct modification by others.
-     */
-    match /users/{userId} {
+    // Match all user-specific subcollections (incomes, expenses, categories, budgets).
+    // This single rule block enforces a consistent ownership policy across all of a user's private data.
+    match /users/{userId}/{subcollection}/{docId} {
+      /**
+       * @description Grants a user full read/write access to their own subcollection documents (e.g., incomes, expenses), but denies all access to other users' data.
+       * @path        /users/{userId}/{subcollection}/{docId}
+       * @allow       (create) An authenticated user 'user_abc' can create a new document at `/users/user_abc/incomes/new_income`.
+       * @deny        (get) An authenticated user 'user_xyz' is denied from reading `/users/user_abc/incomes/some_income`.
+       * @principle   Restricts access to a user's own data tree based on path ownership.
+       */
       allow get: if isOwner(userId);
-      allow list: if false;
+      allow list: if isOwner(userId);
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if false;
-
-      /**
-       * @description A user's private collection of income records.
-       * @path /users/{userId}/incomes/{incomeId}
-       * @allow (create) - An authenticated user (uid: 'user123') creates a new income record at `/users/user123/incomes/new_income`.
-       * @deny (get) - An authenticated user (uid: 'user456') tries to read `/users/user123/incomes/some_income`.
-       * @principle Enforces strict data ownership. A user can only manage their own financial records.
-       */
-      match /incomes/{incomeId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if isOwner(userId);
-        allow update: if isExistingOwner(userId);
-        allow delete: if isExistingOwner(userId);
-      }
-
-      /**
-       * @description A user's private collection of expense records.
-       * @path /users/{userId}/expenses/{expenseId}
-       * @allow (list) - An authenticated user (uid: 'user123') lists all their expenses from `/users/user123/expenses`.
-       * @deny (update) - An authenticated user (uid: 'user456') tries to update an expense at `/users/user123/expenses/some_expense`.
-       * @principle Enforces strict data ownership. A user can only manage their own financial records.
-       */
-      match /expenses/{expenseId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if isOwner(userId);
-        allow update: if isExistingOwner(userId);
-        allow delete: if isExistingOwner(userId);
-      }
-
-      /**
-       * @description A user's private collection of custom income categories.
-       * @path /users/{userId}/incomeCategories/{incomeCategoryId}
-       * @allow (create) - An authenticated user (uid: 'user123') creates a new category at `/users/user123/incomeCategories/new_cat`.
-       * @deny (delete) - An authenticated user (uid: 'user456') tries to delete a category at `/users/user123/incomeCategories/some_cat`.
-       * @principle Restricts access to a user's own data tree. Configuration data like categories is private.
-       */
-      match /incomeCategories/{incomeCategoryId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if isOwner(userId);
-        allow update: if isExistingOwner(userId);
-        allow delete: if isExistingOwner(userId);
-      }
-
-      /**
-       * @description A user's private collection of custom expense categories.
-       * @path /users/{userId}/expenseCategories/{expenseCategoryId}
-       * @allow (get) - An authenticated user (uid: 'user123') reads a category from `/users/user123/expenseCategories/some_cat`.
-       * @deny (list) - An authenticated user (uid: 'user456') tries to list categories from `/users/user123/expenseCategories`.
-       * @principle Restricts access to a user's own data tree. Configuration data like categories is private.
-       */
-      match /expenseCategories/{expenseCategoryId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if isOwner(userId);
-        allow update: if isExistingOwner(userId);
-        allow delete: if isExistingOwner(userId);
-      }
-
-      /**
-       * @description A user's private collection of budgets.
-       * @path /users/{userId}/budgets/{budgetId}
-       * @allow (update) - An authenticated user (uid: 'user123') updates their budget at `/users/user123/budgets/q1_budget`.
-       * @deny (create) - A user who is not signed in tries to create a budget.
-       * @principle Enforces strict data ownership for sensitive financial planning data.
-       */
-      match /budgets/{budgetId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if isOwner(userId);
-        allow update: if isExistingOwner(userId);
-        allow delete: if isExistingOwner(userId);
-      }
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
   }
 }

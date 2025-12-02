@@ -21,19 +21,15 @@
         },
         "source": {
           "type": "string",
-          "description": "Source of the income (e.g., 'Patient payment', 'Insurance reimbursement')."
+          "description": "Source of the income (e.g., patient payment, insurance reimbursement)."
         },
         "categoryId": {
           "type": "string",
-          "description": "Reference to IncomeCategory. (Relationship: IncomeCategory 1:N Income)"
+          "description": "Reference to Category. (Relationship: Category 1:N Income)"
         },
         "description": {
           "type": "string",
-          "description": "Optional description or notes about the income."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Optional extra notes about the income."
+          "description": "Additional details or notes about the income."
         }
       },
       "required": [
@@ -69,79 +65,55 @@
         },
         "categoryId": {
           "type": "string",
-          "description": "Reference to ExpenseCategory. (Relationship: ExpenseCategory 1:N Expense)"
+          "description": "Reference to Category. (Relationship: Category 1:N Expense)"
         },
         "vendor": {
           "type": "string",
           "description": "Name of the vendor the expense was paid to."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Optional extra notes about the expense."
         }
       },
       "required": [
         "id",
         "date",
         "amount",
-        "categoryId",
-        "vendor",
-        "description"
+        "description",
+        "categoryId"
       ]
     },
-    "IncomeCategory": {
+    "Category": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "IncomeCategory",
+      "title": "Category",
       "type": "object",
-      "description": "Represents a category for classifying income sources.",
+      "description": "Represents a category for classifying income and expenses.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the income category."
+          "description": "Unique identifier for the category."
         },
         "name": {
           "type": "string",
-          "description": "Name of the income category (e.g., 'Patient Payments', 'Insurance')."
+          "description": "Name of the category (e.g., 'Rent', 'Salary', 'Supplies')."
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of category ('income' or 'expense')."
         },
         "description": {
           "type": "string",
-          "description": "Optional description of the income category."
+          "description": "Optional description of the category."
         }
       },
       "required": [
         "id",
-        "name"
-      ]
-    },
-    "ExpenseCategory": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ExpenseCategory",
-      "type": "object",
-      "description": "Represents a category for classifying expenses.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the expense category."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the expense category (e.g., 'Rent', 'Supplies', 'Salaries')."
-        },
-        "description": {
-          "type": "string",
-          "description": "Optional description of the expense category."
-        }
-      },
-      "required": [
-        "id",
-        "name"
+        "name",
+        "type"
       ]
     },
     "Budget": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Budget",
       "type": "object",
-      "description": "Represents a budget for a specific category and time period.",
+      "description": "Represents a budget set for a specific category within a defined period.",
       "properties": {
         "id": {
           "type": "string",
@@ -149,21 +121,25 @@
         },
         "categoryId": {
           "type": "string",
-          "description": "Reference to either IncomeCategory or ExpenseCategory.  (Relationship: Category 1:N Budget)"
+          "description": "Reference to Category. (Relationship: Category 1:N Budget)"
         },
         "startDate": {
           "type": "string",
-          "description": "Start date of the budget period.",
+          "description": "The start date of the budget period.",
           "format": "date-time"
         },
         "endDate": {
           "type": "string",
-          "description": "End date of the budget period.",
+          "description": "The end date of the budget period.",
           "format": "date-time"
         },
         "amount": {
           "type": "number",
-          "description": "Budgeted amount for the period."
+          "description": "The budgeted amount for the specified category and period."
+        },
+        "alertThreshold": {
+          "type": "number",
+          "description": "Percentage of budget that will trigger an alert (e.g., 0.8 for 80%)."
         }
       },
       "required": [
@@ -171,7 +147,8 @@
         "categoryId",
         "startDate",
         "endDate",
-        "amount"
+        "amount",
+        "alertThreshold"
       ]
     }
   },
@@ -190,15 +167,15 @@
           "schema": {
             "$ref": "#/backend/entities/Income"
           },
-          "description": "Stores income records for a specific user. Each income document is owned by the user identified by {userId}.",
+          "description": "Stores income records for a specific user. Path-based ownership ensures only the user can access their income records.",
           "params": [
             {
               "name": "userId",
-              "description": "The ID of the user who owns the income record."
+              "description": "The unique identifier of the user."
             },
             {
               "name": "incomeId",
-              "description": "The ID of the income record."
+              "description": "The unique identifier of the income record."
             }
           ]
         }
@@ -210,55 +187,35 @@
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores expense records for a specific user. Each expense document is owned by the user identified by {userId}.",
+          "description": "Stores expense records for a specific user. Path-based ownership ensures only the user can access their expense records.",
           "params": [
             {
               "name": "userId",
-              "description": "The ID of the user who owns the expense record."
+              "description": "The unique identifier of the user."
             },
             {
               "name": "expenseId",
-              "description": "The ID of the expense record."
+              "description": "The unique identifier of the expense record."
             }
           ]
         }
       },
       {
-        "path": "/users/{userId}/incomeCategories/{incomeCategoryId}",
+        "path": "/users/{userId}/categories/{categoryId}",
         "definition": {
-          "entityName": "IncomeCategory",
+          "entityName": "Category",
           "schema": {
-            "$ref": "#/backend/entities/IncomeCategory"
+            "$ref": "#/backend/entities/Category"
           },
-          "description": "Stores income categories for a specific user. Each category is owned by the user identified by {userId}.",
+          "description": "Stores categories for income and expenses for a specific user. Path-based ownership ensures only the user can access their categories.",
           "params": [
             {
               "name": "userId",
-              "description": "The ID of the user who owns the income category."
+              "description": "The unique identifier of the user."
             },
             {
-              "name": "incomeCategoryId",
-              "description": "The ID of the income category."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/expenseCategories/{expenseCategoryId}",
-        "definition": {
-          "entityName": "ExpenseCategory",
-          "schema": {
-            "$ref": "#/backend/entities/ExpenseCategory"
-          },
-          "description": "Stores expense categories for a specific user. Each category is owned by the user identified by {userId}.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The ID of the user who owns the expense category."
-            },
-            {
-              "name": "expenseCategoryId",
-              "description": "The ID of the expense category."
+              "name": "categoryId",
+              "description": "The unique identifier of the category."
             }
           ]
         }
@@ -270,20 +227,20 @@
           "schema": {
             "$ref": "#/backend/entities/Budget"
           },
-          "description": "Stores budget records for a specific user. Each budget is owned by the user identified by {userId}.",
+          "description": "Stores budget records for a specific user. Path-based ownership ensures only the user can access their budget records.",
           "params": [
             {
               "name": "userId",
-              "description": "The ID of the user who owns the budget."
+              "description": "The unique identifier of the user."
             },
             {
               "name": "budgetId",
-              "description": "The ID of the budget record."
+              "description": "The unique identifier of the budget."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to manage financial data for the ClinicFlow application, focusing on income, expenses, budgeting, and related categories. User-specific data is segregated under the `/users/{userId}` path to ensure data privacy and security. This design adheres to the principle of Authorization Independence by avoiding hierarchical authorization dependencies. All authorization rules will be based solely on the `request.auth.uid` and data present within each document, eliminating the need for `get()` calls in security rules. The structure supports QAPs (Rules are not Filters) by segregating data based on ownership and providing clear paths for data access.\n\nSpecifically:\n\n*   **Authorization Independence:** Each document under `/users/{userId}` contains all necessary information for authorization. No `get()` calls are required to check parent document properties.\n*   **Structural Segregation:** Different data types (income, expenses, budgets, categories) are stored in separate collections under the user's document, each with its own security rules.\n*   **Access Modeling:** Path-based ownership (`/users/{userId}/...`) is used to define user-specific data.\n*   **QAPs:** List operations are secured by path-based rules, ensuring that users can only access data under their own user ID.\n\nThis structure enables simple, robust, and easily debuggable security rules."
+    "reasoning": "The Firestore structure is designed to manage financial data for the ClinicFlow application, focusing on income, expenses, categories, and budgets. It follows the principle of path-based ownership for user-specific data and leverages structural segregation to ensure consistent security rules across collections. All data is scoped to the user's ID, ensuring only the authenticated user can access their own financial records.\n\nAuthorization Independence is achieved because access control is based on the `userId` parameter within the path, without relying on `get()` calls to parent documents for authorization. Each document is implicitly authorized by its location under the user's node. This simplifies security rules and enables atomic operations.\n\nQAPs (Rules are not Filters) is supported by structurally segregating data by user, and enforcing that all documents under a specific user path conform to the associated security policies. List operations will only return data associated to a user, without filtering."
   }
 }
