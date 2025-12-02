@@ -33,6 +33,11 @@ export function CategoryCombobox({
 }: CategoryComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
+  const handleSelect = (currentValue: string) => {
+    onChange(currentValue === value ? '' : currentValue);
+    setOpen(false);
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -59,10 +64,8 @@ export function CategoryCombobox({
               {categories.map((category) => (
                 <CommandItem
                   key={category}
-                  onSelect={() => {
-                    onChange(category === value ? '' : category);
-                    setOpen(false);
-                  }}
+                  onSelect={handleSelect}
+                  value={category}
                 >
                   <Check
                     className={cn(
