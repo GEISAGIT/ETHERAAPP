@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Check, ChevronsUpDown } from 'lucide-react';
+import { PlusCircle, Loader2 } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -30,15 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Command,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -53,6 +44,8 @@ import { cn } from '@/lib/utils';
 import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, Timestamp, query } from 'firebase/firestore';
 import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
+import { CategoryCombobox } from './category-combobox';
+
 
 const formSchema = z.object({
   date: z.date(),
@@ -69,7 +62,6 @@ type FormValues = z.infer<typeof formSchema>;
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
-  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -298,18 +290,13 @@ export function AddTransactionDialog() {
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>Categoria</FormLabel>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="justify-start font-normal"
-                          onClick={() => setCategoryDialogOpen(true)}
-                        >
-                          {field.value ? (
-                            <span className="truncate">{field.value}</span>
-                          ) : (
-                            "Selecione uma categoria"
-                          )}
-                        </Button>
+                        <FormControl>
+                           <CategoryCombobox
+                              categories={categories}
+                              value={field.value}
+                              onChange={(value) => form.setValue("category", value)}
+                            />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -370,32 +357,6 @@ export function AddTransactionDialog() {
           </Form>
         </DialogContent>
       </Dialog>
-      <CommandDialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
-        <DialogTitle className="sr-only">Selecione uma categoria</DialogTitle>
-        <CommandInput placeholder="Pesquisar categoria..." />
-        <CommandList>
-          <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
-          <CommandGroup>
-            {categories.map((cat) => (
-              <CommandItem
-                key={cat}
-                onSelect={() => {
-                  form.setValue("category", cat);
-                  setCategoryDialogOpen(false);
-                }}
-              >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    form.getValues("category") === cat ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                {cat}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </CommandDialog>
     </>
   );
 }
