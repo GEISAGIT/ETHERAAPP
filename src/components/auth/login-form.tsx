@@ -7,26 +7,30 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, addDocumentNonBlocking } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile } from 'firebase/auth';
+import { collection } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 
 export function LoginForm() {
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
 
   const handleAuthAction = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!auth || !email || !password) {
+    if (!auth || !email || !password || (isSignUp && !name)) {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Por favor, preencha o email e a senha.",
+        description: "Por favor, preencha todos os campos.",
       });
       return;
     }
@@ -34,12 +38,26 @@ export function LoginForm() {
 
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName: name });
+        await sendEmailVerification(userCredential.user);
+        
+        if (firestore) {
+            const userDocRef = collection(firestore, 'users');
+            addDocumentNonBlocking(userDocRef, {
+                uid: userCredential.user.uid,
+                displayName: name,
+                email: email,
+                photoURL: userCredential.user.photoURL,
+                createdAt: new Date(),
+            });
+        }
+        
         toast({
           title: "Cadastro realizado com sucesso!",
-          description: "Você será redirecionado para o painel.",
+          description: "Enviamos um e-mail de verificação para você. Por favor, confirme seu e-mail.",
         });
-        // onAuthStateChanged will handle redirect
+        setIsSignUp(false); // Switch to login view
       } else {
         await signInWithEmailAndPassword(auth, email, password);
         // onAuthStateChanged will handle redirect
@@ -103,6 +121,20 @@ export function LoginForm() {
       </CardHeader>
       <form onSubmit={handleAuthAction}>
         <CardContent className="space-y-4">
+          {isSignUp && (
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome</Label>
+              <Input 
+                id="name" 
+                type="text" 
+                placeholder="Seu nome completo" 
+                required 
+                disabled={isLoading} 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input 
