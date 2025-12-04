@@ -4,7 +4,7 @@ import { LoginForm } from '@/components/auth/login-form';
 import Image from 'next/image';
 
 export default function LoginPage() {
-  const imageUrl = 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.appspot.com/o/teste%2Fsimbolo_semfundo_verdeclaro.png?alt=media';
+  const imageUrl = 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media';
 
   return (
     <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-2">
