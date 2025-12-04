@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useAuth, useUser, useStorage, useFirestore } from '@/firebase';
+import { useAuth, useUser, useStorage, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,7 +67,8 @@ export function ProfilePage() {
       await updateProfile(auth.currentUser, { photoURL });
       
       const userDocRef = doc(firestore, 'users', user.uid);
-      await setDoc(userDocRef, { photoURL }, { merge: true });
+      // Use non-blocking update to allow for contextual error handling
+      updateDocumentNonBlocking(userDocRef, { photoURL });
 
       toast({
         title: 'Sucesso!',
@@ -88,16 +89,15 @@ export function ProfilePage() {
 
   const handleNameUpdate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!user || !auth?.currentUser) return;
+    if (!user || !auth?.currentUser || !firestore) return;
 
     setIsUpdatingName(true);
     try {
       await updateProfile(auth.currentUser, { displayName });
       
-      if (firestore) {
-        const userDocRef = doc(firestore, 'users', user.uid);
-        await setDoc(userDocRef, { displayName }, { merge: true });
-      }
+      const userDocRef = doc(firestore, 'users', user.uid);
+      // Use non-blocking update to allow for contextual error handling
+      updateDocumentNonBlocking(userDocRef, { displayName });
 
       toast({
         title: 'Sucesso!',
