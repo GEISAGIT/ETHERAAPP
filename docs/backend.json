@@ -8,17 +8,34 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the user."
+          "description": "Unique identifier for the User entity."
         },
         "email": {
           "type": "string",
-          "description": "User's email address.",
+          "description": "The user's email address.",
           "format": "email"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "The user's full name."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user account was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user account was last updated.",
+          "format": "date-time"
         }
       },
       "required": [
         "id",
-        "email"
+        "email",
+        "fullName",
+        "createdAt",
+        "updatedAt"
       ]
     },
     "Income": {
@@ -29,37 +46,49 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the income record."
+          "description": "Unique identifier for the Income entity."
         },
         "userId": {
           "type": "string",
-          "description": "Reference to the User who recorded the income. (Relationship: User 1:N Income)"
+          "description": "Reference to User. (Relationship: User 1:N Income)"
         },
         "amount": {
           "type": "number",
           "description": "The amount of income received."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the income source."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the income (e.g., consultation fees, sales)."
         },
         "date": {
           "type": "string",
           "description": "The date the income was received.",
           "format": "date-time"
         },
-        "description": {
+        "createdAt": {
           "type": "string",
-          "description": "A description of the income source."
+          "description": "Timestamp indicating when the income record was created.",
+          "format": "date-time"
         },
-        "categoryId": {
+        "updatedAt": {
           "type": "string",
-          "description": "Reference to the IncomeCategory that this income belongs to. (Relationship: IncomeCategory 1:N Income)"
+          "description": "Timestamp indicating when the income record was last updated.",
+          "format": "date-time"
         }
       },
       "required": [
         "id",
         "userId",
         "amount",
-        "date",
         "description",
-        "categoryId"
+        "category",
+        "date",
+        "createdAt",
+        "updatedAt"
       ]
     },
     "Expense": {
@@ -70,102 +99,68 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the expense record."
+          "description": "Unique identifier for the Expense entity."
         },
         "userId": {
           "type": "string",
-          "description": "Reference to the User who recorded the expense. (Relationship: User 1:N Expense)"
+          "description": "Reference to User. (Relationship: User 1:N Expense)"
         },
         "amount": {
           "type": "number",
           "description": "The amount of the expense."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the expense."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the expense (e.g., rent, supplies)."
         },
         "date": {
           "type": "string",
           "description": "The date the expense was incurred.",
           "format": "date-time"
         },
-        "description": {
+        "createdAt": {
           "type": "string",
-          "description": "A description of the expense."
+          "description": "Timestamp indicating when the expense record was created.",
+          "format": "date-time"
         },
-        "categoryId": {
+        "updatedAt": {
           "type": "string",
-          "description": "Reference to the ExpenseCategory that this expense belongs to. (Relationship: ExpenseCategory 1:N Expense)"
+          "description": "Timestamp indicating when the expense record was last updated.",
+          "format": "date-time"
         }
       },
       "required": [
         "id",
         "userId",
         "amount",
-        "date",
         "description",
-        "categoryId"
-      ]
-    },
-    "IncomeCategory": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "IncomeCategory",
-      "type": "object",
-      "description": "Represents a category for classifying income sources.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the income category."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the income category."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User who created the category. (Relationship: User 1:N IncomeCategory)"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "userId"
-      ]
-    },
-    "ExpenseCategory": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ExpenseCategory",
-      "type": "object",
-      "description": "Represents a category for classifying expenses.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the expense category."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the expense category."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User who created the category. (Relationship: User 1:N ExpenseCategory)"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "userId"
+        "category",
+        "date",
+        "createdAt",
+        "updatedAt"
       ]
     },
     "Budget": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Budget",
       "type": "object",
-      "description": "Represents a user's budget for a specific period.",
+      "description": "Represents a budget for the clinic.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the budget."
+          "description": "Unique identifier for the Budget entity."
         },
         "userId": {
           "type": "string",
-          "description": "Reference to the User who owns the budget. (Relationship: User 1:N Budget)"
+          "description": "Reference to User. (Relationship: User 1:N Budget)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the budget."
         },
         "amount": {
           "type": "number",
@@ -180,14 +175,80 @@
           "type": "string",
           "description": "The end date of the budget period.",
           "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the budget was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the budget was last updated.",
+          "format": "date-time"
         }
       },
       "required": [
         "id",
         "userId",
+        "name",
         "amount",
         "startDate",
-        "endDate"
+        "endDate",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "FileUpload": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FileUpload",
+      "type": "object",
+      "description": "Represents a file uploaded by a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FileUpload entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N FileUpload)"
+        },
+        "filename": {
+          "type": "string",
+          "description": "The original name of the uploaded file."
+        },
+        "storageLocation": {
+          "type": "string",
+          "description": "The location where the file is stored (e.g., URL, path)."
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "The MIME type of the file."
+        },
+        "uploadDate": {
+          "type": "string",
+          "description": "Timestamp indicating when the file was uploaded.",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the file upload record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the file upload record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "filename",
+        "storageLocation",
+        "mimeType",
+        "uploadDate",
+        "createdAt",
+        "updatedAt"
       ]
     }
   },
@@ -206,11 +267,11 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user profiles. The userId is used to establish ownership and is the key for all subcollections.",
+          "description": "Stores user profiles. Path-based ownership ensures only the user can access their profile.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user."
+              "description": "The unique identifier for the user."
             }
           ]
         }
@@ -222,15 +283,15 @@
           "schema": {
             "$ref": "#/backend/entities/Income"
           },
-          "description": "Stores income records for a specific user. Income records are owned by the user identified by userId.",
+          "description": "Stores income records for a specific user. Path-based ownership (nested under the user) ensures only the user can access their income records.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user."
+              "description": "The unique identifier for the user."
             },
             {
               "name": "incomeId",
-              "description": "The unique identifier of the income record."
+              "description": "The unique identifier for the income record."
             }
           ]
         }
@@ -242,55 +303,15 @@
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores expense records for a specific user. Expense records are owned by the user identified by userId.",
+          "description": "Stores expense records for a specific user. Path-based ownership (nested under the user) ensures only the user can access their expense records.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user."
+              "description": "The unique identifier for the user."
             },
             {
               "name": "expenseId",
-              "description": "The unique identifier of the expense record."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/incomeCategories/{incomeCategoryId}",
-        "definition": {
-          "entityName": "IncomeCategory",
-          "schema": {
-            "$ref": "#/backend/entities/IncomeCategory"
-          },
-          "description": "Stores income categories for a specific user. Income categories are owned by the user identified by userId.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
-            {
-              "name": "incomeCategoryId",
-              "description": "The unique identifier of the income category."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/expenseCategories/{expenseCategoryId}",
-        "definition": {
-          "entityName": "ExpenseCategory",
-          "schema": {
-            "$ref": "#/backend/entities/ExpenseCategory"
-          },
-          "description": "Stores expense categories for a specific user. Expense categories are owned by the user identified by userId.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
-            {
-              "name": "expenseCategoryId",
-              "description": "The unique identifier of the expense category."
+              "description": "The unique identifier for the expense record."
             }
           ]
         }
@@ -302,20 +323,40 @@
           "schema": {
             "$ref": "#/backend/entities/Budget"
           },
-          "description": "Stores budgets for a specific user. Budgets are owned by the user identified by userId.",
+          "description": "Stores budget records for a specific user. Path-based ownership (nested under the user) ensures only the user can access their budget records.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier of the user."
+              "description": "The unique identifier for the user."
             },
             {
               "name": "budgetId",
-              "description": "The unique identifier of the budget."
+              "description": "The unique identifier for the budget record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/fileUploads/{fileUploadId}",
+        "definition": {
+          "entityName": "FileUpload",
+          "schema": {
+            "$ref": "#/backend/entities/FileUpload"
+          },
+          "description": "Stores file upload records for a specific user. Path-based ownership (nested under the user) ensures only the user can access their file uploads.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "fileUploadId",
+              "description": "The unique identifier for the file upload record."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to manage financial data for the ClinicFlow application, focusing on user-specific data with clear ownership and authorization. The structure uses path-based ownership for most entities (Income, Expense, IncomeCategory, ExpenseCategory, Budget), associating each with a specific user. This design ensures that security rules can be easily implemented based on the `request.auth.uid`, allowing users to access only their own data. \n\n**Authorization Independence:** All data is stored under the `/users/{userId}` path, eliminating the need for `get()` calls in security rules to check parent document attributes. The `userId` is implicitly the owner, ensuring authorization independence. \n\n**QAPs (Rules are not Filters):** The path-based structure supports secure list operations. Because each collection (e.g., `/users/{userId}/incomes`) contains only documents owned by that user, listing documents in that collection is inherently secure, as rules only need to verify that `request.auth.uid == userId`.\n\nEach user has their own `Income`, `Expense`, `IncomeCategory`, `ExpenseCategory`, and `Budget` collections, enabling them to track and manage their financial data independently."
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability for the ClinicFlow application.  The primary strategy employed is denormalization to avoid hierarchical authorization dependencies, as described in the CORE DESIGN PRINCIPLES.  Each top-level collection (users, incomes, expenses, budgets, fileUploads) represents a distinct entity, enabling a homogeneous security posture. User-owned data is nested under `/users/{userId}` ensuring clear ownership. This design makes it possible to secure `list` operations without complex filtering in rules.\n\nAuthorization Independence:\nAll subcollections under `/users/{userId}` inherently inherit the user's ID, removing the need for `get()` calls in security rules to verify ownership. For example, access to `/users/{userId}/incomes/{incomeId}` is directly controlled by the `userId` in the path.  This eliminates authorization dependency on the parent document and avoids breaking atomic operations.\n\nQAPs (Rules are not Filters):\nThe structure facilitates secure `list` operations by ensuring that each collection contains documents with the same security requirements. For example, listing incomes under `/users/{userId}/incomes` is secure because all documents in that collection are owned by the specified user. No filtering is needed in the rules, as the path itself defines the authorization context."
   }
 }
