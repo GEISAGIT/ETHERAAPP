@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useAuth, useUser, useStorage, useFirestore } from '@/firebase';
+import { useAuth, useUser, useStorage, useFirestore, setDocumentNonBlocking, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,39 +46,54 @@ export function ProfilePage() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user || !storage) return;
 
     setIsUploading(true);
-    try {
-      const storageRef = ref(storage, `profile-pictures/${user.uid}`);
-      await uploadBytes(storageRef, file);
-      const photoURL = await getDownloadURL(storageRef);
+    const storageRef = ref(storage, `profile-pictures/${user.uid}`);
 
-      if (auth?.currentUser) {
-        await updateProfile(auth.currentUser, { photoURL });
-      }
+    uploadBytes(storageRef, file)
+      .then(async () => {
+        const photoURL = await getDownloadURL(storageRef);
 
-      if (firestore) {
-        const userDocRef = doc(firestore, 'users', user.uid);
-        await setDoc(userDocRef, { photoURL }, { merge: true });
-      }
+        if (auth?.currentUser) {
+          await updateProfile(auth.currentUser, { photoURL });
+        }
 
-      toast({
-        title: 'Sucesso!',
-        description: 'Sua foto de perfil foi atualizada.',
+        if (firestore) {
+          const userDocRef = doc(firestore, 'users', user.uid);
+          setDocumentNonBlocking(userDocRef, { photoURL }, { merge: true });
+        }
+
+        toast({
+          title: 'Sucesso!',
+          description: 'Sua foto de perfil foi atualizada.',
+        });
+      })
+      .catch((error) => {
+        console.error("Erro no upload da imagem:", error);
+        
+        const permissionError = new FirestorePermissionError({
+          path: `Storage: ${storageRef.fullPath}`,
+          operation: 'write',
+          requestResourceData: {
+            name: file.name,
+            size: file.size,
+            contentType: file.type,
+          },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+
+        toast({
+          variant: 'destructive',
+          title: 'Erro no Upload',
+          description: 'Não foi possível enviar sua imagem. Verifique as permissões do Storage.',
+        });
+      })
+      .finally(() => {
+        setIsUploading(false);
       });
-    } catch (error: any) {
-      console.error("Erro no upload da imagem:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Erro no Upload',
-        description: error.message || 'Não foi possível enviar sua imagem. Verifique as permissões do Storage.',
-      });
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   const handleNameUpdate = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -279,3 +294,5 @@ function ProfileSkeleton() {
     </div>
   );
 }
+
+    
