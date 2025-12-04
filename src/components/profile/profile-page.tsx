@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useAuth, useUser, useStorage, useFirestore, updateDocumentNonBlocking } from '@/firebase';
+import { useAuth, useUser, useStorage, useFirestore, updateDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
 import { updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc } from 'firebase/firestore';
@@ -11,8 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, Shield } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+
 
 export function ProfilePage() {
   const { user, isUserLoading } = useUser();
@@ -20,6 +22,14 @@ export function ProfilePage() {
   const storage = useStorage();
   const firestore = useFirestore();
   const { toast } = useToast();
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile } = useDoc<{role?: string}>(userDocRef);
+
 
   const [displayName, setDisplayName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -67,7 +77,6 @@ export function ProfilePage() {
       await updateProfile(auth.currentUser, { photoURL });
       
       const userDocRef = doc(firestore, 'users', user.uid);
-      // Use non-blocking update to allow for contextual error handling
       updateDocumentNonBlocking(userDocRef, { photoURL });
 
       toast({
@@ -96,7 +105,6 @@ export function ProfilePage() {
       await updateProfile(auth.currentUser, { displayName });
       
       const userDocRef = doc(firestore, 'users', user.uid);
-      // Use non-blocking update to allow for contextual error handling
       updateDocumentNonBlocking(userDocRef, { displayName });
 
       toast({
@@ -136,6 +144,14 @@ export function ProfilePage() {
       setIsSendingReset(false);
     }
   };
+
+  const roleDisplay = useMemo(() => {
+    const role = userProfile?.role;
+    if (role === 'admin') {
+      return { text: 'Administrador', variant: 'default' as const };
+    }
+    return { text: 'Usuário Padrão', variant: 'secondary' as const };
+  }, [userProfile]);
 
   if (isUserLoading) {
     return <ProfileSkeleton />;
@@ -177,9 +193,15 @@ export function ProfilePage() {
                 />
               </div>
             </CardHeader>
-            <CardContent className="text-center">
+            <CardContent className="text-center space-y-2">
               <p className="text-xl font-semibold">{user?.displayName}</p>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
+               <div className='flex justify-center'>
+                 <Badge variant={roleDisplay.variant}>
+                    <Shield className="mr-1 h-3 w-3" />
+                    {roleDisplay.text}
+                 </Badge>
+               </div>
             </CardContent>
           </Card>
         </div>
@@ -247,6 +269,7 @@ function ProfileSkeleton() {
             <CardContent className="text-center space-y-2">
               <Skeleton className="h-6 w-40 mx-auto" />
               <Skeleton className="h-5 w-48 mx-auto" />
+              <Skeleton className="h-6 w-28 mx-auto" />
             </CardContent>
           </Card>
         </div>
@@ -284,3 +307,5 @@ function ProfileSkeleton() {
     </div>
   );
 }
+
+    
