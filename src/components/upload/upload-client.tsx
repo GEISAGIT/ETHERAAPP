@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, UploadCloud } from 'lucide-react';
+import { Loader2, UploadCloud, Copy } from 'lucide-react';
 import Image from 'next/image';
 
 export function UploadClient() {
@@ -63,6 +63,23 @@ export function UploadClient() {
       setIsUploading(false);
     }
   };
+  
+  const copyToClipboard = () => {
+    if (uploadedImageUrl) {
+        navigator.clipboard.writeText(uploadedImageUrl).then(() => {
+            toast({
+                title: 'URL Copiada!',
+                description: 'A URL da imagem foi copiada para a área de transferência.',
+            });
+        }, (err) => {
+            toast({
+                variant: 'destructive',
+                title: 'Falha ao copiar',
+                description: 'Não foi possível copiar a URL.',
+            });
+        });
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -97,6 +114,19 @@ export function UploadClient() {
                 <h3 className="font-medium">Imagem Enviada:</h3>
                 <div className="relative aspect-video w-full overflow-hidden rounded-md border">
                     <Image src={uploadedImageUrl} alt="Imagem enviada" fill objectFit="contain" />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="image-url">URL da Imagem com Token de Acesso</Label>
+                    <div className="flex items-center gap-2">
+                        <Input id="image-url" readOnly value={uploadedImageUrl} className="bg-muted" />
+                        <Button variant="outline" size="icon" onClick={copyToClipboard}>
+                            <Copy className="h-4 w-4" />
+                            <span className="sr-only">Copiar URL</span>
+                        </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        Use esta URL para garantir o acesso público à imagem.
+                    </p>
                 </div>
             </div>
           )}
