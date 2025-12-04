@@ -74,7 +74,7 @@ export function ProfilePage() {
       });
     } catch (error: any) {
       console.error("Erro no upload da imagem:", error);
-      let description = 'Ocorreu um erro inesperado.';
+      let description = 'Ocorreu um erro inesperado ao fazer o upload.';
       if (error.code === 'storage/unauthorized') {
         description = 'Você não tem permissão para fazer upload. Verifique as regras de segurança do Storage.';
       } else if (error.code === 'storage/object-not-found') {
@@ -86,6 +86,7 @@ export function ProfilePage() {
         description: description,
       });
     } finally {
+      // Garante que o estado de loading seja desativado, não importa o que aconteça
       setIsUploading(false);
     }
   };
