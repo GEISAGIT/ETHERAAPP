@@ -6,5 +6,10 @@ service firebase.storage {
     match /profile-pictures/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Regra para permitir a leitura pública da imagem de logo
+    match /teste/simbolo_semfundo_verdeclaro.png {
+      allow read: if true;
+    }
   }
 }
