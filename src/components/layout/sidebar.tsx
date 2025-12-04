@@ -9,7 +9,7 @@ import {
   SidebarHeader,
 } from '@/components/ui/sidebar';
 import { EtheraLogo } from '@/components/icons';
-import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings } from 'lucide-react';
+import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings, User } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -18,6 +18,7 @@ const menuItems = [
   { href: '/transactions', label: 'Transações', icon: ArrowRightLeft },
   { href: '/budgets', label: 'Orçamentos', icon: PiggyBank },
   { href: '/reports', label: 'Relatórios', icon: BarChart3 },
+  { href: '/profile', label: 'Perfil', icon: User },
   { href: '/settings', label: 'Configurações', icon: Settings },
 ];
 
