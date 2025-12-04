@@ -9,12 +9,13 @@ type SecurityRuleContext = {
 
 interface FirebaseAuthToken {
   name: string | null;
+  picture?: string | null;
   email: string | null;
   email_verified: boolean;
   phone_number: string | null;
   sub: string;
   firebase: {
-    identities: Record<string, string[]>;
+    identities: Record<string, any>;
     sign_in_provider: string;
     tenant: string | null;
   };
@@ -43,9 +44,11 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
   if (!currentUser) {
     return null;
   }
-
+  
+  // Create a simplified token based on available User properties
   const token: FirebaseAuthToken = {
     name: currentUser.displayName,
+    picture: currentUser.photoURL,
     email: currentUser.email,
     email_verified: currentUser.emailVerified,
     phone_number: currentUser.phoneNumber,
@@ -53,10 +56,10 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
     firebase: {
       identities: currentUser.providerData.reduce((acc, p) => {
         if (p.providerId) {
-          acc[p.providerId] = [p.uid];
+          acc[p.providerId] = p.uid;
         }
         return acc;
-      }, {} as Record<string, string[]>),
+      }, {} as Record<string, any>),
       sign_in_provider: currentUser.providerData[0]?.providerId || 'custom',
       tenant: currentUser.tenantId,
     },

@@ -85,11 +85,7 @@ service cloud.firestore {
        * @deny        (get) An authenticated user 'user_xyz' is denied from reading `/users/user_abc/incomes/some_income`.
        * @principle   Restricts access to a user's own data tree based on path ownership.
        */
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow read, write: if isOwner(userId);
     }
   }
 }

@@ -70,11 +70,11 @@ export function ProfilePage() {
         description: 'Sua foto de perfil foi atualizada.',
       });
     } catch (error: any) {
-      console.error(error);
+      console.error("Erro no upload da imagem:", error);
       toast({
         variant: 'destructive',
         title: 'Erro no Upload',
-        description: error.message || 'Não foi possível enviar sua imagem. Tente novamente.',
+        description: error.message || 'Não foi possível enviar sua imagem. Verifique as permissões do Storage.',
       });
     } finally {
       setIsUploading(false);
