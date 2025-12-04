@@ -2,15 +2,10 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Permite que um usuário autenticado leia e escreva sua própria foto de perfil.
-    // O caminho deve corresponder exatamente ao UID do usuário.
-    match /profile-pictures/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Permite a leitura pública da imagem do logotipo da aplicação.
-    match /teste/simbolo_semfundo_verdeclaro.png {
-      allow read: if true;
+    // ATENÇÃO: Esta regra é insegura e permite que qualquer pessoa leia e escreva no seu Storage.
+    // Usada apenas para diagnóstico e para contornar problemas de CORS no desenvolvimento.
+    match /{allPaths=**} {
+      allow read, write: if true;
     }
   }
 }
