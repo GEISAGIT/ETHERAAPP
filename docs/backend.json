@@ -28,6 +28,12 @@
           "type": "string",
           "format": "date-time",
           "description": "The timestamp when the user profile was created."
+        },
+        "role": {
+          "type": "string",
+          "description": "The user's role in the system.",
+          "enum": ["admin", "user"],
+          "default": "user"
         }
       },
       "required": ["uid", "email"]
