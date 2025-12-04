@@ -122,13 +122,13 @@ export function LoginForm() {
 
 
   return (
-    <Card>
+    <Card className="bg-card/80 backdrop-blur-sm border-border/50">
       <CardHeader>
         <CardTitle className="font-headline text-2xl">
-          {isSignUp ? 'Criar uma conta' : 'Bem-vindo de volta'}
+          {isSignUp ? 'Crie sua conta' : 'Acesse sua conta'}
         </CardTitle>
         <CardDescription>
-          {isSignUp ? 'Preencha os campos para se cadastrar.' : 'Faça login para gerenciar as finanças da sua clínica.'}
+          {isSignUp ? 'Preencha os campos para se cadastrar.' : 'Bem-vindo de volta!'}
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleAuthAction}>
@@ -173,7 +173,7 @@ export function LoginForm() {
           </div>
           {!isSignUp && (
              <div className="text-right">
-                <Button type="button" variant="link" size="sm" className="p-0 h-auto font-normal" onClick={handlePasswordReset} disabled={isLoading}>
+                <Button type="button" variant="link" size="sm" className="p-0 h-auto font-normal text-primary" onClick={handlePasswordReset} disabled={isLoading}>
                   Esqueceu a senha?
                 </Button>
             </div>
@@ -184,7 +184,7 @@ export function LoginForm() {
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isSignUp ? 'Cadastrar' : 'Entrar'}
           </Button>
-           <Button type="button" variant="link" size="sm" onClick={() => setIsSignUp(!isSignUp)} disabled={isLoading}>
+           <Button type="button" variant="link" size="sm" onClick={() => setIsSignUp(!isSignUp)} disabled={isLoading} className="text-primary">
             {isSignUp ? 'Já tem uma conta? Faça login' : 'Não tem uma conta? Cadastre-se'}
           </Button>
         </CardFooter>

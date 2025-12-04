@@ -1,14 +1,31 @@
 import { LoginForm } from '@/components/auth/login-form';
-import { ClinicFlowLogo } from '@/components/icons';
+import { EtheraLogo } from '@/components/icons';
+import Image from 'next/image';
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 flex justify-center text-primary">
-           <ClinicFlowLogo className="h-16 w-16" />
+    <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-2">
+      <div className="hidden lg:flex flex-col items-center justify-center bg-background p-8 text-foreground">
+        <div className="relative w-full h-full max-w-md max-h-[200px]">
+           <Image 
+              src="/ethera-logo-light.svg" 
+              alt="Ethera Logo" 
+              fill
+              style={{objectFit: "contain"}}
+            />
         </div>
-        <LoginForm />
+        <div className="mt-8 text-center">
+            <h1 className="font-headline text-4xl font-bold">Bem-vindo à Ethera</h1>
+            <p className="mt-2 text-muted-foreground">Saúde e longevidade ao seu alcance.</p>
+        </div>
+      </div>
+      <div className="flex items-center justify-center p-4 bg-card text-card-foreground lg:bg-background lg:text-foreground">
+        <div className="w-full max-w-md space-y-8">
+            <div className="flex justify-center lg:hidden">
+              <EtheraLogo className="h-24 w-auto text-primary" />
+            </div>
+            <LoginForm />
+        </div>
       </div>
     </div>
   );

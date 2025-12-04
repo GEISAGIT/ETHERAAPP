@@ -8,7 +8,7 @@ import {
   SidebarMenuButton,
   SidebarHeader,
 } from '@/components/ui/sidebar';
-import { ClinicFlowLogo } from '@/components/icons';
+import { EtheraLogo } from '@/components/icons';
 import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings } from 'lucide-react';
 import Link from 'next/link';
 
@@ -26,9 +26,9 @@ export function AppSidebar() {
   return (
     <>
       <SidebarHeader>
-        <div className="flex items-center gap-2">
-          <ClinicFlowLogo className="h-8 w-8 text-primary" />
-          <span className="font-headline text-lg font-semibold">ClinicFlow</span>
+        <div className="flex items-center gap-3 py-2">
+          <EtheraLogo className="h-10 w-10 text-primary" />
+          <span className="font-headline text-xl font-semibold text-primary">Ethera</span>
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">
