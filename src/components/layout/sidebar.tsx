@@ -23,11 +23,13 @@ const menuItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const logoUrl = 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media&token=c68144ba-c10e-4921-8fe7-eb791d34eebe';
 
   return (
     <>
       <SidebarHeader>
-        <div className="flex items-center justify-center gap-3 py-2">
+        <div className="flex items-center justify-center gap-2 py-2">
+          <img src={logoUrl} alt="Ethera Logo" className="w-8 h-8" />
           <span className="font-headline text-xl font-semibold text-primary">Ethera</span>
         </div>
       </SidebarHeader>
