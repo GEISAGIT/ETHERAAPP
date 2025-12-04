@@ -69,7 +69,6 @@ export function EtheraLogo(props: SVGProps<SVGSVGElement>) {
       />
       <path
         d="M42.1 49.5C40.1 47 38.5 44.5 38 41.5C37.5 36.5 40.5 29.5 44.5 25C40.5 29.5 37.5 36.5 38 41.5C38.5 44.5 40.1 47 42.1 49.5Z"
-
         fill="currentColor"
       />
       <path

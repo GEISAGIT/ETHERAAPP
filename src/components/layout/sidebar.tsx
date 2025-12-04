@@ -11,6 +11,7 @@ import {
 import { EtheraLogo } from '@/components/icons';
 import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const menuItems = [
   { href: '/dashboard', label: 'Painel', icon: LayoutDashboard },
@@ -27,7 +28,7 @@ export function AppSidebar() {
     <>
       <SidebarHeader>
         <div className="flex items-center gap-3 py-2">
-          <EtheraLogo className="h-10 w-10 text-primary" />
+          <Image src="/images/logo.png" alt="Ethera Logo" width={40} height={40} />
           <span className="font-headline text-xl font-semibold text-primary">Ethera</span>
         </div>
       </SidebarHeader>

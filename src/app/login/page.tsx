@@ -1,7 +1,6 @@
 'use client';
 
 import { LoginForm } from '@/components/auth/login-form';
-import { EtheraLogo } from '@/components/icons';
 import Image from 'next/image';
 
 export default function LoginPage() {
@@ -9,7 +8,7 @@ export default function LoginPage() {
     <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-2">
       <div className="hidden lg:flex flex-col items-center justify-center bg-background p-8 text-foreground">
         <div className="relative w-full h-full max-w-md max-h-[200px]">
-           <EtheraLogo className="w-full h-full text-primary" />
+           <Image src="/images/logo.png" alt="Ethera Logo" width={200} height={200} className="mx-auto" />
         </div>
         <div className="mt-8 text-center">
             <h1 className="font-headline text-4xl font-bold">Bem-vindo à Ethera</h1>
@@ -19,7 +18,7 @@ export default function LoginPage() {
       <div className="flex items-center justify-center p-4 bg-card text-card-foreground lg:bg-background lg:text-foreground">
         <div className="w-full max-w-md space-y-8">
             <div className="flex justify-center lg:hidden">
-              <EtheraLogo className="h-24 w-auto text-primary" />
+              <Image src="/images/logo.png" alt="Ethera Logo" width={96} height={96} />
             </div>
             <LoginForm />
         </div>
