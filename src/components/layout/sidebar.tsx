@@ -16,8 +16,8 @@ const menuItems = [
   { href: '/transactions', label: 'Transações', icon: ArrowRightLeft },
   { href: '/budgets', label: 'Orçamentos', icon: PiggyBank },
   { href: '/reports', label: 'Relatórios', icon: BarChart3 },
-  { href: '/profile', label: 'Perfil', icon: User },
   { href: '/upload', label: 'Upload', icon: Upload },
+  { href: '/profile', label: 'Perfil', icon: User },
   { href: '/settings', label: 'Configurações', icon: Settings },
 ];
 
