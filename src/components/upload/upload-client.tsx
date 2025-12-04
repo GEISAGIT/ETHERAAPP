@@ -33,9 +33,8 @@ export function UploadClient() {
       toast({
         variant: 'destructive',
         title: 'Erro de Pré-requisito',
-        description: 'Por favor, selecione um arquivo e certifique-se de que está logado e o storage está disponível.',
+        description: 'Por favor, selecione um arquivo e certifique-se de que está logado.',
       });
-      console.error("Firebase Storage not available or user not logged in.", { storage, user });
       return;
     }
 
@@ -55,20 +54,10 @@ export function UploadClient() {
       });
     } catch (error: any) {
       console.error("Erro no upload da imagem:", error);
-       // Log do erro de CORS especificamente
-       if (error.code === 'storage/unauthorized') {
-        console.error("------------------------------------------------");
-        console.error("ERRO DE CORS DETECTADO NO UPLOAD CLIENT");
-        console.error("Origem da requisição:", window.location.origin);
-        console.error("Bucket de destino:", storage.app.options.storageBucket);
-        console.error("Execute o seguinte comando no seu terminal para corrigir:");
-        console.error(`gsutil cors set cors.json gs://${storage.app.options.storageBucket}`);
-        console.error("------------------------------------------------");
-      }
       toast({
         variant: 'destructive',
         title: 'Erro no Upload',
-        description: error.message || 'Ocorreu um erro inesperado ao fazer o upload.',
+        description: error.message || 'Ocorreu um erro inesperado ao fazer o upload. Verifique as regras de CORS e do Storage.',
       });
     } finally {
       setIsUploading(false);
@@ -79,7 +68,7 @@ export function UploadClient() {
     <div className="space-y-8">
       <header>
         <h1 className="font-headline text-3xl font-bold tracking-tight">Upload de Imagem</h1>
-        <p className="text-muted-foreground">Nova tentativa de upload para o Firebase Storage.</p>
+        <p className="text-muted-foreground">Envie um arquivo para o Firebase Storage.</p>
       </header>
       <Card className="max-w-lg">
         <CardHeader>
