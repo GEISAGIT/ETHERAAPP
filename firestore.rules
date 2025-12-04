@@ -63,14 +63,16 @@ service cloud.firestore {
      * matches the user's UID from the path, ensuring data consistency.
      */
     function hasCorrectUserIdOnCreate(userId) {
-      return request.resource.data.userId == userId;
+      // Allow creation for categories which may not have a userId
+      return request.resource.data.userId == userId || !('userId' in request.resource.data);
     }
     
     /**
      * On update, ensures a subcollection document's 'userId' field cannot be changed.
      */
     function isUserIdImmutable() {
-      return request.resource.data.userId == resource.data.userId;
+      // Allow updates for categories which may not have a userId
+      return !('userId' in resource.data) || request.resource.data.userId == resource.data.userId;
     }
 
     // ----------------------------------------------------------------------
@@ -149,6 +151,30 @@ service cloud.firestore {
       allow list: if isOwner(userId);
       allow create: if isOwner(userId) && hasCorrectUserIdOnCreate(userId);
       allow update: if isExistingOwner(userId) && isUserIdImmutable();
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description A user can manage their own income categories.
+     * @path /users/{userId}/incomeCategories/{categoryId}
+     */
+    match /users/{userId}/incomeCategories/{categoryId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description A user can manage their own expense categories.
+     * @path /users/{userId}/expenseCategories/{categoryId}
+     */
+    match /users/{userId}/expenseCategories/{categoryId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
   }
