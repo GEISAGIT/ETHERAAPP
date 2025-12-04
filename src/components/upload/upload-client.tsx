@@ -33,8 +33,9 @@ export function UploadClient() {
       toast({
         variant: 'destructive',
         title: 'Erro de Pré-requisito',
-        description: 'Por favor, selecione um arquivo e certifique-se de que está logado.',
+        description: 'Por favor, selecione um arquivo e certifique-se de que está logado e o storage está disponível.',
       });
+      console.error("Firebase Storage not available or user not logged in.", { storage, user });
       return;
     }
 
@@ -54,6 +55,16 @@ export function UploadClient() {
       });
     } catch (error: any) {
       console.error("Erro no upload da imagem:", error);
+       // Log do erro de CORS especificamente
+       if (error.code === 'storage/unauthorized') {
+        console.error("------------------------------------------------");
+        console.error("ERRO DE CORS DETECTADO NO UPLOAD CLIENT");
+        console.error("Origem da requisição:", window.location.origin);
+        console.error("Bucket de destino:", storage.app.options.storageBucket);
+        console.error("Execute o seguinte comando no seu terminal para corrigir:");
+        console.error(`gsutil cors set cors.json gs://${storage.app.options.storageBucket}`);
+        console.error("------------------------------------------------");
+      }
       toast({
         variant: 'destructive',
         title: 'Erro no Upload',
@@ -68,7 +79,7 @@ export function UploadClient() {
     <div className="space-y-8">
       <header>
         <h1 className="font-headline text-3xl font-bold tracking-tight">Upload de Imagem</h1>
-        <p className="text-muted-foreground">Página de teste para upload de imagens no Firebase Storage.</p>
+        <p className="text-muted-foreground">Nova tentativa de upload para o Firebase Storage.</p>
       </header>
       <Card className="max-w-lg">
         <CardHeader>
@@ -96,7 +107,7 @@ export function UploadClient() {
             <div className="space-y-4 pt-4">
                 <h3 className="font-medium">Imagem Enviada:</h3>
                 <div className="relative aspect-video w-full overflow-hidden rounded-md border">
-                    <Image src={uploadedImageUrl} alt="Imagem enviada" layout="fill" objectFit="contain" />
+                    <Image src={uploadedImageUrl} alt="Imagem enviada" fill objectFit="contain" />
                 </div>
             </div>
           )}
