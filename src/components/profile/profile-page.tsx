@@ -61,7 +61,6 @@ export function ProfilePage() {
     try {
       const storageRef = ref(storage, `profile-pictures/${user.uid}`);
       
-      // Use uploadBytes com o objeto File diretamente
       const snapshot = await uploadBytes(storageRef, file);
       const photoURL = await getDownloadURL(snapshot.ref);
 
