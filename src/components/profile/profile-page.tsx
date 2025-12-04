@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth, useUser, useStorage, useFirestore } from '@/firebase';
 import { updateProfile, sendPasswordResetEmail } from 'firebase/auth';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -46,7 +46,7 @@ export function ProfilePage() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user || !storage || !auth?.currentUser || !firestore) {
       toast({
@@ -56,49 +56,36 @@ export function ProfilePage() {
       });
       return;
     }
-
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = async () => {
-      const dataUrl = reader.result as string;
-      if (!dataUrl) {
-        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível ler o arquivo de imagem.' });
-        return;
-      }
+    
+    setIsUploading(true);
+    try {
+      const storageRef = ref(storage, `profile-pictures/${user.uid}`);
       
-      setIsUploading(true);
-      try {
-        const storageRef = ref(storage, `profile-pictures/${user.uid}`);
-        
-        // Use uploadString with data_url format
-        const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
-        const photoURL = await getDownloadURL(snapshot.ref);
+      // Use uploadBytes com o objeto File diretamente
+      const snapshot = await uploadBytes(storageRef, file);
+      const photoURL = await getDownloadURL(snapshot.ref);
 
-        await updateProfile(auth.currentUser, { photoURL });
-        
-        const userDocRef = doc(firestore, 'users', user.uid);
-        await setDoc(userDocRef, { photoURL }, { merge: true });
+      await updateProfile(auth.currentUser, { photoURL });
+      
+      const userDocRef = doc(firestore, 'users', user.uid);
+      await setDoc(userDocRef, { photoURL }, { merge: true });
 
-        toast({
-          title: 'Sucesso!',
-          description: 'Sua foto de perfil foi atualizada.',
-        });
-      } catch (error: any) {
-        console.error("Erro no upload da imagem:", error);
-        toast({
-          variant: 'destructive',
-          title: 'Erro no Upload',
-          description: error.message || 'Ocorreu um erro inesperado ao fazer o upload.',
-        });
-      } finally {
-        setIsUploading(false);
-      }
-    };
-    reader.onerror = (error) => {
-        console.error("FileReader error:", error);
-        toast({ variant: 'destructive', title: 'Erro de Leitura', description: 'Não foi possível processar o arquivo selecionado.' });
-    };
+      toast({
+        title: 'Sucesso!',
+        description: 'Sua foto de perfil foi atualizada.',
+      });
+    } catch (error: any) {
+      console.error("Erro no upload da imagem:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro no Upload',
+        description: error.message || 'Ocorreu um erro inesperado ao fazer o upload.',
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
+
 
   const handleNameUpdate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
