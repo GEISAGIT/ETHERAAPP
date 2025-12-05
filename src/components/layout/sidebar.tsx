@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -44,19 +45,28 @@ export function AppSidebar() {
   const roleId = userProfile?.role || 'user';
 
   const roleDocRef = useMemoFirebase(() => {
-    if (!roleId) return null;
+    // Admins don't need to fetch permissions, they see everything.
+    if (roleId === 'admin') return null;
     return doc(firestore, 'roles', roleId);
   }, [firestore, roleId]);
 
   const { data: rolePermissions } = useDoc<Role>(roleDocRef);
   
   const menuItems = useMemo(() => {
-    if (!rolePermissions) {
-        // If permissions are not loaded, hide everything as a security measure
-        // Except for profile and settings which are always visible
-        return allMenuItems.filter(item => item.key === 'profile' || item.key === 'settings');
+    if (roleId === 'admin') {
+      return allMenuItems;
     }
+
+    if (!rolePermissions) {
+        // If permissions are not loaded for a regular user, hide everything as a security measure
+        // Except for profile and settings which are always visible by default for users.
+        return allMenuItems.filter(item => item.key === 'profile' || item.key === 'settings' || item.key === 'dashboard');
+    }
+
     return allMenuItems.filter(item => {
+        // Admin only items should not be evaluated for non-admins
+        if (item.adminOnly) return false;
+
         // Use a type guard to ensure item.key is a valid key of permissions
         const hasPermission = (key: string): key is keyof typeof rolePermissions.permissions => {
             return key in rolePermissions.permissions;
@@ -67,7 +77,7 @@ export function AppSidebar() {
         }
         return false;
     });
-  }, [rolePermissions]);
+  }, [roleId, rolePermissions]);
 
   return (
     <>
@@ -98,5 +108,4 @@ export function AppSidebar() {
     </>
   );
 }
-
     
