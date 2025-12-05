@@ -99,5 +99,3 @@ export default function UserManagementPage() {
     </AppLayout>
   );
 }
-
-    
