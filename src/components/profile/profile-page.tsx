@@ -170,7 +170,7 @@ export function ProfilePage() {
             <CardHeader className="items-center">
               <div className="relative">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || 'Avatar'} />
+                  {user?.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || 'Avatar'} />}
                   <AvatarFallback className="text-3xl">
                     {getInitials(user?.displayName)}
                   </AvatarFallback>
