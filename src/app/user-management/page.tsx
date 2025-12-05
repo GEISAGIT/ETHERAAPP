@@ -32,23 +32,24 @@ export default function UserManagementPage() {
   const { data: users, isLoading: usersLoading } = useCollection<UserManagement>(usersQuery);
 
   useEffect(() => {
-    // Wait for both user and profile loading to finish
+    // Wait for auth and profile to finish loading before checking permissions.
     if (isUserLoading || isProfileLoading) {
-      return; // Do nothing while loading
+      return; // Do nothing while core data is loading.
     }
 
-    // After loading, perform checks
     if (!user) {
+      // If no user is authenticated, redirect to login.
       router.replace('/login');
     } else if (userProfile?.role !== 'admin') {
+      // If user is authenticated but not an admin, redirect to dashboard.
       router.replace('/dashboard');
     }
+    // If user is an admin, the effect completes and the page renders normally.
   }, [user, isUserLoading, userProfile, isProfileLoading, router]);
+
+  const showLoadingSkeleton = isUserLoading || isProfileLoading;
   
-  const isLoading = isUserLoading || isProfileLoading || (userProfile?.role === 'admin' && usersLoading);
-
-
-  if (isLoading && userProfile?.role !== 'admin') {
+  if (showLoadingSkeleton) {
     return (
        <AppLayout>
           <div className="space-y-8">
@@ -82,20 +83,22 @@ export default function UserManagementPage() {
             </div>
           </div>
        </AppLayout>
-    )
+    );
   }
 
-  // If the user is not an admin, they will be redirected, but we can show a message in the meantime.
-  if (!isUserLoading && !isProfileLoading && userProfile?.role !== 'admin') {
+  // After loading, if the user is not an admin, they will be redirected. 
+  // Show a message in the meantime. This view will be brief.
+  if (userProfile?.role !== 'admin') {
      return (
       <AppLayout>
         <div className="flex h-full w-full items-center justify-center">
-            <p className="text-muted-foreground">Acesso negado. Redirecionando...</p>
+            <p className="text-muted-foreground">Verificando permissões... Redirecionando...</p>
         </div>
       </AppLayout>
     );
   }
 
+  // User is confirmed admin, show the main component.
   return (
     <AppLayout>
       <UserManagementClient data={users ?? []} />
