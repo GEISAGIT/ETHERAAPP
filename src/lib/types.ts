@@ -44,3 +44,13 @@ export type ExpenseCategory = {
 };
 
 export type Category = string;
+
+export type UserManagement = {
+    uid: string;
+    displayName: string;
+    email: string;
+    role: 'admin' | 'user';
+    createdAt: Timestamp;
+}
+
+    
