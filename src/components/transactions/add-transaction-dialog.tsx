@@ -33,7 +33,6 @@ import {
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { suggestCategory } from '@/app/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
@@ -60,7 +59,6 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
-  const [isSuggesting, setIsSuggesting] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -104,33 +102,6 @@ export function AddTransactionDialog() {
     }
     return [...new Set(categoryNames)].sort();
   }, [transactionType, incomeCategories, expenseCategories]);
-
-
-  const handleDescriptionChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    form.setValue('description', e.target.value);
-    const description = e.target.value;
-    const type = form.getValues('type');
-    if (description.length > 5 && categories.length > 0) {
-      setIsSuggesting(true);
-      try {
-        const result = await suggestCategory({
-          transactionDescription: description,
-          transactionType: type,
-        });
-        if (result.category && categories.includes(result.category)) {
-          form.setValue('category', result.category);
-          toast({
-            title: 'Categoria Sugerida',
-            description: `Sugerimos "${result.category}" com base na descrição.`,
-          });
-        }
-      } catch (error) {
-        console.error('Falha na sugestão da IA:', error);
-      } finally {
-        setIsSuggesting(false);
-      }
-    }
-  };
   
   const onSubmit = (values: FormValues) => {
     if (!user?.uid) {
@@ -218,8 +189,7 @@ export function AddTransactionDialog() {
                     <FormLabel>Descrição</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input placeholder="ex: Material de escritório" {...field} onChange={handleDescriptionChange} />
-                        {isSuggesting && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                        <Input placeholder="ex: Material de escritório" {...field} />
                       </div>
                     </FormControl>
                     <FormMessage />
