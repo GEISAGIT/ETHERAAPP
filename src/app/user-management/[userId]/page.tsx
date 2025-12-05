@@ -41,18 +41,10 @@ function UserAccessControlPage() {
   const params = useParams();
   const userId = params.userId as string;
   const firestore = useFirestore();
-  const { user: adminUser } = useUser();
-  const router = useRouter();
   const { toast } = useToast();
   
   const [isLoading, setIsLoading] = useState(false);
   const [permissions, setPermissions] = useState<Permissions | null>(null);
-
-  // Reference to the admin's own profile to check for role
-  const adminDocRef = useMemoFirebase(() => {
-    if (!adminUser) return null;
-    return doc(firestore, 'users', adminUser.uid);
-  }, [firestore, adminUser]);
 
   // Reference to the user being edited
   const userDocRef = useMemoFirebase(() => {
@@ -60,7 +52,6 @@ function UserAccessControlPage() {
     return doc(firestore, 'users', userId);
   }, [firestore, userId]);
   
-  const { data: adminProfile, isLoading: isAdminProfileLoading } = useDoc<UserProfile>(adminDocRef);
   const { data: targetUser, isLoading: isTargetUserLoading } = useDoc<UserProfile>(userDocRef);
 
   // Initialize local permissions state once target user data is loaded
@@ -69,18 +60,6 @@ function UserAccessControlPage() {
       setPermissions(targetUser.permissions || defaultPermissions);
     }
   }, [targetUser]);
-
-  // Handle security and redirects
-  useEffect(() => {
-    // Wait until the admin profile has finished loading.
-    if (isAdminProfileLoading) {
-      return;
-    }
-    // Once loaded, if the user is NOT an admin, redirect them.
-    if (adminProfile?.role !== 'admin') {
-      router.replace('/dashboard');
-    }
-  }, [adminProfile, isAdminProfileLoading, router]);
 
 
   const handlePermissionChange = (permissionKey: keyof Permissions, checked: boolean) => {
@@ -103,7 +82,7 @@ function UserAccessControlPage() {
     }, 500);
   };
 
-  const pageLoading = isAdminProfileLoading || isTargetUserLoading;
+  const pageLoading = isTargetUserLoading || !permissions;
 
   if (pageLoading) {
     return (
@@ -135,16 +114,6 @@ function UserAccessControlPage() {
     );
   }
   
-  if (adminProfile?.role !== 'admin') {
-     return (
-      <AppLayout>
-        <div className="flex h-full w-full items-center justify-center">
-            <p className="text-muted-foreground">Você não tem permissão para ver esta página.</p>
-        </div>
-      </AppLayout>
-    );
-  }
-
   if (!targetUser) {
     notFound();
   }
@@ -197,4 +166,3 @@ function UserAccessControlPage() {
 }
 
 export default UserAccessControlPage;
-    
