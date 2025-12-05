@@ -4,7 +4,7 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { useDoc, useFirestore, useUser, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { notFound, useRouter } from 'next/navigation';
+import { notFound, useRouter, useParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import type { UserProfile, Permissions, MenuItemKey } from '@/lib/types';
+import type { UserProfile, Permissions } from '@/lib/types';
 import { useEffect, useState } from 'react';
 
 const allPermissionsList: { key: keyof Permissions; label: string }[] = [
@@ -37,8 +37,9 @@ const defaultPermissions: Permissions = {
   userManagement: false,
 };
 
-function UserAccessControlPage({ params }: { params: { userId: string } }) {
-  const { userId } = params;
+function UserAccessControlPage() {
+  const params = useParams();
+  const userId = params.userId as string;
   const firestore = useFirestore();
   const { user: adminUser } = useUser();
   const router = useRouter();
@@ -55,6 +56,7 @@ function UserAccessControlPage({ params }: { params: { userId: string } }) {
 
   // Reference to the user being edited
   const userDocRef = useMemoFirebase(() => {
+    if (!userId) return null;
     return doc(firestore, 'users', userId);
   }, [firestore, userId]);
   
@@ -81,7 +83,7 @@ function UserAccessControlPage({ params }: { params: { userId: string } }) {
   };
   
   const handleSaveChanges = () => {
-    if (!firestore || !permissions) return;
+    if (!firestore || !permissions || !userId) return;
     setIsLoading(true);
 
     const userToUpdateRef = doc(firestore, 'users', userId);
