@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { useAuth, useFirestore, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile, type User } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -46,10 +46,10 @@ export function LoginForm() {
     getDoc(userDocRef).then(userDocSnap => {
         if (!userDocSnap.exists()) {
             // Cria o documento com o role se for novo
-            setDocumentNonBlocking(userDocRef, userData, { merge: true });
+            setDocumentNonBlocking(userDocRef, userData, { merge: false });
         } else {
             // Apenas atualiza o role se o documento já existe
-            setDocumentNonBlocking(userDocRef, existingUserData, { merge: true });
+            updateDocumentNonBlocking(userDocRef, existingUserData);
         }
     });
   };
@@ -205,3 +205,5 @@ export function LoginForm() {
     </Card>
   );
 }
+
+    

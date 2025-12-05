@@ -4,7 +4,7 @@
  * Data Structure: The entire data model is hierarchical, starting with the `/users/{userId}` collection. Each user document serves as the root for their private data, which is organized into subcollections like `incomes`, `expenses`, `budgets`, and `fileUploads`. This structure is fundamental to the security model.
  *
  * Key Security Decisions:
- * - Strict Ownership: All access is gated by checking if the authenticated user's ID matches the `{userId}` in the document path. There is no concept of shared or public data.
+ * - Strict Ownership: All access is gated by checking if the authenticated user's UID matches the `{userId}` in the document path. There is no concept of shared or public data.
  * - No User Listing: By structuring data under individual user documents, there is no top-level collection that would allow one user to query for a list of all other users, enhancing privacy.
  * - Path-Based Security: Authorization is derived directly from the document path, making rules fast, simple, and eliminating the need for costly cross-document `get()` calls.
  *
@@ -48,14 +48,14 @@ service cloud.firestore {
      * the user's UID from the path, ensuring data consistency.
      */
     function hasCorrectIdOnCreate(userId) {
-      return request.resource.data.id == userId;
+      return request.resource.data.uid == userId;
     }
     
     /**
      * On update, ensures the document's internal 'id' field cannot be changed.
      */
     function isIdImmutable() {
-      return request.resource.data.id == resource.data.id;
+      return request.resource.data.uid == resource.data.uid;
     }
 
     /**
@@ -179,3 +179,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
