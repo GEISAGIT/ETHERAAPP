@@ -4,7 +4,7 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { useDoc, useFirestore, useUser, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { notFound, useRouter, useParams } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,15 +42,17 @@ function UserAccessControlPage() {
   const userId = params.userId as string;
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
   
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [permissions, setPermissions] = useState<Permissions | null>(null);
 
-  // Reference to the user being edited
+  // Reference to the user being edited. It now depends on `user` being loaded.
   const userDocRef = useMemoFirebase(() => {
-    if (!userId) return null;
+    // Wait until the admin user is loaded and confirmed before creating the reference
+    if (!firestore || !userId || !user) return null;
     return doc(firestore, 'users', userId);
-  }, [firestore, userId]);
+  }, [firestore, userId, user]);
   
   const { data: targetUser, isLoading: isTargetUserLoading } = useDoc<UserProfile>(userDocRef);
 
@@ -68,7 +70,7 @@ function UserAccessControlPage() {
   
   const handleSaveChanges = () => {
     if (!firestore || !permissions || !userId) return;
-    setIsLoading(true);
+    setIsSaving(true);
 
     const userToUpdateRef = doc(firestore, 'users', userId);
     updateDocumentNonBlocking(userToUpdateRef, { permissions });
@@ -78,11 +80,11 @@ function UserAccessControlPage() {
         title: 'Permissões Salvas!',
         description: `As permissões para ${targetUser?.displayName} foram atualizadas.`,
       });
-      setIsLoading(false);
+      setIsSaving(false);
     }, 500);
   };
 
-  const pageLoading = isTargetUserLoading || !permissions;
+  const pageLoading = isUserLoading || isTargetUserLoading || !permissions;
 
   if (pageLoading) {
     return (
@@ -154,8 +156,8 @@ function UserAccessControlPage() {
             ))}
           </CardContent>
           <CardFooter>
-            <Button onClick={handleSaveChanges} disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleSaveChanges} disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Salvar Alterações
             </Button>
           </CardFooter>
