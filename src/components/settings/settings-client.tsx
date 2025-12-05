@@ -21,21 +21,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from '@/components/ui/input';
 import { AddCategoryDialog } from './add-category-dialog';
-import { useFirestore, useUser, addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { EditCategoryDialog } from './edit-category-dialog';
+import { DeleteCategoryAlert } from './delete-category-alert';
+import { useFirestore, useUser, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { defaultExpenseCategories, defaultIncomeCategories } from '@/lib/data';
+
+type CategoryType = 'income' | 'expense';
 
 interface CategoryTableProps {
   title: string;
   description: string;
   categories: (IncomeCategory | ExpenseCategory)[];
   onAdd: () => void;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  onEdit: (category: IncomeCategory | ExpenseCategory) => void;
+  onDelete: (id: string, type: CategoryType) => void;
+  type: CategoryType;
 }
 
-function CategoryTable({ title, description, categories, onAdd, onEdit, onDelete }: CategoryTableProps) {
+function CategoryTable({ title, description, categories, onAdd, onEdit, onDelete, type }: CategoryTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredCategories = useMemo(() => {
@@ -86,13 +91,13 @@ function CategoryTable({ title, description, categories, onAdd, onEdit, onDelete
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => onEdit(category.id)} disabled>
+                          <DropdownMenuItem onClick={() => onEdit(category)}>
                             <Edit className="mr-2 h-4 w-4" />
-                            <span>Editar (Em breve)</span>
+                            <span>Editar</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onDelete(category.id)} className="text-red-600" disabled>
+                          <DropdownMenuItem onClick={() => onDelete(category.id, type)} className="text-red-600 focus:text-red-600">
                             <Trash2 className="mr-2 h-4 w-4" />
-                            <span>Excluir (Em breve)</span>
+                            <span>Excluir</span>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -130,8 +135,13 @@ export function SettingsClient({
     expenseCategories: ExpenseCategory[], 
     isLoading: boolean 
 }) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [categoryType, setCategoryType] = useState<'income' | 'expense'>('income');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<IncomeCategory | ExpenseCategory | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; type: CategoryType } | null>(null);
+
+  const [categoryType, setCategoryType] = useState<CategoryType>('income');
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -171,9 +181,9 @@ export function SettingsClient({
     );
   }
 
-  const handleAddCategoryClick = (type: 'income' | 'expense') => {
+  const handleAddCategoryClick = (type: CategoryType) => {
     setCategoryType(type);
-    setIsDialogOpen(true);
+    setIsAddDialogOpen(true);
   };
 
   const handleAddCategory = (name: string) => {
@@ -197,21 +207,67 @@ export function SettingsClient({
     });
   };
 
-  const handleEditCategory = (id: string) => {
-    console.log(`Edit category ${id}`);
+  const handleEditClick = (category: IncomeCategory | ExpenseCategory) => {
+    setSelectedCategory(category);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditCategory = (id: string, name: string) => {
+    if (!user || !selectedCategory) return;
+    
+    const type = incomeCategories.some(c => c.id === id) ? 'income' : 'expense';
+    const collectionName = type === 'income' ? 'incomeCategories' : 'expenseCategories';
+    const docRef = doc(firestore, 'users', user.uid, collectionName, id);
+
+    updateDocumentNonBlocking(docRef, { name });
+    
+    toast({
+      title: 'Categoria Atualizada',
+      description: 'O nome da categoria foi alterado com sucesso.'
+    });
   };
   
-  const handleDeleteCategory = (id: string) => {
-    console.log(`Delete category ${id}`);
+  const handleDeleteClick = (id: string, type: CategoryType) => {
+    setCategoryToDelete({ id, type });
+    setIsDeleteDialogOpen(true);
   };
+  
+  const handleConfirmDelete = () => {
+    if (!user || !categoryToDelete) return;
+
+    const { id, type } = categoryToDelete;
+    const collectionName = type === 'income' ? 'incomeCategories' : 'expenseCategories';
+    const docRef = doc(firestore, 'users', user.uid, collectionName, id);
+    
+    deleteDocumentNonBlocking(docRef);
+
+    toast({
+      title: 'Categoria Excluída',
+      description: 'A categoria foi excluída com sucesso.'
+    });
+
+    setIsDeleteDialogOpen(false);
+    setCategoryToDelete(null);
+  }
 
   return (
     <>
       <AddCategoryDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
         onAddCategory={handleAddCategory}
         categoryType={categoryType}
+      />
+      <EditCategoryDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onEditCategory={handleEditCategory}
+        category={selectedCategory}
+      />
+      <DeleteCategoryAlert
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
       />
       <div className="space-y-8">
         <header>
@@ -228,16 +284,18 @@ export function SettingsClient({
             description="Categorias usadas para classificar suas fontes de receita."
             categories={incomeCategories}
             onAdd={() => handleAddCategoryClick('income')}
-            onEdit={handleEditCategory}
-            onDelete={handleDeleteCategory}
+            onEdit={handleEditClick}
+            onDelete={handleDeleteClick}
+            type="income"
           />
           <CategoryTable
             title="Categorias de Despesa"
             description="Categorias usadas para classificar seus diferentes tipos de despesas."
             categories={expenseCategories}
             onAdd={() => handleAddCategoryClick('expense')}
-            onEdit={handleEditCategory}
-            onDelete={handleDeleteCategory}
+            onEdit={handleEditClick}
+            onDelete={handleDeleteClick}
+            type="expense"
           />
         </div>
       </div>
