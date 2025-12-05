@@ -38,6 +38,7 @@ const defaultPermissions: Permissions = {
 };
 
 function UserAccessControlPage({ params }: { params: { userId: string } }) {
+  const { userId } = params;
   const firestore = useFirestore();
   const { user: adminUser } = useUser();
   const router = useRouter();
@@ -54,8 +55,8 @@ function UserAccessControlPage({ params }: { params: { userId: string } }) {
 
   // Reference to the user being edited
   const userDocRef = useMemoFirebase(() => {
-    return doc(firestore, 'users', params.userId);
-  }, [firestore, params.userId]);
+    return doc(firestore, 'users', userId);
+  }, [firestore, userId]);
   
   const { data: adminProfile, isLoading: isAdminProfileLoading } = useDoc<UserProfile>(adminDocRef);
   const { data: targetUser, isLoading: isTargetUserLoading } = useDoc<UserProfile>(userDocRef);
@@ -83,7 +84,7 @@ function UserAccessControlPage({ params }: { params: { userId: string } }) {
     if (!firestore || !permissions) return;
     setIsLoading(true);
 
-    const userToUpdateRef = doc(firestore, 'users', params.userId);
+    const userToUpdateRef = doc(firestore, 'users', userId);
     updateDocumentNonBlocking(userToUpdateRef, { permissions });
 
     setTimeout(() => {
