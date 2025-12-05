@@ -1,4 +1,3 @@
-
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -33,19 +32,23 @@ export default function UserManagementPage() {
   const { data: users, isLoading: usersLoading } = useCollection<UserManagement>(usersQuery);
 
   useEffect(() => {
-    if (!isUserLoading && !isProfileLoading) {
-      if (!user) {
-        router.replace('/login');
-      } else if (userProfile?.role !== 'admin') {
-        router.replace('/dashboard');
-      }
+    // Wait for both user and profile loading to finish
+    if (isUserLoading || isProfileLoading) {
+      return; // Do nothing while loading
+    }
+
+    // After loading, perform checks
+    if (!user) {
+      router.replace('/login');
+    } else if (userProfile?.role !== 'admin') {
+      router.replace('/dashboard');
     }
   }, [user, isUserLoading, userProfile, isProfileLoading, router]);
   
   const isLoading = isUserLoading || isProfileLoading || (userProfile?.role === 'admin' && usersLoading);
 
 
-  if (isLoading) {
+  if (isLoading && userProfile?.role !== 'admin') {
     return (
        <AppLayout>
           <div className="space-y-8">
@@ -83,7 +86,7 @@ export default function UserManagementPage() {
   }
 
   // If the user is not an admin, they will be redirected, but we can show a message in the meantime.
-  if (userProfile?.role !== 'admin') {
+  if (!isUserLoading && !isProfileLoading && userProfile?.role !== 'admin') {
      return (
       <AppLayout>
         <div className="flex h-full w-full items-center justify-center">
