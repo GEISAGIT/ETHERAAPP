@@ -5,16 +5,13 @@ import { UserManagementClient } from '@/components/user-management/user-manageme
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import type { UserManagement } from '@/lib/types';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function UserManagementPage() {
   const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
+  const { user } = useUser();
 
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -31,25 +28,9 @@ export default function UserManagementPage() {
 
   const { data: users, isLoading: usersLoading } = useCollection<UserManagement>(usersQuery);
 
-  useEffect(() => {
-    // Wait for auth and profile to finish loading before checking permissions.
-    if (isUserLoading || isProfileLoading) {
-      return; // Do nothing while core data is loading.
-    }
+  const isLoading = isProfileLoading || usersLoading;
 
-    if (!user) {
-      // If no user is authenticated, redirect to login.
-      router.replace('/login');
-    } else if (userProfile?.role !== 'admin') {
-      // If user is authenticated but not an admin, redirect to dashboard.
-      router.replace('/dashboard');
-    }
-    // If user is an admin, the effect completes and the page renders normally.
-  }, [user, isUserLoading, userProfile, isProfileLoading, router]);
-
-  const showLoadingSkeleton = isUserLoading || isProfileLoading;
-  
-  if (showLoadingSkeleton) {
+  if (isLoading) {
     return (
        <AppLayout>
           <div className="space-y-8">
@@ -86,13 +67,12 @@ export default function UserManagementPage() {
     );
   }
 
-  // After loading, if the user is not an admin, they will be redirected. 
-  // Show a message in the meantime. This view will be brief.
+  // If a non-admin somehow gets here, they won't see any users.
   if (userProfile?.role !== 'admin') {
      return (
       <AppLayout>
         <div className="flex h-full w-full items-center justify-center">
-            <p className="text-muted-foreground">Verificando permissões... Redirecionando...</p>
+            <p className="text-muted-foreground">Você não tem permissão para ver esta página.</p>
         </div>
       </AppLayout>
     );
