@@ -1,3 +1,4 @@
+
 import { Timestamp } from 'firebase/firestore';
 
 export type IncomeTransaction = {
@@ -45,14 +46,6 @@ export type ExpenseCategory = {
 
 export type Category = string;
 
-export type UserManagement = {
-    uid: string;
-    displayName: string;
-    email: string;
-    role: 'admin' | 'user';
-    createdAt: Timestamp;
-}
-
 export type Permissions = {
   dashboard: boolean;
   transactions: boolean;
@@ -62,14 +55,24 @@ export type Permissions = {
   profile: boolean;
   settings: boolean;
   userManagement: boolean;
-  accessControl: boolean;
 };
+
+export type UserProfile = {
+    uid: string;
+    displayName: string;
+    email: string;
+    role: 'admin' | 'user';
+    createdAt: Timestamp;
+    permissions: Permissions;
+}
+
+export type UserManagement = Omit<UserProfile, 'permissions'>;
+
 
 export type Role = {
   id: 'admin' | 'user';
-  permissions: Permissions;
+  permissions: Omit<Permissions, 'accessControl'> & { accessControl?: boolean };
 };
 
-export type MenuItemKey = keyof Permissions;
-
+export type MenuItemKey = keyof Omit<Permissions, 'accessControl'> | 'accessControl';
     

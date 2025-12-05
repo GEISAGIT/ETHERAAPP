@@ -9,12 +9,12 @@ import {
   SidebarMenuButton,
   SidebarHeader,
 } from '@/components/ui/sidebar';
-import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings, User, Upload, Users, ShieldCheck } from 'lucide-react';
+import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings, User, Upload, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useUser } from '@/firebase';
 import { useDoc, useMemoFirebase } from '@/firebase';
 import { doc, getFirestore } from 'firebase/firestore';
-import type { Role, MenuItemKey } from '@/lib/types';
+import type { MenuItemKey, UserProfile } from '@/lib/types';
 import { useMemo } from 'react';
 
 const allMenuItems = [
@@ -23,10 +23,9 @@ const allMenuItems = [
   { key: 'budgets' as MenuItemKey, href: '/budgets', label: 'Orçamentos', icon: PiggyBank },
   { key: 'reports' as MenuItemKey, href: '/reports', label: 'Relatórios', icon: BarChart3 },
   { key: 'upload' as MenuItemKey, href: '/upload', label: 'Upload', icon: Upload },
+  { key: 'userManagement' as MenuItemKey, href: '/user-management', label: 'Gerenciar Usuários', icon: Users, adminOnly: true },
   { key: 'profile' as MenuItemKey, href: '/profile', label: 'Perfil', icon: User },
   { key: 'settings' as MenuItemKey, href: '/settings', label: 'Configurações', icon: Settings },
-  { key: 'userManagement' as MenuItemKey, href: '/user-management', label: 'Gerenciar Usuários', icon: Users, adminOnly: true },
-  { key: 'accessControl' as MenuItemKey, href: '/settings/access-control', label: 'Controle de Acesso', icon: ShieldCheck, adminOnly: true },
 ];
 
 
@@ -41,43 +40,39 @@ export function AppSidebar() {
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
 
-  const { data: userProfile } = useDoc<{role?: string}>(userDocRef);
-  const roleId = userProfile?.role || 'user';
-
-  const roleDocRef = useMemoFirebase(() => {
-    // Admins don't need to fetch permissions, they see everything.
-    if (roleId === 'admin') return null;
-    return doc(firestore, 'roles', roleId);
-  }, [firestore, roleId]);
-
-  const { data: rolePermissions } = useDoc<Role>(roleDocRef);
+  const { data: userProfile } = useDoc<UserProfile>(userDocRef);
+  const role = userProfile?.role;
   
   const menuItems = useMemo(() => {
-    if (roleId === 'admin') {
+    // Admin always sees everything
+    if (role === 'admin') {
       return allMenuItems;
     }
-
-    if (!rolePermissions) {
-        // If permissions are not loaded for a regular user, hide everything as a security measure
-        // Except for profile and settings which are always visible by default for users.
-        return allMenuItems.filter(item => item.key === 'profile' || item.key === 'settings' || item.key === 'dashboard');
-    }
-
-    return allMenuItems.filter(item => {
-        // Admin only items should not be evaluated for non-admins
+    
+    // For regular users, filter based on their individual permissions
+    if (userProfile?.permissions) {
+      return allMenuItems.filter(item => {
+        // Admin-only items are never shown to non-admins
         if (item.adminOnly) return false;
 
-        // Use a type guard to ensure item.key is a valid key of permissions
-        const hasPermission = (key: string): key is keyof typeof rolePermissions.permissions => {
-            return key in rolePermissions.permissions;
+        const hasPermission = (key: string): key is keyof typeof userProfile.permissions => {
+            return key in userProfile.permissions;
         }
 
+        // Show item if permission is explicitly true
         if (hasPermission(item.key)) {
-            return rolePermissions.permissions[item.key];
+            return userProfile.permissions[item.key];
         }
-        return false;
-    });
-  }, [roleId, rolePermissions]);
+
+        // Fallback for items that might not be in the permissions object yet
+        return item.key === 'profile' || item.key === 'settings' || item.key === 'dashboard';
+      });
+    }
+
+    // Fallback for when userProfile is loading or doesn't have permissions set
+    return allMenuItems.filter(item => item.key === 'profile' || item.key === 'settings' || item.key === 'dashboard');
+    
+  }, [role, userProfile]);
 
   return (
     <>
