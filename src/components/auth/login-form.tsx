@@ -26,17 +26,30 @@ export function LoginForm() {
   const createUserDocument = (user: User) => {
     if (!firestore) return;
     const userDocRef = doc(firestore, 'users', user.uid);
+    
+    // Define o role do usuário
+    const userRole = user.email === 'grupodallax@gmail.com' ? 'admin' : 'user';
+
     const userData = {
       uid: user.uid,
       displayName: user.displayName,
       email: user.email,
       photoURL: user.photoURL,
       createdAt: serverTimestamp(),
+      role: userRole,
     };
+    
+    const existingUserData = {
+      role: userRole,
+    }
 
     getDoc(userDocRef).then(userDocSnap => {
         if (!userDocSnap.exists()) {
+            // Cria o documento com o role se for novo
             setDocumentNonBlocking(userDocRef, userData, { merge: true });
+        } else {
+            // Apenas atualiza o role se o documento já existe
+            setDocumentNonBlocking(userDocRef, existingUserData, { merge: true });
         }
     });
   };
