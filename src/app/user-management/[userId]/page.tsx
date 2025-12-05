@@ -72,7 +72,12 @@ function UserAccessControlPage() {
 
   // Handle security and redirects
   useEffect(() => {
-    if (!isAdminProfileLoading && adminProfile?.role !== 'admin') {
+    // Wait until the admin profile has finished loading.
+    if (isAdminProfileLoading) {
+      return;
+    }
+    // Once loaded, if the user is NOT an admin, redirect them.
+    if (adminProfile?.role !== 'admin') {
       router.replace('/dashboard');
     }
   }, [adminProfile, isAdminProfileLoading, router]);
