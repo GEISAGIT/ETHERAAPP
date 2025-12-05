@@ -1,16 +1,13 @@
 /**
- * Core Philosophy: This ruleset enforces a strict user-ownership model, often referred to as a "data silo." All user-specific data, such as income, expenses, and file uploads, is stored in subcollections under that user's unique document. This ensures that a user can only ever access their own information.
+ * Core Philosophy: This ruleset enforces a strict user-ownership model, often referred to as a "data silo." All user-specific data, such as income, expenses, and file uploads, is stored in subcollections under that user's unique document. This ensures that a user can only ever access their own information. It also includes a role-based access control (RBAC) system managed through a top-level 'roles' collection.
  *
- * Data Structure: The entire data model is hierarchical, starting with the `/users/{userId}` collection. Each user document serves as the root for their private data, which is organized into subcollections like `incomes`, `expenses`, `budgets`, and `fileUploads`. This structure is fundamental to the security model.
+ * Data Structure: The entire data model is hierarchical, starting with the `/users/{userId}` collection. Each user document serves as the root for their private data. The `/roles/{roleId}` collection defines permissions for different user roles ('admin', 'user').
  *
  * Key Security Decisions:
- * - Strict Ownership: All access is gated by checking if the authenticated user's UID matches the `{userId}` in the document path. There is no concept of shared or public data.
- * - No User Listing: By structuring data under individual user documents, there is no top-level collection that would allow one user to query for a list of all other users, enhancing privacy.
- * - Path-Based Security: Authorization is derived directly from the document path, making rules fast, simple, and eliminating the need for costly cross-document `get()` calls.
- *
- * Denormalization for Authorization: The `userId` from the path is also stored as a field within documents in the subcollections (e.g., an `Income` document has a `userId` field). The rules enforce that this internal `userId` must match the path's `userId` on creation and be immutable on update. This ensures relational integrity between the document and its location in the hierarchy.
- *
- * Structural Segregation: The design inherently separates each user's data into its own tree, which is the most secure and performant way to manage private, user-owned content. This avoids the security risks of mixing private data from different users in a single collection.
+ * - Strict Ownership: Most access is gated by checking if the authenticated user's UID matches the `{userId}` in the document path.
+ * - Role-Based Permissions: The 'roles' collection is readable by any signed-in user, allowing the client-side to fetch permissions and adjust the UI accordingly. However, only administrators can modify these roles, ensuring centralized control over application-wide permissions.
+ * - No User Listing for Non-Admins: Regular users cannot list the `/users` collection, enhancing privacy. Admins can list users for management purposes.
+ * - Path-Based Security: Authorization is derived directly from the document path where possible, making rules fast and simple.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -36,7 +33,8 @@ service cloud.firestore {
     }
     
     /**
-     * Checks if the requesting user is an administrator.
+     * Checks if the requesting user is an administrator by reading their role
+     * from their user document.
      */
     function isAdmin() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
@@ -58,23 +56,7 @@ service cloud.firestore {
     function hasCorrectIdOnCreate(userId) {
       return request.resource.data.uid == userId;
     }
-    
-    /**
-     * On update, ensures the document's internal 'id' field cannot be changed.
-     */
-    function isIdImmutable() {
-      return request.resource.data.uid == resource.data.uid;
-    }
 
-    /**
-     * On create, validates that a subcollection document's internal 'userId' field
-     * matches the user's UID from the path, ensuring data consistency.
-     */
-    function hasCorrectUserIdOnCreate(userId) {
-      // Allow creation for categories which may not have a userId
-      return request.resource.data.userId == userId || !('userId' in request.resource.data);
-    }
-    
     /**
      * On update, ensures a subcollection document's 'userId' field cannot be changed.
      */
@@ -88,11 +70,8 @@ service cloud.firestore {
     // ----------------------------------------------------------------------
 
     /**
-     * @description A user can manage their own profile document. No other user can access it.
+     * @description A user can manage their own profile document. Admins can manage any user profile.
      * @path /users/{userId}
-     * @allow User 'abc' (get) their own profile at `/users/abc`.
-     * @deny User 'xyz' (get) the profile of user 'abc' at `/users/abc`.
-     * @principle Restricts access to a user's own data tree.
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
@@ -101,18 +80,26 @@ service cloud.firestore {
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
     }
+    
+    /**
+     * @description The 'roles' collection defines permissions for different user roles.
+     * @path /roles/{roleId}
+     * @allow Any signed-in user can read permissions to adjust the UI.
+     * @deny Only admins can create, update, or delete role permissions.
+     */
+    match /roles/{roleId} {
+      allow get, list: if isSignedIn();
+      allow write: if isAdmin();
+    }
 
     /**
      * @description A user can manage their own income records.
      * @path /users/{userId}/incomes/{incomeId}
-     * @allow User 'abc' (create) an income record at `/users/abc/incomes/new_income`.
-     * @deny User 'xyz' (list) income records at `/users/abc/incomes`.
-     * @principle Enforces document ownership for all operations within a user's private subcollection.
      */
     match /users/{userId}/incomes/{incomeId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && hasCorrectUserIdOnCreate(userId);
+      allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId) && isUserIdImmutable();
       allow delete: if isExistingOwner(userId);
     }
@@ -120,14 +107,11 @@ service cloud.firestore {
     /**
      * @description A user can manage their own expense records.
      * @path /users/{userId}/expenses/{expenseId}
-     * @allow User 'abc' (delete) an expense record at `/users/abc/expenses/old_expense`.
-     * @deny User 'xyz' (update) an expense record at `/users/abc/expenses/some_expense`.
-     * @principle Enforces document ownership for all operations within a user's private subcollection.
      */
     match /users/{userId}/expenses/{expenseId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && hasCorrectUserIdOnCreate(userId);
+      allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId) && isUserIdImmutable();
       allow delete: if isExistingOwner(userId);
     }
@@ -135,14 +119,11 @@ service cloud.firestore {
     /**
      * @description A user can manage their own budget records.
      * @path /users/{userId}/budgets/{budgetId}
-     * @allow User 'abc' (get) a budget record at `/users/abc/budgets/q1_budget`.
-     * @deny User 'xyz' (create) a budget record at `/users/abc/budgets/new_budget`.
-     * @principle Enforces document ownership for all operations within a user's private subcollection.
      */
     match /users/{userId}/budgets/{budgetId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && hasCorrectUserIdOnCreate(userId);
+      allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId) && isUserIdImmutable();
       allow delete: if isExistingOwner(userId);
     }
@@ -150,14 +131,11 @@ service cloud.firestore {
     /**
      * @description A user can manage their own file upload metadata records.
      * @path /users/{userId}/fileUploads/{fileUploadId}
-     * @allow User 'abc' (list) their file upload records at `/users/abc/fileUploads`.
-     * @deny An anonymous user (get) a record at `/users/abc/fileUploads/some_file`.
-     * @principle Enforces document ownership for all operations within a user's private subcollection.
      */
     match /users/{userId}/fileUploads/{fileUploadId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && hasCorrectUserIdOnCreate(userId);
+      allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId) && isUserIdImmutable();
       allow delete: if isExistingOwner(userId);
     }

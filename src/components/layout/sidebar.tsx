@@ -8,29 +8,26 @@ import {
   SidebarMenuButton,
   SidebarHeader,
 } from '@/components/ui/sidebar';
-import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings, User, Upload, Users } from 'lucide-react';
+import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings, User, Upload, Users, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useUser } from '@/firebase';
 import { useDoc, useMemoFirebase } from '@/firebase';
 import { doc, getFirestore } from 'firebase/firestore';
+import type { Role, MenuItemKey } from '@/lib/types';
+import { useMemo } from 'react';
 
-
-const baseMenuItems = [
-  { href: '/dashboard', label: 'Painel', icon: LayoutDashboard },
-  { href: '/transactions', label: 'Transações', icon: ArrowRightLeft },
-  { href: '/budgets', label: 'Orçamentos', icon: PiggyBank },
-  { href: '/reports', label: 'Relatórios', icon: BarChart3 },
-  { href: '/upload', label: 'Upload', icon: Upload },
-  { href: '/profile', label: 'Perfil', icon: User },
+const allMenuItems = [
+  { key: 'dashboard' as MenuItemKey, href: '/dashboard', label: 'Painel', icon: LayoutDashboard },
+  { key: 'transactions' as MenuItemKey, href: '/transactions', label: 'Transações', icon: ArrowRightLeft },
+  { key: 'budgets' as MenuItemKey, href: '/budgets', label: 'Orçamentos', icon: PiggyBank },
+  { key: 'reports' as MenuItemKey, href: '/reports', label: 'Relatórios', icon: BarChart3 },
+  { key: 'upload' as MenuItemKey, href: '/upload', label: 'Upload', icon: Upload },
+  { key: 'profile' as MenuItemKey, href: '/profile', label: 'Perfil', icon: User },
+  { key: 'settings' as MenuItemKey, href: '/settings', label: 'Configurações', icon: Settings },
+  { key: 'userManagement' as MenuItemKey, href: '/user-management', label: 'Gerenciar Usuários', icon: Users, adminOnly: true },
+  { key: 'accessControl' as MenuItemKey, href: '/settings/access-control', label: 'Controle de Acesso', icon: ShieldCheck, adminOnly: true },
 ];
 
-const adminMenuItems = [
-    { href: '/user-management', label: 'Gerenciar Usuários', icon: Users },
-];
-
-const bottomMenuItems = [
-    { href: '/settings', label: 'Configurações', icon: Settings },
-];
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -44,14 +41,33 @@ export function AppSidebar() {
   }, [firestore, user]);
 
   const { data: userProfile } = useDoc<{role?: string}>(userDocRef);
+  const roleId = userProfile?.role || 'user';
 
-  const isAdmin = userProfile?.role === 'admin';
+  const roleDocRef = useMemoFirebase(() => {
+    if (!roleId) return null;
+    return doc(firestore, 'roles', roleId);
+  }, [firestore, roleId]);
 
-  const menuItems = [
-    ...baseMenuItems,
-    ...(isAdmin ? adminMenuItems : []),
-    ...bottomMenuItems,
-  ];
+  const { data: rolePermissions } = useDoc<Role>(roleDocRef);
+  
+  const menuItems = useMemo(() => {
+    if (!rolePermissions) {
+        // If permissions are not loaded, hide everything as a security measure
+        // Except for profile and settings which are always visible
+        return allMenuItems.filter(item => item.key === 'profile' || item.key === 'settings');
+    }
+    return allMenuItems.filter(item => {
+        // Use a type guard to ensure item.key is a valid key of permissions
+        const hasPermission = (key: string): key is keyof typeof rolePermissions.permissions => {
+            return key in rolePermissions.permissions;
+        }
+
+        if (hasPermission(item.key)) {
+            return rolePermissions.permissions[item.key];
+        }
+        return false;
+    });
+  }, [rolePermissions]);
 
   return (
     <>

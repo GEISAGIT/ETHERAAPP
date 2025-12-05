@@ -59,6 +59,34 @@
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
+    "Role": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Role",
+      "type": "object",
+      "description": "Defines a user role and its specific permissions for accessing different parts of the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The name of the role, either 'admin' or 'user'."
+        },
+        "permissions": {
+          "type": "object",
+          "description": "A map of feature names to boolean flags indicating access.",
+          "properties": {
+            "dashboard": { "type": "boolean" },
+            "transactions": { "type": "boolean" },
+            "budgets": { "type": "boolean" },
+            "reports": { "type": "boolean" },
+            "upload": { "type": "boolean" },
+            "profile": { "type": "boolean" },
+            "settings": { "type": "boolean" },
+            "userManagement": { "type": "boolean" },
+            "accessControl": { "type": "boolean" }
+          }
+        }
+      },
+      "required": ["id", "permissions"]
+    },
     "Income": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Income",
@@ -298,6 +326,17 @@
         }
       },
       {
+        "path": "/roles/{roleId}",
+        "definition": {
+          "entityName": "Role",
+          "schema": { "$ref": "#/backend/entities/Role" },
+          "description": "Stores role-based permissions. All users can read, but only admins can write.",
+          "params": [
+            { "name": "roleId", "description": "The name of the role ('admin' or 'user')." }
+          ]
+        }
+      },
+      {
         "path": "/users/{userId}/incomes/{incomeId}",
         "definition": {
           "entityName": "Income",
@@ -378,7 +417,7 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability for the ClinicFlow application.  The primary strategy employed is denormalization to avoid hierarchical authorization dependencies, as described in the CORE DESIGN PRINCIPLES.  Each top-level collection (users, incomes, expenses, budgets, fileUploads) represents a distinct entity, enabling a homogeneous security posture. User-owned data is nested under `/users/{userId}` ensuring clear ownership. This design makes it possible to secure `list` operations without complex filtering in rules.\n\nAuthorization Independence:\nAll subcollections under `/users/{userId}` inherently inherit the user's ID, removing the need for `get()` calls in security rules to verify ownership. For example, access to `/users/{userId}/incomes/{incomeId}` is directly controlled by the `userId` in the path.  This eliminates authorization dependency on the parent document and avoids breaking atomic operations.\n\nQAPs (Rules are not Filters):\nThe structure facilitates secure `list` operations by ensuring that each collection contains documents with the same security requirements. For example, listing incomes under `/users/{userId}/incomes` is secure because all documents in that collection are owned by the specified user. No filtering is needed in the rules, as the path itself defines the authorization context."
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability for the ClinicFlow application. The primary strategy employed is denormalization to avoid hierarchical authorization dependencies, as described in the CORE DESIGN PRINCIPLES. Each top-level collection (users, incomes, expenses, budgets, fileUploads) represents a distinct entity, enabling a homogeneous security posture. User-owned data is nested under `/users/{userId}` ensuring clear ownership. The addition of a top-level `roles` collection allows for centralized management of permissions, which can be read by all users but only written to by admins. This design makes it possible to secure `list` operations without complex filtering in rules.\n\nAuthorization Independence:\nAll subcollections under `/users/{userId}` inherently inherit the user's ID, removing the need for `get()` calls in security rules to verify ownership. For example, access to `/users/{userId}/incomes/{incomeId}` is directly controlled by the `userId` in the path.  This eliminates authorization dependency on the parent document and avoids breaking atomic operations.\n\nQAPs (Rules are not Filters):\nThe structure facilitates secure `list` operations by ensuring that each collection contains documents with the same security requirements. For example, listing incomes under `/users/{userId}/incomes` is secure because all documents in that collection are owned by the specified user. No filtering is needed in the rules, as the path itself defines the authorization context."
   }
 }
 
