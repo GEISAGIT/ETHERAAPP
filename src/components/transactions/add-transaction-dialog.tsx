@@ -59,6 +59,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
+  const [isDatePickerOpen, setDatePickerOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -217,7 +218,7 @@ export function AddTransactionDialog() {
                   render={({ field }) => (
                     <FormItem className="flex flex-col pt-2">
                       <FormLabel>Data da Transação</FormLabel>
-                      <Popover>
+                      <Popover open={isDatePickerOpen} onOpenChange={setDatePickerOpen}>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button
@@ -240,7 +241,10 @@ export function AddTransactionDialog() {
                           <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={field.onChange}
+                            onSelect={(date) => {
+                              field.onChange(date);
+                              setDatePickerOpen(false);
+                            }}
                             initialFocus
                             locale={ptBR}
                           />

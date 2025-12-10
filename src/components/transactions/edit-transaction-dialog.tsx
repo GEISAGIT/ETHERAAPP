@@ -62,6 +62,7 @@ interface EditTransactionDialogProps {
 }
 
 export function EditTransactionDialog({ open, onOpenChange, transaction }: EditTransactionDialogProps) {
+  const [isDatePickerOpen, setDatePickerOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -229,7 +230,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                   render={({ field }) => (
                     <FormItem className="flex flex-col pt-2">
                       <FormLabel>Data da Transação</FormLabel>
-                      <Popover>
+                      <Popover open={isDatePickerOpen} onOpenChange={setDatePickerOpen}>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button
@@ -252,7 +253,10 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                           <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={field.onChange}
+                            onSelect={(date) => {
+                                field.onChange(date)
+                                setDatePickerOpen(false)
+                            }}
                             initialFocus
                             locale={ptBR}
                           />
