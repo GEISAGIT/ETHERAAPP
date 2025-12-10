@@ -140,7 +140,7 @@ export function AddTransactionDialog() {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={setOpen} modal={false}>
         <DialogTrigger asChild>
           <Button>
             <PlusCircle className="mr-2 h-4 w-4" />

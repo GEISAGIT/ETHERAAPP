@@ -160,7 +160,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
   };
 
   return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle className="font-headline">Editar Transação</DialogTitle>
