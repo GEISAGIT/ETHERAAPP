@@ -1,45 +1,68 @@
 'use client';
 import { AppLayout } from '@/components/layout/app-layout';
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import type { Budget, Transaction } from '@/lib/types';
 import { useMemo } from 'react';
 
 export default function DashboardPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
 
-  const incomesQuery = useMemoFirebase(() => {
+  // Global collections
+  const globalIncomesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    const incomesRef = collection(firestore, 'incomes');
-    return query(incomesRef, orderBy('date', 'desc'), limit(50));
+    return query(collection(firestore, 'incomes'), orderBy('date', 'desc'), limit(50));
   }, [firestore]);
 
-  const expensesQuery = useMemoFirebase(() => {
+  const globalExpensesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    const expensesRef = collection(firestore, 'expenses');
-    return query(expensesRef, orderBy('date', 'desc'), limit(50));
+    return query(collection(firestore, 'expenses'), orderBy('date', 'desc'), limit(50));
   }, [firestore]);
+
+  // Legacy user-specific collections
+  const legacyIncomesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, `users/${user.uid}/incomes`), orderBy('date', 'desc'), limit(50));
+  }, [firestore, user]);
+
+  const legacyExpensesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, `users/${user.uid}/expenses`), orderBy('date', 'desc'), limit(50));
+  }, [firestore, user]);
   
   const budgetsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'budgets');
   }, [firestore]);
 
-  const { data: incomesData, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
-  const { data: expensesData, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(expensesQuery);
+  const { data: globalIncomesData, isLoading: globalIncomesLoading } = useCollection<Omit<Transaction, 'type'>>(globalIncomesQuery);
+  const { data: globalExpensesData, isLoading: globalExpensesLoading } = useCollection<Omit<Transaction, 'type'>>(globalExpensesQuery);
+  const { data: legacyIncomesData, isLoading: legacyIncomesLoading } = useCollection<Omit<Transaction, 'type'>>(legacyIncomesQuery);
+  const { data: legacyExpensesData, isLoading: legacyExpensesLoading } = useCollection<Omit<Transaction, 'type'>>(legacyExpensesQuery);
   const { data: budgets, isLoading: budgetsLoading } = useCollection<Budget>(budgetsQuery);
 
   const transactions = useMemo(() => {
-    const combined: Transaction[] = [
-        ...(incomesData?.map(item => ({ ...item, type: 'income' as const })) ?? []),
-        ...(expensesData?.map(item => ({ ...item, type: 'expense' as const })) ?? []),
+    const allIncomes = [
+      ...(globalIncomesData?.map(item => ({ ...item, type: 'income' as const })) ?? []),
+      ...(legacyIncomesData?.map(item => ({ ...item, type: 'income' as const })) ?? [])
     ];
-    // This sort might be redundant if Firestore query is reliable, but good for safety
-    return combined.sort((a, b) => b.date.toMillis() - a.date.toMillis());
-  }, [incomesData, expensesData]);
+    const allExpenses = [
+      ...(globalExpensesData?.map(item => ({ ...item, type: 'expense' as const })) ?? []),
+      ...(legacyExpensesData?.map(item => ({ ...item, type: 'expense' as const })) ?? [])
+    ];
+    
+    // Remove duplicates by ID, preferring global data over legacy if IDs match
+    const combinedMap = new Map<string, Transaction>();
+    [...allIncomes, ...allExpenses].forEach(t => combinedMap.set(t.id, t));
 
-  const isLoading = incomesLoading || expensesLoading || budgetsLoading;
+    const combined = Array.from(combinedMap.values());
+    
+    return combined.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+  }, [globalIncomesData, globalExpensesData, legacyIncomesData, legacyExpensesData]);
+
+  const isLoading = globalIncomesLoading || globalExpensesLoading || legacyIncomesLoading || legacyExpensesLoading || budgetsLoading;
 
   return (
     <AppLayout>
