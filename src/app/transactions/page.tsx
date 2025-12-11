@@ -11,7 +11,7 @@ export default function TransactionsPage() {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  // Global collections
+  // Global collections for new data
   const globalIncomesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'incomes'), orderBy('date', 'desc'));
@@ -22,7 +22,7 @@ export default function TransactionsPage() {
     return query(collection(firestore, 'expenses'), orderBy('date', 'desc'));
   }, [firestore]);
 
-  // Legacy user-specific collections
+  // Legacy user-specific collections for old data
   const legacyIncomesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, `users/${user.uid}/incomes`), orderBy('date', 'desc'));
@@ -54,7 +54,11 @@ export default function TransactionsPage() {
 
     const combined = Array.from(combinedMap.values());
 
-    return combined.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+    return combined.sort((a, b) => {
+        const dateA = a.date?.toMillis() ?? 0;
+        const dateB = b.date?.toMillis() ?? 0;
+        return dateB - dateA;
+    });
   }, [globalIncomesData, globalExpensesData, legacyIncomesData, legacyExpensesData]);
 
   const isLoading = globalIncomesLoading || globalExpensesLoading || legacyIncomesLoading || legacyExpensesLoading;

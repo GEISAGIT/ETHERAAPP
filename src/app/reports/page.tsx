@@ -10,7 +10,7 @@ export default function ReportsPage() {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  // Global collections
+  // Global collections for new data
   const globalIncomesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'incomes'), orderBy('date', 'desc'));
@@ -21,7 +21,7 @@ export default function ReportsPage() {
     return query(collection(firestore, 'expenses'), orderBy('date', 'desc'));
   }, [firestore]);
 
-  // Legacy user-specific collections
+  // Legacy user-specific collections for old data
   const legacyIncomesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, `users/${user.uid}/incomes`), orderBy('date', 'desc'));

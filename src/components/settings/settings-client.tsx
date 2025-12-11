@@ -144,35 +144,28 @@ export function SettingsClient({
 
   const [categoryType, setCategoryType] = useState<CategoryType>('income');
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
-
-  const userDocRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
-
-  const { data: userProfile, isLoading: isUserLoading } = useDoc<UserProfile>(userDocRef);
     
   useEffect(() => {
-    // Only admins can seed categories, and only if the collections are empty.
-    if (userProfile?.role === 'admin' && !areCategoriesLoading && firestore) {
+    // Any user can seed categories if they are missing.
+    if (!areCategoriesLoading && firestore) {
       if (incomeCategories.length === 0) {
-        console.log("Seeding income categories as admin...");
+        console.log("Seeding income categories...");
         const incomeCollection = collection(firestore, 'incomeCategories');
         defaultIncomeCategories.forEach(name => {
           addDocumentNonBlocking(incomeCollection, { name });
         });
       }
       if (expenseCategories.length === 0) {
-        console.log("Seeding expense categories as admin...");
+        console.log("Seeding expense categories...");
         const expenseCollection = collection(firestore, 'expenseCategories');
         defaultExpenseCategories.forEach(name => {
           addDocumentNonBlocking(expenseCollection, { name });
         });
       }
     }
-  }, [areCategoriesLoading, firestore, incomeCategories, expenseCategories, userProfile]);
+  }, [areCategoriesLoading, firestore, incomeCategories.length, expenseCategories.length]);
 
   const isLoading = areCategoriesLoading || isUserLoading;
 

@@ -72,6 +72,7 @@ service cloud.firestore {
        */
       match /incomes/{incomeId} {
         allow get, list: if isOwner(userId);
+        allow write: if false; // Make legacy data read-only
       }
 
       /**
@@ -80,6 +81,7 @@ service cloud.firestore {
        */
       match /expenses/{expenseId} {
         allow get, list: if isOwner(userId);
+        allow write: if false; // Make legacy data read-only
       }
     }
     
