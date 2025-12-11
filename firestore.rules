@@ -51,19 +51,25 @@ service cloud.firestore {
     }
     
     // ----------------------------------------------------------------------
-    // CollectionGroup Rules
+    // CollectionGroup Rules - These rules apply across all collections with the same name.
     // ----------------------------------------------------------------------
     
     /**
-     * @description Allow reading from all 'incomes' and 'expenses' collections across the database.
-     * This is necessary for the main transaction/dashboard views to show legacy and new data.
+     * Allows any signed-in user to read from any 'incomes' collection group,
+     * which covers both legacy and new data structures.
      */
     match /{path=**}/incomes/{incomeId} {
       allow get, list: if isSignedIn();
+      // Write rules are handled by more specific paths below.
     }
     
+    /**
+     * Allows any signed-in user to read from any 'expenses' collection group,
+     * which covers both legacy and new data structures.
+     */
     match /{path=**}/expenses/{expenseId} {
       allow get, list: if isSignedIn();
+      // Write rules are handled by more specific paths below.
     }
 
 
@@ -84,20 +90,20 @@ service cloud.firestore {
 
       /**
        * @description Legacy user-specific income records. Now manageable by owner or admin.
+       *              Reads are handled by the CollectionGroup rule above.
        * @path /users/{userId}/incomes/{incomeId}
        */
       match /incomes/{incomeId} {
-        // Read is handled by collectionGroup rule.
         allow create: if false; // No new legacy data
         allow update, delete: if isOwner(userId) || isAdmin();
       }
 
       /**
        * @description Legacy user-specific expense records. Now manageable by owner or admin.
+       *              Reads are handled by the CollectionGroup rule above.
        * @path /users/{userId}/expenses/{expenseId}
        */
       match /expenses/{expenseId} {
-        // Read is handled by collectionGroup rule.
         allow create: if false; // No new legacy data
         allow update, delete: if isOwner(userId) || isAdmin();
       }
@@ -114,10 +120,10 @@ service cloud.firestore {
 
     /**
      * @description Global income records. Writable by users for their own data or by admins.
+     *              Reads are handled by the CollectionGroup rule above.
      * @path /incomes/{incomeId}
      */
     match /incomes/{incomeId} {
-      // Read is handled by collectionGroup rule.
       allow create: if isSignedIn() && isCorrectUserOnCreate();
       allow update: if isSignedIn() && (isAdmin() || (isOriginalCreator() && isUserIdImmutable()));
       allow delete: if isSignedIn() && (isOriginalCreator() || isAdmin());
@@ -125,10 +131,10 @@ service cloud.firestore {
 
     /**
      * @description Global expense records. Writable by users for their own data or by admins.
+     *              Reads are handled by the CollectionGroup rule above.
      * @path /expenses/{expenseId}
      */
     match /expenses/{expenseId} {
-      // Read is handled by collectionGroup rule.
       allow create: if isSignedIn() && isCorrectUserOnCreate();
       allow update: if isSignedIn() && (isAdmin() || (isOriginalCreator() && isUserIdImmutable()));
       allow delete: if isSignedIn() && (isOriginalCreator() || isAdmin());
