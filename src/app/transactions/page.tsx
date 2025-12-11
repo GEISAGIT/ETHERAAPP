@@ -2,24 +2,23 @@
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { TransactionsClient } from '@/components/transactions/transactions-client';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Transaction } from '@/lib/types';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useMemo } from 'react';
 
 export default function TransactionsPage() {
   const firestore = useFirestore();
-  const { user } = useUser();
 
   const incomesQuery = useMemoFirebase(() => {
-    if (!user) return null;
-    return query(collection(firestore, 'users', user.uid, 'incomes'), orderBy('date', 'desc'));
-  }, [firestore, user]);
+    if (!firestore) return null;
+    return query(collection(firestore, 'incomes'), orderBy('date', 'desc'));
+  }, [firestore]);
 
   const expensesQuery = useMemoFirebase(() => {
-    if (!user) return null;
-    return query(collection(firestore, 'users', user.uid, 'expenses'), orderBy('date', 'desc'));
-  }, [firestore, user]);
+    if (!firestore) return null;
+    return query(collection(firestore, 'expenses'), orderBy('date', 'desc'));
+  }, [firestore]);
 
   const { data: incomes, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(
     incomesQuery

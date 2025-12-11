@@ -1,14 +1,4 @@
-/**
- * Core Philosophy: This ruleset enforces a strict user-ownership model, often referred to as a "data silo." All user-specific data, such as income, expenses, and file uploads, is stored in subcollections under that user's unique document. This ensures that a user can only ever access their own information. It also includes a role-based access control (RBAC) system managed through a top-level 'roles' collection.
- *
- * Data Structure: The entire data model is hierarchical, starting with the `/users/{userId}` collection. Each user document serves as the root for their private data. The `/roles/{roleId}` collection defines permissions for different user roles ('admin', 'user').
- *
- * Key Security Decisions:
- * - Strict Ownership: Most access is gated by checking if the authenticated user's UID matches the `{userId}` in the document path.
- * - Role-Based Permissions: The 'roles' collection is readable by any signed-in user, allowing the client-side to fetch permissions and adjust the UI accordingly. However, only administrators can modify these roles, ensuring centralized control over application-wide permissions.
- * - No User Listing for Non-Admins: Regular users cannot list the `/users` collection, enhancing privacy. Admins can list users for management purposes.
- * - Path-Based Security: Authorization is derived directly from the document path where possible, making rules fast and simple.
- */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -26,43 +16,37 @@ service cloud.firestore {
 
     /**
      * Checks if the authenticated user's UID matches the provided userId.
-     * This is the primary function for enforcing data ownership.
      */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
     
     /**
-     * Checks if the requesting user is an administrator by reading their role
-     * from their user document.
+     * Checks if the requesting user is an administrator.
      */
     function isAdmin() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-
     /**
-     * For update/delete operations, confirms the document exists and the
-     * user is the owner. Prevents modifying non-existent data.
+     * Validates that a newly created document has a 'userId' field matching the creator.
      */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+    function isCorrectUserOnCreate() {
+      return request.resource.data.userId == request.auth.uid;
     }
 
     /**
-     * On create, validates that the document's internal 'id' field matches
-     * the user's UID from the path, ensuring data consistency.
-     */
-    function hasCorrectIdOnCreate(userId) {
-      return request.resource.data.uid == userId;
-    }
-
-    /**
-     * On update, ensures a subcollection document's 'userId' field cannot be changed.
+     * Ensures a document's 'userId' field cannot be changed on update.
      */
     function isUserIdImmutable() {
-      // Allow updates for categories which may not have a userId
-      return !('userId' in resource.data) || request.resource.data.userId == resource.data.userId;
+      return request.resource.data.userId == resource.data.userId;
+    }
+
+    /**
+     * Checks if the user is the original creator of an existing document.
+     */
+    function isOriginalCreator() {
+      return request.auth.uid == resource.data.userId;
     }
 
     // ----------------------------------------------------------------------
@@ -70,22 +54,20 @@ service cloud.firestore {
     // ----------------------------------------------------------------------
 
     /**
-     * @description A user can manage their own profile document. Admins can manage any user profile.
+     * @description User profiles. A user can manage their own profile. Admins can manage any profile.
      * @path /users/{userId}
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(userId) && hasCorrectIdOnCreate(userId);
+      allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
     }
     
     /**
-     * @description The 'roles' collection defines permissions for different user roles.
+     * @description Role definitions. Readable by any signed-in user, writable only by admins.
      * @path /roles/{roleId}
-     * @allow Any signed-in user can read permissions to adjust the UI.
-     * @deny Only admins can create, update, or delete role permissions.
      */
     match /roles/{roleId} {
       allow get, list: if isSignedIn();
@@ -93,77 +75,52 @@ service cloud.firestore {
     }
 
     /**
-     * @description A user can manage their own income records.
-     * @path /users/{userId}/incomes/{incomeId}
+     * @description Global income records. Readable by all, writable by users for their own data.
+     * @path /incomes/{incomeId}
      */
-    match /users/{userId}/incomes/{incomeId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId) && isUserIdImmutable();
-      allow delete: if isExistingOwner(userId);
+    match /incomes/{incomeId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isCorrectUserOnCreate();
+      allow update: if isSignedIn() && isOriginalCreator() && isUserIdImmutable();
+      allow delete: if isSignedIn() && isOriginalCreator();
     }
 
     /**
-     * @description A user can manage their own expense records.
-     * @path /users/{userId}/expenses/{expenseId}
+     * @description Global expense records. Readable by all, writable by users for their own data.
+     * @path /expenses/{expenseId}
      */
-    match /users/{userId}/expenses/{expenseId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId) && isUserIdImmutable();
-      allow delete: if isExistingOwner(userId);
+    match /expenses/{expenseId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isCorrectUserOnCreate();
+      allow update: if isSignedIn() && isOriginalCreator() && isUserIdImmutable();
+      allow delete: if isSignedIn() && isOriginalCreator();
     }
 
     /**
-     * @description A user can manage their own budget records.
-     * @path /users/{userId}/budgets/{budgetId}
+     * @description Global budget records. Readable by all, writable by admins.
+     * @path /budgets/{budgetId}
      */
-    match /users/{userId}/budgets/{budgetId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId) && isUserIdImmutable();
-      allow delete: if isExistingOwner(userId);
+    match /budgets/{budgetId} {
+      allow get, list: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     /**
-     * @description A user can manage their own file upload metadata records.
-     * @path /users/{userId}/fileUploads/{fileUploadId}
+     * @description Global income categories. Readable by all, writable by admins.
+     * @path /incomeCategories/{categoryId}
      */
-    match /users/{userId}/fileUploads/{fileUploadId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId) && isUserIdImmutable();
-      allow delete: if isExistingOwner(userId);
+    match /incomeCategories/{categoryId} {
+      allow get, list: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     /**
-     * @description A user can manage their own income categories.
-     * @path /users/{userId}/incomeCategories/{categoryId}
+     * @description Global expense categories. Readable by all, writable by admins.
+     * @path /expenseCategories/{categoryId}
      */
-    match /users/{userId}/incomeCategories/{categoryId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description A user can manage their own expense categories.
-     * @path /users/{userId}/expenseCategories/{categoryId}
-     */
-    match /users/{userId}/expenseCategories/{categoryId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+    match /expenseCategories/{categoryId} {
+      allow get, list: if isSignedIn();
+      allow write: if isAdmin();
     }
   }
 }
-
-    

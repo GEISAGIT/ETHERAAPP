@@ -82,14 +82,14 @@ export function AddTransactionDialog() {
   });
 
   const incomeCategoriesQuery = useMemoFirebase(() => {
-    if (!user?.uid) return null;
-    return query(collection(firestore, 'users', user.uid, 'incomeCategories'));
-  }, [firestore, user?.uid]);
+    if (!firestore) return null;
+    return query(collection(firestore, 'incomeCategories'));
+  }, [firestore]);
 
   const expenseCategoriesQuery = useMemoFirebase(() => {
-    if (!user?.uid) return null;
-    return query(collection(firestore, 'users', user.uid, 'expenseCategories'));
-  }, [firestore, user?.uid]);
+    if (!firestore) return null;
+    return query(collection(firestore, 'expenseCategories'));
+  }, [firestore]);
 
   const { data: incomeCategories } = useCollection<IncomeCategory>(incomeCategoriesQuery);
   const { data: expenseCategories } = useCollection<ExpenseCategory>(expenseCategoriesQuery);
@@ -105,7 +105,7 @@ export function AddTransactionDialog() {
   }, [transactionType, incomeCategories, expenseCategories]);
   
   const onSubmit = (values: FormValues) => {
-    if (!user?.uid) {
+    if (!user) {
       toast({
         variant: 'destructive',
         title: 'Erro',
@@ -115,7 +115,7 @@ export function AddTransactionDialog() {
     }
     
     const collectionName = values.type === 'income' ? 'incomes' : 'expenses';
-    const transactionsCollection = collection(firestore, 'users', user.uid, collectionName);
+    const transactionsCollection = collection(firestore, collectionName);
 
     const transactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
@@ -123,6 +123,7 @@ export function AddTransactionDialog() {
       amount: values.amount,
       category: values.category,
       notes: values.notes,
+      userId: user.uid, // Add userId to track who created the transaction
     };
 
     if (values.type === 'expense' && values.costType) {
@@ -141,7 +142,7 @@ export function AddTransactionDialog() {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen} modal={false}>
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button>
             <PlusCircle className="mr-2 h-4 w-4" />

@@ -32,14 +32,14 @@ export function ImportTransactionsDialog() {
   const { user } = useUser();
 
   const incomeCategoriesQuery = useMemoFirebase(() => {
-    if (!user) return null;
-    return query(collection(firestore, 'users', user.uid, 'incomeCategories'));
-  }, [firestore, user]);
+    if (!firestore) return null;
+    return query(collection(firestore, 'incomeCategories'));
+  }, [firestore]);
 
   const expenseCategoriesQuery = useMemoFirebase(() => {
-    if (!user) return null;
-    return query(collection(firestore, 'users', user.uid, 'expenseCategories'));
-  }, [firestore, user]);
+    if (!firestore) return null;
+    return query(collection(firestore, 'expenseCategories'));
+  }, [firestore]);
 
   const { data: incomeCategories } = useCollection<IncomeCategory>(incomeCategoriesQuery);
   const { data: expenseCategories } = useCollection<ExpenseCategory>(expenseCategoriesQuery);
@@ -116,6 +116,7 @@ export function ImportTransactionsDialog() {
               description: row.description,
               amount: amount,
               category: row.category,
+              userId: user.uid,
             };
             
             if(type === 'expense' && row.costType && ['fixed', 'variable'].includes(row.costType)) {
@@ -123,7 +124,7 @@ export function ImportTransactionsDialog() {
             }
 
             const collectionName = type === 'income' ? 'incomes' : 'expenses';
-            const transactionsCollection = collection(firestore, 'users', user.uid, collectionName);
+            const transactionsCollection = collection(firestore, collectionName);
             addDocumentNonBlocking(transactionsCollection, transactionData);
             successfulImports++;
 

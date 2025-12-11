@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { AddCategoryDialog } from './add-category-dialog';
 import { EditCategoryDialog } from './edit-category-dialog';
 import { DeleteCategoryAlert } from './delete-category-alert';
-import { useFirestore, useUser, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirestore, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { defaultExpenseCategories, defaultIncomeCategories } from '@/lib/data';
@@ -143,27 +143,26 @@ export function SettingsClient({
 
   const [categoryType, setCategoryType] = useState<CategoryType>('income');
   const firestore = useFirestore();
-  const { user } = useUser();
   const { toast } = useToast();
     
   useEffect(() => {
-    if (!isLoading && user && firestore) {
+    if (!isLoading && firestore) {
       if (incomeCategories.length === 0) {
         console.log("Seeding income categories...");
-        const incomeCollection = collection(firestore, 'users', user.uid, 'incomeCategories');
+        const incomeCollection = collection(firestore, 'incomeCategories');
         defaultIncomeCategories.forEach(name => {
           addDocumentNonBlocking(incomeCollection, { name });
         });
       }
       if (expenseCategories.length === 0) {
         console.log("Seeding expense categories...");
-        const expenseCollection = collection(firestore, 'users', user.uid, 'expenseCategories');
+        const expenseCollection = collection(firestore, 'expenseCategories');
         defaultExpenseCategories.forEach(name => {
           addDocumentNonBlocking(expenseCollection, { name });
         });
       }
     }
-  }, [isLoading, user, firestore, incomeCategories, expenseCategories]);
+  }, [isLoading, firestore, incomeCategories, expenseCategories]);
 
 
   if (isLoading) {
@@ -187,17 +186,17 @@ export function SettingsClient({
   };
 
   const handleAddCategory = (name: string) => {
-    if (!user) {
+    if (!firestore) {
       toast({
         variant: 'destructive',
-        title: 'Erro de autenticação',
-        description: 'Você precisa estar logado para adicionar uma categoria.'
+        title: 'Erro de inicialização',
+        description: 'O banco de dados não está pronto.'
       });
       return;
     }
 
     const collectionName = categoryType === 'income' ? 'incomeCategories' : 'expenseCategories';
-    const categoryCollection = collection(firestore, 'users', user.uid, collectionName);
+    const categoryCollection = collection(firestore, collectionName);
     
     addDocumentNonBlocking(categoryCollection, { name });
 
@@ -213,11 +212,11 @@ export function SettingsClient({
   };
 
   const handleEditCategory = (id: string, name: string) => {
-    if (!user || !selectedCategory) return;
+    if (!firestore || !selectedCategory) return;
     
     const type = incomeCategories.some(c => c.id === id) ? 'income' : 'expense';
     const collectionName = type === 'income' ? 'incomeCategories' : 'expenseCategories';
-    const docRef = doc(firestore, 'users', user.uid, collectionName, id);
+    const docRef = doc(firestore, collectionName, id);
 
     updateDocumentNonBlocking(docRef, { name });
     
@@ -233,11 +232,11 @@ export function SettingsClient({
   };
   
   const handleConfirmDelete = () => {
-    if (!user || !categoryToDelete) return;
+    if (!firestore || !categoryToDelete) return;
 
     const { id, type } = categoryToDelete;
     const collectionName = type === 'income' ? 'incomeCategories' : 'expenseCategories';
-    const docRef = doc(firestore, 'users', user.uid, collectionName, id);
+    const docRef = doc(firestore, collectionName, id);
     
     deleteDocumentNonBlocking(docRef);
 

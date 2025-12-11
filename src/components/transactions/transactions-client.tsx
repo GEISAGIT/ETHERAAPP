@@ -22,7 +22,6 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const firestore = useFirestore();
-  const { user } = useUser();
   const { toast } = useToast();
 
   // State for filters moved from DataTable to here
@@ -72,7 +71,7 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
   };
 
   const handleConfirmDelete = () => {
-    if (!user || !selectedTransaction) {
+    if (!firestore || !selectedTransaction) {
         toast({
             variant: 'destructive',
             title: 'Erro',
@@ -82,7 +81,7 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
     }
 
     const collectionName = selectedTransaction.type === 'income' ? 'incomes' : 'expenses';
-    const docRef = doc(firestore, 'users', user.uid, collectionName, selectedTransaction.id);
+    const docRef = doc(firestore, collectionName, selectedTransaction.id);
     
     deleteDocumentNonBlocking(docRef);
 
@@ -155,7 +154,7 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
                         <div>
                             {[...Array(10)].map((_, i) => (
                                 <div key={i} className="flex h-14 items-center px-4 border-b">
-                                    <Skeleton className="h-5 w-1/5" />
+                                    <Skeleton className="h-5 w-1/fiv" />
                                     <Skeleton className="h-5 w-2/5 ml-4" />
                                     <Skeleton className="h-5 w-1/5 ml-4" />
                                     <Skeleton className="h-5 w-1/5 ml-4" />

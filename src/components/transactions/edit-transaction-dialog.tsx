@@ -38,7 +38,7 @@ import { Calendar } from '../ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { updateDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { updateDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, Timestamp, query, doc } from 'firebase/firestore';
 import type { IncomeCategory, ExpenseCategory, Transaction } from '@/lib/types';
 
@@ -92,14 +92,14 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
   });
 
   const incomeCategoriesQuery = useMemoFirebase(() => {
-    if (!user?.uid) return null;
-    return query(collection(firestore, 'users', user.uid, 'incomeCategories'));
-  }, [firestore, user?.uid]);
+    if (!firestore) return null;
+    return query(collection(firestore, 'incomeCategories'));
+  }, [firestore]);
 
   const expenseCategoriesQuery = useMemoFirebase(() => {
-    if (!user?.uid) return null;
-    return query(collection(firestore, 'users', user.uid, 'expenseCategories'));
-  }, [firestore, user?.uid]);
+    if (!firestore) return null;
+    return query(collection(firestore, 'expenseCategories'));
+  }, [firestore]);
 
   const { data: incomeCategories } = useCollection<IncomeCategory>(incomeCategoriesQuery);
   const { data: expenseCategories } = useCollection<ExpenseCategory>(expenseCategoriesQuery);
@@ -116,7 +116,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
 
 
   const onSubmit = (values: FormValues) => {
-    if (!user?.uid || !transaction) {
+    if (!user || !transaction) {
       toast({
         variant: 'destructive',
         title: 'Erro',
@@ -125,33 +125,35 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
       return;
     }
     
-    const collectionName = values.type === 'income' ? 'incomes' : 'expenses';
-    const docRef = doc(firestore, 'users', user.uid, collectionName, transaction.id);
-
     const transactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
       description: values.description,
       amount: values.amount,
       category: values.category,
       notes: values.notes,
+      userId: user.uid,
     };
 
     if (values.type === 'expense' && values.costType) {
       transactionData.costType = values.costType;
     }
 
-    // Since we don't know if the type changed, we can't easily update. 
-    // For now, we assume the type doesn't change. A more robust solution would handle moving the document.
     if (values.type !== transaction.type) {
-        toast({
-            variant: 'destructive',
-            title: 'Erro',
-            description: 'A alteração do tipo de transação (receita/despesa) não é suportada na edição.',
-        });
-        return;
-    }
+        // Handle type change: delete from old collection, add to new one
+        const oldCollectionName = transaction.type === 'income' ? 'incomes' : 'expenses';
+        const oldDocRef = doc(firestore, oldCollectionName, transaction.id);
+        deleteDocumentNonBlocking(oldDocRef);
 
-    updateDocumentNonBlocking(docRef, transactionData);
+        const newCollectionName = values.type === 'income' ? 'incomes' : 'expenses';
+        const newCollectionRef = collection(firestore, newCollectionName);
+        addDocumentNonBlocking(newCollectionRef, transactionData);
+
+    } else {
+        // Type hasn't changed, just update the document
+        const collectionName = values.type === 'income' ? 'incomes' : 'expenses';
+        const docRef = doc(firestore, collectionName, transaction.id);
+        updateDocumentNonBlocking(docRef, transactionData);
+    }
     
     toast({
       title: 'Transação Atualizada',
@@ -161,7 +163,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
   };
 
   return (
-      <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle className="font-headline">Editar Transação</DialogTitle>
@@ -180,7 +182,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                     <Select onValueChange={(value) => {
                         field.onChange(value);
                         form.setValue('category', '');
-                    }} defaultValue={field.value} disabled>
+                    }} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione o tipo de transação" />

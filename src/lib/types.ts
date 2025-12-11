@@ -3,6 +3,7 @@ import { Timestamp } from 'firebase/firestore';
 
 export type IncomeTransaction = {
   id: string;
+  userId: string;
   date: Timestamp;
   description: string;
   amount: number;
@@ -13,6 +14,7 @@ export type IncomeTransaction = {
 
 export type ExpenseTransaction = {
   id: string;
+  userId: string;
   date: Timestamp;
   description: string;
   amount: number;
