@@ -126,21 +126,27 @@ service cloud.firestore {
     }
 
     /**
-     * @description Global income categories. Readable by all, writable by admins.
+     * @description Global income categories. Readable by all.
+     *              Creation allowed for any signed-in user (for seeding defaults).
+     *              Updates/deletes restricted to admins.
      * @path /incomeCategories/{categoryId}
      */
     match /incomeCategories/{categoryId} {
       allow get, list: if isSignedIn();
-      allow write: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
 
     /**
-     * @description Global expense categories. Readable by all, writable by admins.
+     * @description Global expense categories. Readable by all.
+     *              Creation allowed for any signed-in user (for seeding defaults).
+     *              Updates/deletes restricted to admins.
      * @path /expenseCategories/{categoryId}
      */
     match /expenseCategories/{categoryId} {
       allow get, list: if isSignedIn();
-      allow write: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
   }
 }
