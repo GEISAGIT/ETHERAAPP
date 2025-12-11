@@ -31,34 +31,31 @@ service cloud.firestore {
     }
 
     /**
-     * Validates that a newly created document has a 'userId' field matching the creator.
-     */
-    function isCorrectUserOnCreate() {
-      return request.resource.data.userId == request.auth.uid;
-    }
-
-    /**
      * Checks if the user is the original creator of an existing document.
+     * This is used for update/delete operations on existing resources.
      */
     function isOriginalCreator() {
       return request.auth.uid == resource.data.userId;
     }
-    
+
+
     // ----------------------------------------------------------------------
-    // CollectionGroup Rules - These rules apply across all collections with the same name.
+    // CollectionGroup & Generic Collection Rules
     // ----------------------------------------------------------------------
     
-    match /{path=**}/incomes/{incomeId} {
-      // Allow reading any income document if signed in. This covers both legacy and new structures.
+    /**
+     * @description Generic rule for all 'incomes' and 'expenses' collections,
+     *              whether they are at the root or nested under a user.
+     *              This rule handles all CUD operations based on ownership or admin role.
+     */
+    match /{path=**}/{collectionName}/{docId} 
+      where collectionName in ['incomes', 'expenses'] {
+      // READ: Anyone signed in can read any income or expense document.
+      // This supports collectionGroup queries across all data structures.
       allow get, list: if isSignedIn();
-      // Allow writing if user is the creator or an admin.
-      allow write: if isSignedIn() && (isOriginalCreator() || isAdmin());
-    }
-    
-    match /{path=**}/expenses/{expenseId} {
-      // Allow reading any expense document if signed in. This covers both legacy and new structures.
-      allow get, list: if isSignedIn();
-      // Allow writing if user is the creator or an admin.
+      
+      // WRITE (CREATE, UPDATE, DELETE): 
+      // Only the original creator or an admin can modify.
       allow write: if isSignedIn() && (isOriginalCreator() || isAdmin());
     }
 
