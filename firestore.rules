@@ -49,6 +49,23 @@ service cloud.firestore {
     function isOriginalCreator() {
       return request.auth.uid == resource.data.userId;
     }
+    
+    // ----------------------------------------------------------------------
+    // CollectionGroup Rules
+    // ----------------------------------------------------------------------
+    
+    /**
+     * @description Allow reading from all 'incomes' and 'expenses' collections across the database.
+     * This is necessary for the main transaction/dashboard views to show legacy and new data.
+     */
+    match /{path=**}/incomes/{incomeId} {
+      allow get, list: if isSignedIn();
+    }
+    
+    match /{path=**}/expenses/{expenseId} {
+      allow get, list: if isSignedIn();
+    }
+
 
     // ----------------------------------------------------------------------
     // Collection Rules
@@ -70,7 +87,7 @@ service cloud.firestore {
        * @path /users/{userId}/incomes/{incomeId}
        */
       match /incomes/{incomeId} {
-        allow get, list: if isOwner(userId) || isAdmin();
+        // Read is handled by collectionGroup rule.
         allow create: if false; // No new legacy data
         allow update, delete: if isOwner(userId) || isAdmin();
       }
@@ -80,7 +97,7 @@ service cloud.firestore {
        * @path /users/{userId}/expenses/{expenseId}
        */
       match /expenses/{expenseId} {
-        allow get, list: if isOwner(userId) || isAdmin();
+        // Read is handled by collectionGroup rule.
         allow create: if false; // No new legacy data
         allow update, delete: if isOwner(userId) || isAdmin();
       }
@@ -96,22 +113,22 @@ service cloud.firestore {
     }
 
     /**
-     * @description Global income records. Readable by all, writable by users for their own data or by admins.
+     * @description Global income records. Writable by users for their own data or by admins.
      * @path /incomes/{incomeId}
      */
     match /incomes/{incomeId} {
-      allow get, list: if isSignedIn();
+      // Read is handled by collectionGroup rule.
       allow create: if isSignedIn() && isCorrectUserOnCreate();
       allow update: if isSignedIn() && (isAdmin() || (isOriginalCreator() && isUserIdImmutable()));
       allow delete: if isSignedIn() && (isOriginalCreator() || isAdmin());
     }
 
     /**
-     * @description Global expense records. Readable by all, writable by users for their own data or by admins.
+     * @description Global expense records. Writable by users for their own data or by admins.
      * @path /expenses/{expenseId}
      */
     match /expenses/{expenseId} {
-      allow get, list: if isSignedIn();
+      // Read is handled by collectionGroup rule.
       allow create: if isSignedIn() && isCorrectUserOnCreate();
       allow update: if isSignedIn() && (isAdmin() || (isOriginalCreator() && isUserIdImmutable()));
       allow delete: if isSignedIn() && (isOriginalCreator() || isAdmin());
