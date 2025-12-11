@@ -22,10 +22,11 @@ service cloud.firestore {
     }
     
     /**
-     * Checks if the requesting user is an administrator.
+     * Checks if the requesting user is an administrator by looking at their user document.
      */
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
@@ -34,13 +35,6 @@ service cloud.firestore {
      */
     function isCorrectUserOnCreate() {
       return request.resource.data.userId == request.auth.uid;
-    }
-
-    /**
-     * Ensures a document's 'userId' field cannot be changed on update.
-     */
-    function isUserIdImmutable() {
-      return request.resource.data.userId == resource.data.userId;
     }
 
     /**
@@ -54,31 +48,27 @@ service cloud.firestore {
     // CollectionGroup Rules - These rules apply across all collections with the same name.
     // ----------------------------------------------------------------------
     
-    /**
-     * Allows any signed-in user to read from any 'incomes' collection group,
-     * which covers both legacy and new data structures.
-     */
     match /{path=**}/incomes/{incomeId} {
+      // Allow reading any income document if signed in. This covers both legacy and new structures.
       allow get, list: if isSignedIn();
-      // Write rules are handled by more specific paths below.
+      // Allow writing if user is the creator or an admin.
+      allow write: if isSignedIn() && (isOriginalCreator() || isAdmin());
     }
     
-    /**
-     * Allows any signed-in user to read from any 'expenses' collection group,
-     * which covers both legacy and new data structures.
-     */
     match /{path=**}/expenses/{expenseId} {
+      // Allow reading any expense document if signed in. This covers both legacy and new structures.
       allow get, list: if isSignedIn();
-      // Write rules are handled by more specific paths below.
+      // Allow writing if user is the creator or an admin.
+      allow write: if isSignedIn() && (isOriginalCreator() || isAdmin());
     }
 
 
     // ----------------------------------------------------------------------
-    // Collection Rules
+    // Specific Collection Rules
     // ----------------------------------------------------------------------
 
     /**
-     * @description User profiles and their legacy subcollections.
+     * @description User profiles.
      * @path /users/{userId}
      */
     match /users/{userId} {
@@ -86,27 +76,7 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isOwner(userId) || isAdmin();
-
-      /**
-       * @description Legacy user-specific income records. Now manageable by owner or admin.
-       *              Reads are handled by the CollectionGroup rule above.
-       * @path /users/{userId}/incomes/{incomeId}
-       */
-      match /incomes/{incomeId} {
-        allow create: if false; // No new legacy data
-        allow update, delete: if isOriginalCreator() || isAdmin();
-      }
-
-      /**
-       * @description Legacy user-specific expense records. Now manageable by owner or admin.
-       *              Reads are handled by the CollectionGroup rule above.
-       * @path /users/{userId}/expenses/{expenseId}
-       */
-      match /expenses/{expenseId} {
-        allow create: if false; // No new legacy data
-        allow update, delete: if isOriginalCreator() || isAdmin();
-      }
+      allow delete: if isAdmin(); // Only admins can delete user documents
     }
     
     /**
@@ -117,29 +87,7 @@ service cloud.firestore {
       allow get, list: if isSignedIn();
       allow write: if isAdmin();
     }
-
-    /**
-     * @description Global income records. Writable by users for their own data or by admins.
-     *              Reads are handled by the CollectionGroup rule above.
-     * @path /incomes/{incomeId}
-     */
-    match /incomes/{incomeId} {
-      allow create: if isSignedIn() && isCorrectUserOnCreate();
-      allow update: if isOriginalCreator() || isAdmin();
-      allow delete: if isOriginalCreator() || isAdmin();
-    }
-
-    /**
-     * @description Global expense records. Writable by users for their own data or by admins.
-     *              Reads are handled by the CollectionGroup rule above.
-     * @path /expenses/{expenseId}
-     */
-    match /expenses/{expenseId} {
-      allow create: if isSignedIn() && isCorrectUserOnCreate();
-      allow update: if isOriginalCreator() || isAdmin();
-      allow delete: if isOriginalCreator() || isAdmin();
-    }
-
+    
     /**
      * @description Global budget records. Readable by all, writable by admins.
      * @path /budgets/{budgetId}
@@ -150,27 +98,15 @@ service cloud.firestore {
     }
 
     /**
-     * @description Global income categories. Readable by all.
-     *              Creation allowed for any signed-in user (for seeding defaults).
-     *              Updates/deletes restricted to admins.
-     * @path /incomeCategories/{categoryId}
+     * @description Category definitions. Readable by all signed-in users.
+     *              Creation is open to seed defaults, but updates/deletes are admin-only.
+     * @path /incomeCategories/{categoryId}, /expenseCategories/{categoryId}
      */
-    match /incomeCategories/{categoryId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
-    }
-
-    /**
-     * @description Global expense categories. Readable by all.
-     *              Creation allowed for any signed-in user (for seeding defaults).
-     *              Updates/deletes restricted to admins.
-     * @path /expenseCategories/{categoryId}
-     */
-    match /expenseCategories/{categoryId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
+    match /{collectionName}/{categoryId}
+      where collectionName in ['incomeCategories', 'expenseCategories'] {
+        allow get, list: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update, delete: if isAdmin();
     }
   }
 }
