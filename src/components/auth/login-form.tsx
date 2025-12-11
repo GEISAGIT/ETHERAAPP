@@ -23,34 +23,43 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
 
-  const createUserDocument = (user: User) => {
+  const handleUserDocument = async (user: User) => {
     if (!firestore) return;
     const userDocRef = doc(firestore, 'users', user.uid);
     
     // Define o role do usuário
     const userRole = user.email === 'grupodallax@gmail.com' ? 'admin' : 'user';
 
-    const userData = {
-      uid: user.uid,
-      displayName: user.displayName,
-      email: user.email,
-      photoURL: user.photoURL,
-      createdAt: serverTimestamp(),
-      role: userRole, // This role is for the UI/database, not security rules.
-    };
-    
-    getDoc(userDocRef).then(userDocSnap => {
+    try {
+        const userDocSnap = await getDoc(userDocRef);
+        
+        const userData = {
+          uid: user.uid,
+          displayName: user.displayName,
+          email: user.email,
+          photoURL: user.photoURL,
+          role: userRole,
+        };
+
         if (!userDocSnap.exists()) {
-            setDocumentNonBlocking(userDocRef, userData, { merge: false });
+            setDocumentNonBlocking(userDocRef, { ...userData, createdAt: serverTimestamp() }, { merge: false });
         } else {
-             // If user exists, just ensure their role is up-to-date in Firestore.
+            // Se o usuário já existe, apenas atualiza o `role` para garantir que esteja correto.
             updateDocumentNonBlocking(userDocRef, { role: userRole });
         }
-    });
 
-     // CRITICAL: Refresh the token to get the custom claims on the client.
-     // This ensures the isAdmin() check in security rules works correctly after login.
-    user.getIdToken(true);
+        // CRÍTICO: Força a atualização do token de ID para obter as custom claims mais recentes no cliente.
+        // Isso garante que isAdmin() nas regras de segurança funcione corretamente após o login.
+        await user.getIdToken(true);
+
+    } catch (error) {
+        console.error("Erro ao gerenciar documento do usuário:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro de Banco de Dados",
+            description: "Não foi possível criar ou atualizar as informações do usuário.",
+        });
+    }
   };
 
   const handleAuthAction = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -69,7 +78,7 @@ export function LoginForm() {
       if (isSignUp) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
-        createUserDocument(userCredential.user);
+        await handleUserDocument(userCredential.user);
         await sendEmailVerification(userCredential.user);
         
         toast({
@@ -79,7 +88,7 @@ export function LoginForm() {
         setIsSignUp(false);
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        createUserDocument(userCredential.user); // This also refreshes the token
+        await handleUserDocument(userCredential.user);
         router.push('/dashboard');
       }
     } catch (error: any) {
