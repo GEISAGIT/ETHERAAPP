@@ -1,27 +1,28 @@
 'use client';
 import { AppLayout } from '@/components/layout/app-layout';
 import { SettingsClient } from '@/components/settings/settings-client';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
 
 export default function SettingsPage() {
   const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
 
   const incomeCategoriesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null; // Wait for user
     return query(collection(firestore, 'incomeCategories'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const expenseCategoriesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null; // Wait for user
     return query(collection(firestore, 'expenseCategories'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: incomeCategories, isLoading: incomeLoading } = useCollection<IncomeCategory>(incomeCategoriesQuery);
   const { data: expenseCategories, isLoading: expenseLoading } = useCollection<ExpenseCategory>(expenseCategoriesQuery);
   
-  const isLoading = incomeLoading || expenseLoading;
+  const isLoading = isUserLoading || incomeLoading || expenseLoading;
 
   return (
     <AppLayout>
