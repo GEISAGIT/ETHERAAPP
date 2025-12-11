@@ -2,7 +2,7 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useCollectionGroup } from '@/firebase';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
+import { collection, query, orderBy, limit, collectionGroup } from 'firebase/firestore';
 import type { Budget, Transaction } from '@/lib/types';
 import { useMemo } from 'react';
 
@@ -15,11 +15,22 @@ export default function DashboardPage() {
     return collection(firestore, 'budgets');
   }, [firestore, user]);
 
-  const { data: incomes, isLoading: incomesLoading } = useCollectionGroup<Omit<Transaction, 'type'>>('incomes');
-  const { data: expenses, isLoading: expensesLoading } = useCollectionGroup<Omit<Transaction, 'type'>>('expenses');
+  const incomesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collectionGroup(firestore, 'incomes');
+  }, [firestore, user]);
+
+  const expensesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collectionGroup(firestore, 'expenses');
+  }, [firestore, user]);
+
+  const { data: incomes, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
+  const { data: expenses, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(expensesQuery);
   const { data: budgets, isLoading: budgetsLoading } = useCollection<Budget>(budgetsQuery);
 
   const transactions = useMemo(() => {
+    if (!user) return [];
     const allIncomes = incomes?.map(item => ({ ...item, type: 'income' as const })) ?? [];
     const allExpenses = expenses?.map(item => ({ ...item, type: 'expense' as const })) ?? [];
     
@@ -30,7 +41,7 @@ export default function DashboardPage() {
         const dateB = b.date?.toMillis() ?? 0;
         return dateB - dateA;
     }).slice(0, 50); // Apply limit after sorting
-  }, [incomes, expenses]);
+  }, [incomes, expenses, user]);
 
   const isLoading = incomesLoading || expensesLoading || budgetsLoading;
 
