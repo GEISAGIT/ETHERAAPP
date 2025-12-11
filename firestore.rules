@@ -22,12 +22,11 @@ service cloud.firestore {
     }
     
     /**
-     * Checks if the requesting user is an administrator by looking at their user document.
+     * Checks if the user is an administrator by verifying custom claims on their token.
+     * This is the recommended and most secure way to handle roles.
      */
     function isAdmin() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isSignedIn() && request.auth.token.role == 'admin';
     }
 
     /**
@@ -35,27 +34,30 @@ service cloud.firestore {
      * This is used for update/delete operations on existing resources.
      */
     function isOriginalCreator() {
-      return request.auth.uid == resource.data.userId;
+      return isSignedIn() && request.auth.uid == resource.data.userId;
     }
 
 
     // ----------------------------------------------------------------------
-    // CollectionGroup & Generic Collection Rules
+    // Generic Collection Rules for Incomes and Expenses
     // ----------------------------------------------------------------------
     
     /**
      * @description Generic rule for all 'incomes' and 'expenses' collections,
-     *              whether they are at the root or nested under a user.
-     *              This rule handles all CUD operations based on ownership or admin role.
+     *              whether they are at the root or nested. This single rule
+     *              governs CUD operations based on ownership or admin role,
+     *              and read operations for any signed-in user.
      */
     match /{path=**}/{collectionName}/{docId} 
       where collectionName in ['incomes', 'expenses'] {
-      // READ: Anyone signed in can read any income or expense document.
-      // This supports collectionGroup queries across all data structures.
+      
+      // READ: Any signed-in user can read any income or expense document.
+      // This supports collectionGroup queries for unified data views.
       allow get, list: if isSignedIn();
       
       // WRITE (CREATE, UPDATE, DELETE): 
-      // Only the original creator or an admin can modify.
+      // Only the original creator or an admin can modify the document.
+      // The 'write' rule covers create, update, and delete operations.
       allow write: if isSignedIn() && (isOriginalCreator() || isAdmin());
     }
 
