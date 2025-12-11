@@ -1,18 +1,19 @@
 'use client';
 import { AppLayout } from '@/components/layout/app-layout';
 import { BudgetsClient } from '@/components/budgets/budgets-client';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import type { Budget } from '@/lib/types';
 
 
 export default function BudgetsPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const budgetsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'budgets'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data, isLoading } = useCollection<Budget>(budgetsQuery);
 

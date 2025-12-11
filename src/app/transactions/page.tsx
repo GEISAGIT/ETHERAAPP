@@ -13,14 +13,14 @@ export default function TransactionsPage() {
 
   // Global collections for new data
   const globalIncomesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'incomes'), orderBy('date', 'desc'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const globalExpensesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'expenses'), orderBy('date', 'desc'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   // Legacy user-specific collections for old data
   const legacyIncomesQuery = useMemoFirebase(() => {

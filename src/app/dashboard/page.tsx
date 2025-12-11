@@ -12,14 +12,14 @@ export default function DashboardPage() {
 
   // Global collections for new data
   const globalIncomesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'incomes'), orderBy('date', 'desc'), limit(50));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const globalExpensesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'expenses'), orderBy('date', 'desc'), limit(50));
-  }, [firestore]);
+  }, [firestore, user]);
 
   // Legacy user-specific collections for old data
   const legacyIncomesQuery = useMemoFirebase(() => {
@@ -33,9 +33,9 @@ export default function DashboardPage() {
   }, [firestore, user]);
   
   const budgetsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return collection(firestore, 'budgets');
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: globalIncomesData, isLoading: globalIncomesLoading } = useCollection<Omit<Transaction, 'type'>>(globalIncomesQuery);
   const { data: globalExpensesData, isLoading: globalExpensesLoading } = useCollection<Omit<Transaction, 'type'>>(globalExpensesQuery);
