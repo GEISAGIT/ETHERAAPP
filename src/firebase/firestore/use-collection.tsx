@@ -8,9 +8,11 @@ import {
   FirestoreError,
   QuerySnapshot,
   CollectionReference,
+  collectionGroup,
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useFirestore } from '@/firebase/provider';
 
 /** Utility type to add an 'id' field to a given type T. */
 export type WithId<T> = T & { id: string };
@@ -107,8 +109,51 @@ export function useCollection<T = any>(
 
     return () => unsubscribe();
   }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
-  if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
+  
+  if (memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
+    if (memoizedTargetRefOrQuery instanceof CollectionReference) {
+        // This is a special case for collectionGroup queries, which are not memoized with useMemoFirebase, but with useMemo
+    } else {
+        throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
+    }
   }
+
+  return { data, isLoading, error };
+}
+
+
+export function useCollectionGroup<T = any>(
+  collectionId: string
+): UseCollectionResult<T> {
+  const firestore = useFirestore();
+  const [data, setData] = useState<WithId<T>[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!firestore) return;
+    const queryRef = collectionGroup(firestore, collectionId);
+    
+    const unsubscribe = onSnapshot(
+      queryRef,
+      (snapshot) => {
+        const results = snapshot.docs.map(doc => ({ ...doc.data() as T, id: doc.id }));
+        setData(results);
+        setIsLoading(false);
+      },
+      (err) => {
+        const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path: `(collectionGroup: ${collectionId})`
+        });
+        setError(contextualError);
+        setIsLoading(false);
+        errorEmitter.emit('permission-error', contextualError);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [firestore, collectionId]);
+
   return { data, isLoading, error };
 }

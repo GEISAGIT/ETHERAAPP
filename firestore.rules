@@ -71,8 +71,8 @@ service cloud.firestore {
        */
       match /incomes/{incomeId} {
         allow get, list: if isOwner(userId) || isAdmin();
-        allow update, delete: if isOwner(userId) || isAdmin();
         allow create: if false; // No new legacy data
+        allow update, delete: if isOwner(userId) || isAdmin();
       }
 
       /**
@@ -81,8 +81,8 @@ service cloud.firestore {
        */
       match /expenses/{expenseId} {
         allow get, list: if isOwner(userId) || isAdmin();
-        allow update, delete: if isOwner(userId) || isAdmin();
         allow create: if false; // No new legacy data
+        allow update, delete: if isOwner(userId) || isAdmin();
       }
     }
     
@@ -102,7 +102,7 @@ service cloud.firestore {
     match /incomes/{incomeId} {
       allow get, list: if isSignedIn();
       allow create: if isSignedIn() && isCorrectUserOnCreate();
-      allow update: if isSignedIn() && (isOriginalCreator() || isAdmin()) && (isAdmin() || isUserIdImmutable());
+      allow update: if isSignedIn() && (isAdmin() || (isOriginalCreator() && isUserIdImmutable()));
       allow delete: if isSignedIn() && (isOriginalCreator() || isAdmin());
     }
 
@@ -113,7 +113,7 @@ service cloud.firestore {
     match /expenses/{expenseId} {
       allow get, list: if isSignedIn();
       allow create: if isSignedIn() && isCorrectUserOnCreate();
-      allow update: if isSignedIn() && (isOriginalCreator() || isAdmin()) && (isAdmin() || isUserIdImmutable());
+      allow update: if isSignedIn() && (isAdmin() || (isOriginalCreator() && isUserIdImmutable()));
       allow delete: if isSignedIn() && (isOriginalCreator() || isAdmin());
     }
 
