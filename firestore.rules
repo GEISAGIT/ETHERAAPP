@@ -54,7 +54,7 @@ service cloud.firestore {
     // ----------------------------------------------------------------------
 
     /**
-     * @description User profiles. A user can manage their own profile. Admins can manage any profile.
+     * @description User profiles and their legacy subcollections.
      * @path /users/{userId}
      */
     match /users/{userId} {
@@ -63,6 +63,22 @@ service cloud.firestore {
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
+
+      /**
+       * @description Legacy user-specific income records. Read-only for data migration.
+       * @path /users/{userId}/incomes/{incomeId}
+       */
+      match /incomes/{incomeId} {
+        allow get, list: if isOwner(userId);
+      }
+
+      /**
+       * @description Legacy user-specific expense records. Read-only for data migration.
+       * @path /users/{userId}/expenses/{expenseId}
+       */
+      match /expenses/{expenseId} {
+        allow get, list: if isOwner(userId);
+      }
     }
     
     /**
