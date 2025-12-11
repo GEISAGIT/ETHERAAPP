@@ -100,8 +100,8 @@ service cloud.firestore {
     match /incomes/{incomeId} {
       allow get, list: if isSignedIn();
       allow create: if isSignedIn() && isCorrectUserOnCreate();
-      allow update: if isSignedIn() && isOriginalCreator() && isUserIdImmutable();
-      allow delete: if isSignedIn() && isOriginalCreator();
+      allow update: if isSignedIn() && (isOriginalCreator() || isAdmin()) && isUserIdImmutable();
+      allow delete: if isSignedIn() && (isOriginalCreator() || isAdmin());
     }
 
     /**
@@ -111,8 +111,8 @@ service cloud.firestore {
     match /expenses/{expenseId} {
       allow get, list: if isSignedIn();
       allow create: if isSignedIn() && isCorrectUserOnCreate();
-      allow update: if isSignedIn() && isOriginalCreator() && isUserIdImmutable();
-      allow delete: if isSignedIn() && isOriginalCreator();
+      allow update: if isSignedIn() && (isOriginalCreator() || isAdmin()) && isUserIdImmutable();
+      allow delete: if isSignedIn() && (isOriginalCreator() || isAdmin());
     }
 
     /**
