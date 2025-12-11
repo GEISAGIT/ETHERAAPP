@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { useAuth, useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { useAuth, useFirestore, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile, type User } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -36,7 +36,7 @@ export function LoginForm() {
       email: user.email,
       photoURL: user.photoURL,
       createdAt: serverTimestamp(),
-      role: userRole,
+      role: userRole, // This role is for the UI/database, not security rules.
     };
     
     getDoc(userDocRef).then(userDocSnap => {
@@ -48,7 +48,8 @@ export function LoginForm() {
         }
     });
 
-     // IMPORTANT: Refresh the token to get the custom claim on the client.
+     // CRITICAL: Refresh the token to get the custom claims on the client.
+     // This ensures the isAdmin() check in security rules works correctly after login.
     user.getIdToken(true);
   };
 
@@ -78,7 +79,7 @@ export function LoginForm() {
         setIsSignUp(false);
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        createUserDocument(userCredential.user);
+        createUserDocument(userCredential.user); // This also refreshes the token
         router.push('/dashboard');
       }
     } catch (error: any) {
