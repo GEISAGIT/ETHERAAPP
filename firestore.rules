@@ -66,21 +66,23 @@ service cloud.firestore {
       allow delete: if isOwner(userId) || isAdmin();
 
       /**
-       * @description Legacy user-specific income records. Read-only for data migration.
+       * @description Legacy user-specific income records. Now manageable by owner or admin.
        * @path /users/{userId}/incomes/{incomeId}
        */
       match /incomes/{incomeId} {
-        allow get, list: if isOwner(userId);
-        allow write: if false; // Make legacy data read-only
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow update, delete: if isOwner(userId) || isAdmin();
+        allow create: if false; // No new legacy data
       }
 
       /**
-       * @description Legacy user-specific expense records. Read-only for data migration.
+       * @description Legacy user-specific expense records. Now manageable by owner or admin.
        * @path /users/{userId}/expenses/{expenseId}
        */
       match /expenses/{expenseId} {
-        allow get, list: if isOwner(userId);
-        allow write: if false; // Make legacy data read-only
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow update, delete: if isOwner(userId) || isAdmin();
+        allow create: if false; // No new legacy data
       }
     }
     
@@ -94,7 +96,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Global income records. Readable by all, writable by users for their own data.
+     * @description Global income records. Readable by all, writable by users for their own data or by admins.
      * @path /incomes/{incomeId}
      */
     match /incomes/{incomeId} {
@@ -105,7 +107,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Global expense records. Readable by all, writable by users for their own data.
+     * @description Global expense records. Readable by all, writable by users for their own data or by admins.
      * @path /expenses/{expenseId}
      */
     match /expenses/{expenseId} {
