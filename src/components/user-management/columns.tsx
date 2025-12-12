@@ -1,10 +1,10 @@
 
 'use client';
 
-import type { UserManagement } from '@/lib/types';
+import type { UserManagement, UserStatus } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Timestamp } from 'firebase/firestore';
-import { MoreHorizontal, ShieldCheck, UserCheck, Edit } from 'lucide-react';
+import { MoreHorizontal, ShieldCheck, UserCheck, Edit, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 
 const formatDate = (timestamp: Timestamp) => {
@@ -40,11 +41,19 @@ const getInitials = (name: string | null | undefined) => {
     return name.substring(0, 2).toUpperCase();
 };
 
-interface ColumnsProps {
-    onRoleChange: (uid: string, role: 'admin' | 'user') => void;
+const statusConfig: Record<UserStatus, { text: string; variant: "default" | "secondary" | "destructive", icon: React.ElementType }> = {
+    active: { text: "Ativo", variant: "default", icon: CheckCircle },
+    pending: { text: "Pendente", variant: "secondary", icon: Clock },
+    rejected: { text: "Rejeitado", variant: "destructive", icon: XCircle }
 }
 
-export const columns = ({ onRoleChange }: ColumnsProps) => {
+interface ColumnsProps {
+    onRoleChange: (uid: string, role: 'admin' | 'user') => void;
+    onStatusChange: (uid: string, status: UserStatus) => void;
+    currentUserId: string | undefined;
+}
+
+export const columns = ({ onRoleChange, onStatusChange, currentUserId }: ColumnsProps) => {
     const router = useRouter();
     
     const handleManageAccess = (uid: string) => {
@@ -76,10 +85,22 @@ export const columns = ({ onRoleChange }: ColumnsProps) => {
           const role = row.original.role || 'user';
           const variant = role === 'admin' ? 'default' : 'secondary';
           const text = role === 'admin' ? 'Administrador' : 'Usuário';
-          return <Badge variant={variant}>{text}</Badge>
+          return <Badge variant={variant} className={cn(role === 'admin' && 'bg-blue-500/80')}>{text}</Badge>
         },
         filterFn: (row: any, id: any, value: any) => {
           return value.includes(row.getValue(id))
+        },
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }: { row: { original: UserManagement } }) => {
+            const status = row.original.status || 'pending';
+            const config = statusConfig[status];
+            return <Badge variant={config.variant} className={cn(status === 'active' && 'bg-emerald-600')}>{config.text}</Badge>
+        },
+        filterFn: (row: any, id: any, value: any) => {
+            return value.includes(row.getValue(id))
         },
       },
       {
@@ -93,6 +114,12 @@ export const columns = ({ onRoleChange }: ColumnsProps) => {
         id: 'actions',
         cell: ({ row }: { row: { original: UserManagement } }) => {
           const user = row.original;
+          const isCurrentUser = user.uid === currentUserId;
+
+          if (isCurrentUser) {
+              return <Badge variant="outline">Você</Badge>
+          }
+
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -103,6 +130,19 @@ export const columns = ({ onRoleChange }: ColumnsProps) => {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                {user.status === 'pending' && (
+                    <>
+                        <DropdownMenuItem onClick={() => onStatusChange(user.uid, 'active')} className="text-green-600 focus:text-green-600">
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Aprovar Usuário
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onStatusChange(user.uid, 'rejected')} className="text-red-600 focus:text-red-600">
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Rejeitar Usuário
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                    </>
+                )}
                 <DropdownMenuItem onClick={() => handleManageAccess(user.uid)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Gerenciar Acessos

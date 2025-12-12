@@ -59,11 +59,14 @@ export type Permissions = {
   userManagement: boolean;
 };
 
+export type UserStatus = 'pending' | 'active' | 'rejected';
+
 export type UserProfile = {
     uid: string;
     displayName: string;
     email: string;
     role: 'admin' | 'user';
+    status: UserStatus;
     createdAt: Timestamp;
     permissions: Permissions;
 }

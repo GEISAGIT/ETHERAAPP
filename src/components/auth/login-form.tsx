@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auth = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -22,8 +23,16 @@ export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
 
-  const handleUserDocument = async (user: User) => {
+  useEffect(() => {
+    const message = searchParams.get('message');
+    if (message) {
+      setAuthMessage(message);
+    }
+  }, [searchParams]);
+
+  const handleUserDocument = async (user: User, isNewUser: boolean = false) => {
     if (!firestore) return;
     const userDocRef = doc(firestore, 'users', user.uid);
     
@@ -33,17 +42,20 @@ export function LoginForm() {
     try {
         const userDocSnap = await getDoc(userDocRef);
         
-        if (!userDocSnap.exists()) {
+        if (!userDocSnap.exists() && isNewUser) {
+            // Admin user is active by default, others are pending
+            const initialStatus = userRole === 'admin' ? 'active' : 'pending';
             await setDoc(userDocRef, {
                 uid: user.uid,
                 displayName: user.displayName,
                 email: user.email,
                 photoURL: user.photoURL,
                 role: userRole,
+                status: initialStatus,
                 createdAt: serverTimestamp()
             }, { merge: false });
-        } else {
-            // Se o usuário já existe, apenas atualiza o `role` para garantir que esteja correto.
+        } else if (userDocSnap.exists()) {
+            // If user exists, ensure role is correct, but don't change status.
             await setDoc(userDocRef, { role: userRole }, { merge: true });
         }
 
@@ -63,6 +75,7 @@ export function LoginForm() {
 
   const handleAuthAction = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setAuthMessage(null); // Clear previous messages
     if (!auth || !email || !password || (isSignUp && !name)) {
       toast({
         variant: "destructive",
@@ -77,18 +90,17 @@ export function LoginForm() {
       if (isSignUp) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
-        await handleUserDocument(userCredential.user);
-        await sendEmailVerification(userCredential.user);
+        await handleUserDocument(userCredential.user, true); // `true` indicates it's a new user
         
         toast({
           title: "Cadastro realizado com sucesso!",
-          description: "Um email de verificação foi enviado. Sua conta foi criada e você já pode fazer login.",
+          description: "Sua conta foi criada e está pendente de aprovação pelo administrador.",
         });
-        setIsSignUp(false);
+        setIsSignUp(false); // Switch to login view
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         await handleUserDocument(userCredential.user);
-        router.push('/dashboard');
+        router.push('/'); // Redirect to home, which will handle routing based on status
       }
     } catch (error: any) {
       let message = "Ocorreu um erro. Tente novamente.";
@@ -147,9 +159,13 @@ export function LoginForm() {
         <CardTitle className="font-headline text-2xl">
           {isSignUp ? 'Crie sua conta' : 'Acesse sua conta'}
         </CardTitle>
-        <CardDescription>
-          {isSignUp ? 'Preencha os campos para se cadastrar.' : 'Bem-vindo de volta!'}
-        </CardDescription>
+        {authMessage ? (
+          <CardDescription className="text-primary font-medium">{authMessage}</CardDescription>
+        ) : (
+          <CardDescription>
+            {isSignUp ? 'Preencha os campos para se cadastrar.' : 'Bem-vindo de volta!'}
+          </CardDescription>
+        )}
       </CardHeader>
       <form onSubmit={handleAuthAction}>
         <CardContent className="space-y-4">
