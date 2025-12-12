@@ -243,11 +243,14 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
         setSelectedExpenseCategory('');
     }
 
-    const handleExpenseSelection = (option: { group: string; category: string; subCategory: string; }) => {
-        form.setValue("description", option.subCategory, { shouldValidate: true });
-        setSelectedGroup(option.group);
-        setSelectedExpenseCategory(option.category);
-        setComboboxOpen(false);
+    const handleExpenseSelection = (label: string) => {
+      const selectedOption = expenseSearchOptions.find(opt => opt.label === label);
+      if (selectedOption) {
+          form.setValue("description", selectedOption.subCategory, { shouldValidate: true });
+          setSelectedGroup(selectedOption.group);
+          setSelectedExpenseCategory(selectedOption.category);
+      }
+      setComboboxOpen(false);
     };
 
   return (
@@ -418,7 +421,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                                     <CommandItem
                                       key={option.value}
                                       value={option.label}
-                                      onSelect={() => handleExpenseSelection(option)}
+                                      onSelect={handleExpenseSelection}
                                     >
                                       <Check
                                         className={cn(

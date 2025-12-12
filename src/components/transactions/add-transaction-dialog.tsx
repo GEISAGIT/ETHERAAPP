@@ -95,16 +95,18 @@ export function AddTransactionDialog() {
   });
   
   useEffect(() => {
-    form.reset({
-      date: new Date(),
-      description: '',
-      amount: 0,
-      type: 'expense',
-      category: '',
-      notes: '',
-    });
-    setSelectedGroup('');
-    setSelectedExpenseCategory('');
+    if (!open) {
+        form.reset({
+          date: new Date(),
+          description: '',
+          amount: 0,
+          type: 'expense',
+          category: '',
+          notes: '',
+        });
+        setSelectedGroup('');
+        setSelectedExpenseCategory('');
+    }
   }, [open, form]);
 
   // --- Data Fetching ---
@@ -214,10 +216,13 @@ export function AddTransactionDialog() {
     setSelectedExpenseCategory('');
   }
 
-  const handleExpenseSelection = (option: { group: string; category: string; subCategory: string; }) => {
-    form.setValue("description", option.subCategory, { shouldValidate: true });
-    setSelectedGroup(option.group);
-    setSelectedExpenseCategory(option.category);
+  const handleExpenseSelection = (label: string) => {
+    const selectedOption = expenseSearchOptions.find(opt => opt.label === label);
+    if (selectedOption) {
+        form.setValue("description", selectedOption.subCategory, { shouldValidate: true });
+        setSelectedGroup(selectedOption.group);
+        setSelectedExpenseCategory(selectedOption.category);
+    }
     setComboboxOpen(false);
   };
 
@@ -397,7 +402,7 @@ export function AddTransactionDialog() {
                                     <CommandItem
                                       key={option.value}
                                       value={option.label}
-                                      onSelect={() => handleExpenseSelection(option)}
+                                      onSelect={handleExpenseSelection}
                                     >
                                       <Check
                                         className={cn(
