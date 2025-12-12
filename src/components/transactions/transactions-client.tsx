@@ -122,8 +122,8 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
     }
 
     toast({
-        title: 'Exclusão Solicitada',
-        description: 'A transação foi marcada para exclusão.',
+        title: 'Transação Excluída',
+        description: 'A transação foi removida com sucesso.',
     });
     
     setIsDeleteAlertOpen(false);
