@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,6 @@ import { defaultPermissions } from '@/lib/data';
 
 export function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const auth = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -35,6 +34,8 @@ export function LoginForm() {
       const docSnap = await getDoc(userDocRef);
 
       if (!docSnap.exists()) {
+        // If the user document doesn't exist, create it.
+        // This handles signup and first-time login for the admin on a clean DB.
         const initialStatus = isAdmin ? 'active' : 'pending';
         const initialRole = isAdmin ? 'admin' : 'user';
 
@@ -64,7 +65,8 @@ export function LoginForm() {
         }
         return newUserProfile;
       } else {
-        await user.getIdToken(true);
+        // If the document exists, just return its data.
+        await user.getIdToken(true); // Refresh token to get latest claims if any
         return docSnap.data() as UserProfile;
       }
 
@@ -75,7 +77,7 @@ export function LoginForm() {
         title: "Erro de Banco de Dados",
         description: "Não foi possível criar ou verificar suas informações de usuário.",
       });
-      throw error;
+      throw error; // Propagate error to be caught by handleAuthAction
     }
   };
 
@@ -95,9 +97,11 @@ export function LoginForm() {
       if (isSignUp) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
+        // The user document is created, and a toast is shown inside handleUserDocument
         await handleUserDocument(userCredential.user, true);
-        setIsSignUp(false); 
+        setIsSignUp(false); // Switch to login view after successful signup
       } else {
+        // Handle Login
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const userProfile = await handleUserDocument(userCredential.user, false);
 
@@ -106,7 +110,7 @@ export function LoginForm() {
             ? 'Sua conta está pendente de aprovação. Contate o administrador.'
             : 'Sua conta foi rejeitada. Contate o administrador.';
           
-          await signOut(auth); // Desloga o usuário
+          await signOut(auth); // Sign the user out
           
           toast({
             variant: "destructive",
@@ -115,7 +119,7 @@ export function LoginForm() {
           });
 
         } else {
-           router.push('/'); // Redireciona para home, que vai para o dashboard
+           router.push('/'); // Redirect to home, which will then go to the dashboard
         }
       }
     } catch (error: any) {
