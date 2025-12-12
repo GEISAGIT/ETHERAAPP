@@ -7,8 +7,8 @@ import { PlusCircle, Edit, Trash2, MoreVertical } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useFirestore, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirestore, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AddCategoryDialog } from './add-category-dialog';
 import { EditCategoryDialog } from './edit-category-dialog';
@@ -43,15 +43,15 @@ export function ExpenseSettingsClient({
     if (!firestore) return;
 
     const { type, data } = dialogState;
-    const groupDocRef = collection(firestore, 'expenseCategoryGroups');
+    const groupCollectionRef = collection(firestore, 'expenseCategoryGroups');
 
     try {
         if (type === 'group') {
             if (id === 'new') { // Adding a new group
-                addDocumentNonBlocking(groupDocRef, { name, categories: [] });
+                addDocumentNonBlocking(groupCollectionRef, { name, categories: [] });
                 toast({ title: 'Grupo Adicionado', description: `O grupo "${name}" foi criado.` });
             } else { // Editing an existing group
-                updateDocumentNonBlocking(doc(groupDocRef, id), { name });
+                updateDocumentNonBlocking(doc(groupCollectionRef, id), { name });
                 toast({ title: 'Grupo Atualizado', description: `O grupo foi renomeado para "${name}".` });
             }
         } else if (type === 'category') {
@@ -67,7 +67,7 @@ export function ExpenseSettingsClient({
                 newCategories = group.categories.map(c => c.id === id ? { ...c, name } : c);
                 toast({ title: 'Categoria Atualizada' });
             }
-            updateDocumentNonBlocking(doc(groupDocRef, data.groupId), { categories: newCategories });
+            updateDocumentNonBlocking(doc(groupCollectionRef, data.groupId), { categories: newCategories });
 
         } else if (type === 'subCategory') {
             const group = expenseCategoryGroups.find(g => g.id === data.groupId);
@@ -87,7 +87,7 @@ export function ExpenseSettingsClient({
             const newCategories = group.categories.map(c => 
                 c.id === data.categoryId ? { ...c, subCategories: newSubCategories } : c
             );
-            updateDocumentNonBlocking(doc(groupDocRef, data.groupId), { categories: newCategories });
+            updateDocumentNonBlocking(doc(groupCollectionRef, data.groupId), { categories: newCategories });
         }
     } catch(e) {
         toast({ variant: 'destructive', title: 'Erro ao Salvar' });
@@ -99,17 +99,17 @@ export function ExpenseSettingsClient({
     if (!firestore) return;
 
     const { type, data } = dialogState;
-    const groupDocRef = collection(firestore, 'expenseCategoryGroups');
+    const groupCollectionRef = collection(firestore, 'expenseCategoryGroups');
 
     try {
         if (type === 'group') {
-            deleteDocumentNonBlocking(doc(groupDocRef, data.id));
+            deleteDocumentNonBlocking(doc(groupCollectionRef, data.id));
             toast({ title: 'Grupo Excluído' });
         } else if (type === 'category') {
             const group = expenseCategoryGroups.find(g => g.id === data.groupId);
             if (!group) return;
             const newCategories = group.categories.filter(c => c.id !== data.id);
-            updateDocumentNonBlocking(doc(groupDocRef, data.groupId), { categories: newCategories });
+            updateDocumentNonBlocking(doc(groupCollectionRef, data.groupId), { categories: newCategories });
             toast({ title: 'Categoria Excluída' });
         } else if (type === 'subCategory') {
             const group = expenseCategoryGroups.find(g => g.id === data.groupId);
@@ -120,7 +120,7 @@ export function ExpenseSettingsClient({
             const newCategories = group.categories.map(c =>
                 c.id === data.categoryId ? { ...c, subCategories: newSubCategories } : c
             );
-            updateDocumentNonBlocking(doc(groupDocRef, data.groupId), { categories: newCategories });
+            updateDocumentNonBlocking(doc(groupCollectionRef, data.groupId), { categories: newCategories });
             toast({ title: 'Descrição Excluída' });
         }
     } catch (e) {
