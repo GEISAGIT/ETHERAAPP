@@ -78,6 +78,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
   });
   
   const transactionType = useWatch({ control: form.control, name: 'type' });
+  const selectedGroup = useWatch({ control: form.control, name: "group" });
+  const selectedCategory = useWatch({ control: form.control, name: "category" });
 
 
   // --- Data Fetching ---
@@ -136,6 +138,21 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     ).filter((value, index, self) => self.findIndex(t => t.label === value.label) === index)
      .sort((a, b) => a.label.localeCompare(b.label));
   }, [expenseCategoryGroups]);
+
+  const groupOptions = useMemo(() => expenseCategoryGroups?.map(g => g.name) ?? [], [expenseCategoryGroups]);
+  
+  const categoryOptions = useMemo(() => {
+    if (!selectedGroup) return [];
+    const group = expenseCategoryGroups?.find(g => g.name === selectedGroup);
+    return group?.categories.map(c => c.name) ?? [];
+  }, [selectedGroup, expenseCategoryGroups]);
+
+  const descriptionOptions = useMemo(() => {
+    if (!selectedGroup || !selectedCategory) return [];
+    const group = expenseCategoryGroups?.find(g => g.name === selectedGroup);
+    const category = group?.categories.find(c => c.name === selectedCategory);
+    return category?.subCategories.map(sc => sc.name) ?? [];
+  }, [selectedGroup, selectedCategory, expenseCategoryGroups]);
 
   const handleExpenseSelection = (currentValue: string) => {
     const selected = expenseClassificationOptions.find(opt => opt.value === currentValue);
@@ -388,9 +405,14 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Grupo</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Grupo da despesa" {...field} />
-                              </FormControl>
+                              <Select onValueChange={(value) => { field.onChange(value); form.resetField('category'); form.resetField('description'); }} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {groupOptions.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -401,9 +423,14 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Categoria</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Categoria da despesa" {...field} />
-                              </FormControl>
+                              <Select onValueChange={(value) => { field.onChange(value); form.resetField('description'); }} value={field.value} disabled={!selectedGroup}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {categoryOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -414,9 +441,14 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Descrição</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Descrição final da despesa" {...field} />
-                              </FormControl>
+                              <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCategory}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Selecione a descrição final" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {descriptionOptions.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -467,6 +499,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                       name="description"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
+                           <FormLabel>Classificação da Despesa</FormLabel>
                           <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
                             <PopoverTrigger asChild>
                               <FormControl>
@@ -479,17 +512,25 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                                   )}
                                 >
                                   {field.value
-                                    ? expenseClassificationOptions.find(opt => opt.value === field.value)?.label
+                                    ? field.value
                                     : "Selecione uma classificação"}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </FormControl>
                             </PopoverTrigger>
                             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                              <Command>
-                                <CommandInput placeholder="Pesquisar classification..." />
+                              <Command
+                                filter={(value, search) => {
+                                  const option = expenseClassificationOptions.find(opt => opt.value === value);
+                                  if (option) {
+                                    if (option.label.toLowerCase().includes(search.toLowerCase())) return 1;
+                                  }
+                                  return 0;
+                                }}
+                              >
+                                <CommandInput placeholder="Pesquisar descrição..." />
                                 <CommandList>
-                                  <CommandEmpty>Nenhuma classificação encontrada.</CommandEmpty>
+                                  <CommandEmpty>Nenhuma descrição encontrada.</CommandEmpty>
                                   <CommandGroup>
                                     {expenseClassificationOptions.map((option) => (
                                       <CommandItem
