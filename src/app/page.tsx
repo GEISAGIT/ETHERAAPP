@@ -33,6 +33,7 @@ export default function Home() {
       return;
     }
     
+    // User is logged in, now check their profile from Firestore
     if (userProfile) {
       if (userProfile.status === 'active') {
         router.replace('/dashboard');
@@ -46,8 +47,9 @@ export default function Home() {
         });
       }
     } else {
-       // User exists in Auth, but not in Firestore. This can happen during sign up.
-       // The login form will create the user document. For now, log them out to be safe.
+       // This is a race condition case: Auth is faster than Firestore user doc creation on first signup.
+       // The user doc is being created by the login form. To be safe, we log them out and ask them to
+       // try again in a moment. This prevents them from getting stuck here.
        signOut(auth).then(() => {
             router.replace('/login?message=Cadastro em processamento. Tente novamente em alguns instantes.');
        });

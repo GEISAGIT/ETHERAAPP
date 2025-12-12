@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile, type User } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, type User } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import type { UserProfile } from '@/lib/types';
 
 export function LoginForm() {
   const router = useRouter();
@@ -35,47 +36,60 @@ export function LoginForm() {
   const handleUserDocument = async (user: User, isNewUser: boolean = false) => {
     if (!firestore) return;
     const userDocRef = doc(firestore, 'users', user.uid);
-    
-    // Define o role do usuário
-    const userRole = user.email === 'grupodallax@gmail.com' ? 'admin' : 'user';
+    const isAdmin = user.email === 'grupodallax@gmail.com';
 
     try {
-        const userDocSnap = await getDoc(userDocRef);
-        
-        if (!userDocSnap.exists() && isNewUser) {
-            // Admin user is active by default, others are pending
-            const initialStatus = userRole === 'admin' ? 'active' : 'pending';
-            await setDoc(userDocRef, {
-                uid: user.uid,
-                displayName: user.displayName,
-                email: user.email,
-                photoURL: user.photoURL,
-                role: userRole,
-                status: initialStatus,
-                createdAt: serverTimestamp()
-            }, { merge: false });
-        } else if (userDocSnap.exists()) {
-            // If user exists, ensure role is correct, but don't change status.
-            await setDoc(userDocRef, { role: userRole }, { merge: true });
-        }
+      const docSnap = await getDoc(userDocRef);
 
-        // CRÍTICO: Força a atualização do token de ID para obter as custom claims mais recentes no cliente.
-        // Isso garante que isAdmin() nas regras de segurança funcione corretamente após o login.
-        await user.getIdToken(true);
+      if (!docSnap.exists() && isNewUser) {
+        // Creating a new user document
+        const initialStatus = isAdmin ? 'active' : 'pending';
+        const newUserProfile: Omit<UserProfile, 'permissions'> = {
+          uid: user.uid,
+          displayName: user.displayName || name,
+          email: user.email!,
+          role: isAdmin ? 'admin' : 'user',
+          status: initialStatus,
+          createdAt: serverTimestamp() as any,
+        };
+        await setDoc(userDocRef, newUserProfile);
+        if (isAdmin) {
+          toast({
+            title: "Bem-vindo Administrador!",
+            description: "Sua conta de administrador foi configurada e está ativa.",
+          });
+        } else {
+            toast({
+              title: "Cadastro realizado com sucesso!",
+              description: "Sua conta foi criada e está pendente de aprovação.",
+            });
+        }
+      } else if (docSnap.exists()) {
+        // User document already exists. Ensure role is correct, especially for admin.
+        const userData = docSnap.data();
+        if (isAdmin && userData.role !== 'admin') {
+            await updateDoc(userDocRef, { role: 'admin' });
+        }
+      }
+      
+      // Force token refresh to get latest custom claims (if any were set server-side)
+      await user.getIdToken(true);
 
     } catch (error) {
-        console.error("Erro ao gerenciar documento do usuário:", error);
-        toast({
-            variant: "destructive",
-            title: "Erro de Banco de Dados",
-            description: "Não foi possível criar ou atualizar as informações do usuário.",
-        });
+      console.error("Erro ao gerenciar documento do usuário:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro de Banco de Dados",
+        description: "Não foi possível criar ou verificar suas informações de usuário.",
+      });
+      // Propagate the error to stop the auth flow
+      throw error;
     }
   };
 
   const handleAuthAction = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setAuthMessage(null); // Clear previous messages
+    setAuthMessage(null);
     if (!auth || !email || !password || (isSignUp && !name)) {
       toast({
         variant: "destructive",
@@ -89,27 +103,30 @@ export function LoginForm() {
     try {
       if (isSignUp) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await updateProfile(userCredential.user, { displayName: name });
-        await handleUserDocument(userCredential.user, true); // `true` indicates it's a new user
-        
-        toast({
-          title: "Cadastro realizado com sucesso!",
-          description: "Sua conta foi criada e está pendente de aprovação pelo administrador.",
-        });
-        setIsSignUp(false); // Switch to login view
+        await userCredential.user.updateProfile({ displayName: name });
+        await handleUserDocument(userCredential.user, true);
+        setIsSignUp(false); // Switch to login view after successful signup and message
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        await handleUserDocument(userCredential.user);
+        await handleUserDocument(userCredential.user, false);
         router.push('/'); // Redirect to home, which will handle routing based on status
       }
     } catch (error: any) {
       let message = "Ocorreu um erro. Tente novamente.";
-      if (error.code === 'auth/email-already-in-use') {
-        message = "Este email já está em uso. Tente fazer login.";
-      } else if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        message = "Email ou senha inválidos.";
-      } else if (error.code === 'auth/weak-password') {
-        message = "A senha deve ter pelo menos 6 caracteres.";
+      if (error.code) {
+        switch (error.code) {
+            case 'auth/email-already-in-use':
+                message = "Este email já está em uso. Tente fazer login.";
+                break;
+            case 'auth/wrong-password':
+            case 'auth/user-not-found':
+            case 'auth/invalid-credential':
+                message = "Email ou senha inválidos.";
+                break;
+            case 'auth/weak-password':
+                message = "A senha deve ter pelo menos 6 caracteres.";
+                break;
+        }
       }
       toast({
         variant: "destructive",
@@ -120,7 +137,7 @@ export function LoginForm() {
       setIsLoading(false);
     }
   };
-
+  
   const handlePasswordReset = async () => {
     if (!auth || !email) {
       toast({
