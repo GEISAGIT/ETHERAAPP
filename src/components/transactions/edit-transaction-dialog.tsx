@@ -224,9 +224,9 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     }
 
     const handleExpenseSelection = (option: { group: string; category: string; subCategory: string; }) => {
+        form.setValue("description", option.subCategory, { shouldValidate: true });
         setSelectedGroup(option.group);
         setSelectedExpenseCategory(option.category);
-        form.setValue("description", option.subCategory);
         setComboboxOpen(false);
     };
 
