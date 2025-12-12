@@ -101,11 +101,10 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
         return;
     }
 
-    const { type, id, userId } = selectedTransaction;
+    const { type, id } = selectedTransaction;
     const collectionName = type === 'income' ? 'incomes' : 'expenses';
 
-    // Since the DB is clean, we can assume the new structure: /users/{userId}/{collectionName}/{docId}
-    const docRef = doc(firestore, 'users', userId, collectionName, id);
+    const docRef = doc(firestore, collectionName, id);
     
     deleteDocumentNonBlocking(docRef);
 
