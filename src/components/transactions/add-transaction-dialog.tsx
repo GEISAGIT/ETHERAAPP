@@ -134,7 +134,7 @@ export function AddTransactionDialog() {
     return expenseCategoryGroups.flatMap(group =>
       group.categories.flatMap(category =>
         category.subCategories.map(subCategory => ({
-          value: `${group.name} > ${category.name} > ${subCategory.name}`.toLowerCase(),
+          value: subCategory.name.toLowerCase(),
           label: `${group.name} > ${category.name} > ${subCategory.name}`,
           group: group.name,
           category: category.name,
@@ -402,7 +402,9 @@ export function AddTransactionDialog() {
                                     <CommandItem
                                       key={option.value}
                                       value={option.label}
-                                      onSelect={handleExpenseSelection}
+                                      onSelect={() => {
+                                        handleExpenseSelection(option.label);
+                                      }}
                                     >
                                       <Check
                                         className={cn(
