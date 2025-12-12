@@ -17,6 +17,7 @@ import { Download } from 'lucide-react';
 import Papa from 'papaparse';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
+import { TooltipProvider } from '../ui/tooltip';
 
 export function TransactionsClient({ data, isLoading }: { data: Transaction[], isLoading: boolean }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -212,7 +213,7 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
   }
   
   return (
-    <>
+    <TooltipProvider>
       <EditTransactionDialog 
         open={isEditOpen}
         onOpenChange={setIsEditOpen}
@@ -257,6 +258,6 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
         />
         <DataTable columns={dynamicColumns} data={filteredData} />
       </div>
-    </>
+    </TooltipProvider>
   );
 }

@@ -17,7 +17,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 const formatDate = (timestamp?: Timestamp) => {
     if (!timestamp) return '';
-    return timestamp.toDate().toLocaleDateString('pt-BR');
+    const date = timestamp.toDate();
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
 }
 
 const AuditTooltipContent = ({ transaction }: { transaction: Transaction }) => {
@@ -47,7 +54,7 @@ export const columns = ({ onEdit, onDelete, userRole }: ColumnsProps) => [
     accessorKey: 'date',
     header: 'Data',
     cell: ({ row }: { row: { original: Transaction } }) => (
-      <span>{formatDate(row.original.date)}</span>
+      <span>{row.original.date.toDate().toLocaleDateString('pt-BR')}</span>
     ),
   },
   {
@@ -58,16 +65,14 @@ export const columns = ({ onEdit, onDelete, userRole }: ColumnsProps) => [
         return (
             <div className="flex items-center gap-2">
                 <span className="max-w-[200px] truncate" title={transaction.description}>{transaction.description}</span>
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <AuditTooltipContent transaction={transaction} />
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <AuditTooltipContent transaction={transaction} />
+                    </TooltipContent>
+                </Tooltip>
             </div>
         );
     },
