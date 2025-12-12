@@ -1,9 +1,9 @@
 'use client';
 import { AppLayout } from '@/components/layout/app-layout';
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
-import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useFirestore, useUser, useMemoFirebase, useCollectionGroup } from '@/firebase';
 import type { Budget, Transaction } from '@/lib/types';
+import { collection, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
 
 export default function DashboardPage() {
@@ -12,21 +12,12 @@ export default function DashboardPage() {
 
   const budgetsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
+    // Budgets are still user-specific for this query example
     return query(collection(firestore, 'budgets'), where('userId', '==', user.uid));
   }, [firestore, user]);
   
-  const incomesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'incomes'));
-  }, [firestore]);
-
-  const expensesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'expenses'));
-  }, [firestore]);
-
-  const { data: incomes, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
-  const { data: expenses, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(expensesQuery);
+  const { data: incomes, isLoading: incomesLoading } = useCollectionGroup<Omit<Transaction, 'type'>>('incomes');
+  const { data: expenses, isLoading: expensesLoading } = useCollectionGroup<Omit<Transaction, 'type'>>('expenses');
   const { data: budgets, isLoading: budgetsLoading } = useCollection<Budget>(budgetsQuery);
 
   const transactions = useMemo(() => {
