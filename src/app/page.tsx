@@ -47,10 +47,9 @@ export default function Home() {
         });
       }
     } else {
-       // This case is now a waiting state. Auth is done but Firestore read is pending or the doc doesn't exist yet.
-       // Instead of logging out, we just wait for the useDoc hook to provide the userProfile.
+       // This case is a waiting state. Auth is done but Firestore read is pending or the doc doesn't exist yet.
        // The loading screen will continue to show. If the doc never appears, they stay here,
-       // but the robust login form logic should prevent that.
+       // but the login form logic should handle creating the document, preventing an infinite loop.
     }
 
   }, [user, userProfile, isUserLoading, isProfileLoading, router, auth]);
