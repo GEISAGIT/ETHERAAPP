@@ -1,0 +1,107 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------------------------------------------------
+    // Helper Functions
+    // ----------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the authenticated user's UID matches the provided userId.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    /**
+     * Checks if the user is an administrator by verifying custom claims on their token.
+     * This is the recommended and most secure way to handle roles.
+     */
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    /**
+     * Checks if the user is the original creator of an existing document.
+     * This is used for update/delete operations on existing resources.
+     */
+    function isOriginalCreator() {
+      // For create operations, resource is null, so we check request.resource
+      let data = resource == null ? request.resource.data : resource.data;
+      return isSignedIn() && request.auth.uid == data.userId;
+    }
+    
+    // ----------------------------------------------------------------------
+    // Specific Collection Rules
+    // ----------------------------------------------------------------------
+
+    /**
+     * @description User profiles.
+     * @path /users/{userId}
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin(); // Only admins can delete user documents
+
+      /**
+       * @description User-owned incomes and expenses.
+       * @path /users/{userId}/incomes/{docId}
+       * @path /users/{userId}/expenses/{docId}
+       */
+      match /{collectionName}/{docId} where collectionName in ['incomes', 'expenses'] {
+          // READ: Owner or admin can read.
+          allow get: if isOwner(userId) || isAdmin();
+          
+          // LIST: Owner or admin can list their own transactions.
+          allow list: if isOwner(userId) || isAdmin();
+
+          // WRITE (CREATE, UPDATE, DELETE): 
+          // Only the owner or an admin can modify the document.
+          allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+    
+    /**
+     * @description Role definitions. Readable by any signed-in user, writable only by admins.
+     * @path /roles/{roleId}
+     */
+    match /roles/{roleId} {
+      allow get, list: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    /**
+     * @description Global budget records.
+     * @path /budgets/{budgetId}
+     */
+    match /budgets/{budgetId} {
+      // Only the user who created the budget or an admin can read/write.
+      allow read, write: if isSignedIn() && (isOriginalCreator() || isAdmin());
+      // Admins can list all budgets
+      allow list: if isAdmin();
+    }
+
+    /**
+     * @description Category definitions. Readable by all signed-in users.
+     *              Creation is open to any user, but updates/deletes are admin-only.
+     * @path /incomeCategories/{categoryId}, /expenseCategories/{categoryId}
+     */
+    match /{collectionName}/{categoryId}
+      where collectionName in ['incomeCategories', 'expenseCategories'] {
+        allow get, list: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update, delete: if isAdmin();
+    }
+  }
+}

@@ -1,9 +1,9 @@
 'use client';
 import { AppLayout } from '@/components/layout/app-layout';
 import { ReportsClient } from '@/components/reports/reports-client';
-import { useCollection, useFirestore, useMemoFirebase, useUser, useCollectionGroup } from '@/firebase';
+import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import type { Transaction } from '@/lib/types';
-import { collectionGroup, query, orderBy } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
 
 export default function ReportsPage() {
@@ -12,12 +12,12 @@ export default function ReportsPage() {
 
   const incomesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return collectionGroup(firestore, 'incomes');
+    return query(collection(firestore, 'users', user.uid, 'incomes'));
   }, [firestore, user]);
 
   const expensesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return collectionGroup(firestore, 'expenses');
+    return query(collection(firestore, 'users', user.uid, 'expenses'));
   }, [firestore, user]);
 
   const { data: incomesData, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);

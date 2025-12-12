@@ -92,7 +92,7 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
   };
 
   const handleConfirmDelete = () => {
-    if (!firestore || !selectedTransaction) {
+    if (!firestore || !user || !selectedTransaction) {
         toast({
             variant: 'destructive',
             title: 'Erro',
@@ -101,10 +101,12 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
         return;
     }
 
-    const { type, id } = selectedTransaction;
+    const { type, id, userId } = selectedTransaction;
     const collectionName = type === 'income' ? 'incomes' : 'expenses';
 
-    const docRef = doc(firestore, collectionName, id);
+    // Since the DB is clean, we can assume the new structure: /users/{userId}/{collectionName}/{docId}
+    const docRef = doc(firestore, 'users', userId, collectionName, id);
+    
     deleteDocumentNonBlocking(docRef);
 
     toast({

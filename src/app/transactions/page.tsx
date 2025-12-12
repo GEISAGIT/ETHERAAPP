@@ -2,23 +2,25 @@
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { TransactionsClient } from '@/components/transactions/transactions-client';
-import { useCollection, useFirestore, useMemoFirebase, useUser, useCollectionGroup } from '@/firebase';
+import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import type { Transaction } from '@/lib/types';
-import { collectionGroup, query, orderBy } from 'firebase/firestore';
+import { collection, query, where, collectionGroup } from 'firebase/firestore';
 import { useMemo } from 'react';
 
 export default function TransactionsPage() {
   const firestore = useFirestore();
   const { user } = useUser();
 
+  // Query for incomes subcollection for the current user
   const incomesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return collectionGroup(firestore, 'incomes');
+    return query(collection(firestore, 'users', user.uid, 'incomes'));
   }, [firestore, user]);
 
+  // Query for expenses subcollection for the current user
   const expensesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return collectionGroup(firestore, 'expenses');
+    return query(collection(firestore, 'users', user.uid, 'expenses'));
   }, [firestore, user]);
 
   const { data: incomesData, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
@@ -26,12 +28,12 @@ export default function TransactionsPage() {
   
   const data = useMemo(() => {
     if (!user) return [];
+    // Only show transactions for the logged-in user
     const allIncomes = incomesData?.map(item => ({ ...item, type: 'income' as const })) ?? [];
     const allExpenses = expensesData?.map(item => ({ ...item, type: 'expense' as const })) ?? [];
 
     const combined = [...allIncomes, ...allExpenses];
 
-    // The sorting will now be handled in the client component
     return combined;
   }, [incomesData, expensesData, user]);
 

@@ -141,17 +141,17 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     if (values.type !== transaction.type) {
         // Handle type change: delete from old collection, add to new one
         const oldCollectionName = transaction.type === 'income' ? 'incomes' : 'expenses';
-        const oldDocRef = doc(firestore, oldCollectionName, transaction.id);
+        const oldDocRef = doc(firestore, 'users', user.uid, oldCollectionName, transaction.id);
         deleteDocumentNonBlocking(oldDocRef);
 
         const newCollectionName = values.type === 'income' ? 'incomes' : 'expenses';
-        const newCollectionRef = collection(firestore, newCollectionName);
+        const newCollectionRef = collection(firestore, 'users', user.uid, newCollectionName);
         addDocumentNonBlocking(newCollectionRef, transactionData);
 
     } else {
         // Type hasn't changed, just update the document
         const collectionName = values.type === 'income' ? 'incomes' : 'expenses';
-        const docRef = doc(firestore, collectionName, transaction.id);
+        const docRef = doc(firestore, 'users', user.uid, collectionName, transaction.id);
         updateDocumentNonBlocking(docRef, transactionData);
     }
     

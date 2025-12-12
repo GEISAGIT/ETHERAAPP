@@ -115,7 +115,7 @@ export function AddTransactionDialog() {
     }
     
     const collectionName = values.type === 'income' ? 'incomes' : 'expenses';
-    const transactionsCollection = collection(firestore, collectionName);
+    const transactionsCollection = collection(firestore, 'users', user.uid, collectionName);
 
     const transactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
