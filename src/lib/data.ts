@@ -1,4 +1,4 @@
-
+import type { Permissions, Role } from './types';
 
 const rawExpenseCategories = [
   "Aluguel",
@@ -42,3 +42,26 @@ export const defaultIncomeCategories = [
   "Venda de Produtos",
   "Outras Receitas",
 ];
+
+export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
+  admin: {
+    dashboard: true,
+    transactions: true,
+    budgets: true,
+    reports: true,
+    upload: true,
+    userManagement: true,
+    profile: true,
+    settings: true,
+  },
+  user: {
+    dashboard: true,
+    transactions: true,
+    budgets: true,
+    reports: true,
+    upload: true,
+    userManagement: false,
+    profile: true,
+    settings: true,
+  },
+};

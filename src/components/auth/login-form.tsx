@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, type User } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, type User, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
+import { defaultPermissions } from '@/lib/data';
 
 export function LoginForm() {
   const router = useRouter();
@@ -44,15 +45,18 @@ export function LoginForm() {
       if (!docSnap.exists() && isNewUser) {
         // Creating a new user document
         const initialStatus = isAdmin ? 'active' : 'pending';
-        const newUserProfile: Omit<UserProfile, 'permissions'> = {
+        const initialRole = isAdmin ? 'admin' : 'user';
+        const newUserProfile: UserProfile = {
           uid: user.uid,
           displayName: user.displayName || name,
           email: user.email!,
-          role: isAdmin ? 'admin' : 'user',
+          role: initialRole,
           status: initialStatus,
           createdAt: serverTimestamp() as any,
+          permissions: defaultPermissions[initialRole],
         };
         await setDoc(userDocRef, newUserProfile);
+        
         if (isAdmin) {
           toast({
             title: "Bem-vindo Administrador!",
@@ -65,11 +69,26 @@ export function LoginForm() {
             });
         }
       } else if (docSnap.exists()) {
-        // User document already exists. Ensure role is correct, especially for admin.
+        // User document already exists. Ensure role and status are correct, especially for admin.
         const userData = docSnap.data();
-        if (isAdmin && userData.role !== 'admin') {
-            await updateDoc(userDocRef, { role: 'admin' });
+        if (isAdmin && (userData.role !== 'admin' || userData.status !== 'active')) {
+            await updateDoc(userDocRef, { role: 'admin', status: 'active' });
         }
+      } else if (!docSnap.exists() && !isNewUser) {
+        // This is the case where a user is logging in but their doc doesn't exist (e.g. deleted manually)
+        // We recreate it.
+        const initialStatus = isAdmin ? 'active' : 'pending';
+        const initialRole = isAdmin ? 'admin' : 'user';
+        const userProfile: UserProfile = {
+          uid: user.uid,
+          displayName: user.displayName || 'Nome Recuperado',
+          email: user.email!,
+          role: initialRole,
+          status: initialStatus,
+          createdAt: serverTimestamp() as any,
+          permissions: defaultPermissions[initialRole],
+        };
+        await setDoc(userDocRef, userProfile);
       }
       
       // Force token refresh to get latest custom claims (if any were set server-side)
@@ -103,9 +122,10 @@ export function LoginForm() {
     try {
       if (isSignUp) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await userCredential.user.updateProfile({ displayName: name });
+        await updateProfile(userCredential.user, { displayName: name });
         await handleUserDocument(userCredential.user, true);
-        setIsSignUp(false); // Switch to login view after successful signup and message
+        // After signup, show message and switch to login view, don't redirect
+        setIsSignUp(false); 
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         await handleUserDocument(userCredential.user, false);
