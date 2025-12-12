@@ -22,6 +22,8 @@ interface DataTableToolbarProps {
   allCategories: string[];
   filterDate: DateRange | undefined;
   onFilterDateChange: (date: DateRange | undefined) => void;
+  sortOrder: 'asc' | 'desc';
+  onSortOrderChange: (value: 'asc' | 'desc') => void;
 }
 
 export function DataTableToolbar({
@@ -33,7 +35,9 @@ export function DataTableToolbar({
   onFilterCategoryChange,
   allCategories,
   filterDate,
-  onFilterDateChange
+  onFilterDateChange,
+  sortOrder,
+  onSortOrderChange
 }: DataTableToolbarProps) {
 
   const isFiltered = searchTerm !== '' || filterType !== 'all' || filterCategory !== 'all' || filterDate !== undefined;
@@ -115,6 +119,15 @@ export function DataTableToolbar({
             />
           </PopoverContent>
         </Popover>
+         <Select value={sortOrder} onValueChange={onSortOrderChange}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Ordenar por" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="desc">Mais Recentes</SelectItem>
+            <SelectItem value="asc">Mais Antigas</SelectItem>
+          </SelectContent>
+        </Select>
         {isFiltered && (
             <Button variant="ghost" onClick={clearFilters} className="h-8 px-2 lg:px-3">
                 Limpar

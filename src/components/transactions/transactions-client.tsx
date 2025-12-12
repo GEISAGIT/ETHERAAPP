@@ -29,6 +29,7 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterDate, setFilterDate] = useState<DateRange | undefined>(undefined);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   const allCategories = useMemo(() => {
     const categories = data.map(item => item.category);
@@ -67,9 +68,16 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
                    itemDate.getDate() === fromDate.getDate();
         });
     }
+    
+    // Apply sorting
+    filtered = filtered.sort((a, b) => {
+        const dateA = a.date?.toMillis() ?? 0;
+        const dateB = b.date?.toMillis() ?? 0;
+        return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
 
     return filtered;
-  }, [data, searchTerm, filterType, filterCategory, filterDate]);
+  }, [data, searchTerm, filterType, filterCategory, filterDate, sortOrder]);
 
 
   const handleEdit = (transaction: Transaction) => {
@@ -230,6 +238,8 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
             allCategories={allCategories}
             filterDate={filterDate}
             onFilterDateChange={setFilterDate}
+            sortOrder={sortOrder}
+            onSortOrderChange={setSortOrder}
         />
         <DataTable columns={dynamicColumns} data={filteredData} />
       </div>

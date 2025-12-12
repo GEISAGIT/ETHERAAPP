@@ -31,11 +31,8 @@ export default function TransactionsPage() {
 
     const combined = [...allIncomes, ...allExpenses];
 
-    return combined.sort((a, b) => {
-        const dateA = a.date?.toMillis() ?? 0;
-        const dateB = b.date?.toMillis() ?? 0;
-        return dateB - dateA;
-    });
+    // The sorting will now be handled in the client component
+    return combined;
   }, [incomesData, expensesData, user]);
 
   const isLoading = incomesLoading || expensesLoading;
