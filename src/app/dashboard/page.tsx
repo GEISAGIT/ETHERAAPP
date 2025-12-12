@@ -1,7 +1,7 @@
 'use client';
 import { AppLayout } from '@/components/layout/app-layout';
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
-import { useFirestore, useUser, useMemoFirebase, useCollectionGroup } from '@/firebase';
+import { useFirestore, useUser, useMemoFirebase, useCollectionGroup, useCollection } from '@/firebase';
 import type { Budget, Transaction } from '@/lib/types';
 import { collection, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
