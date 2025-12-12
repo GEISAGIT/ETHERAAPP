@@ -16,14 +16,14 @@ export default function DashboardPage() {
   }, [firestore, user]);
   
   const incomesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'users', user.uid, 'incomes'));
-  }, [firestore, user]);
+    if (!firestore) return null;
+    return query(collection(firestore, 'incomes'));
+  }, [firestore]);
 
   const expensesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'users', user.uid, 'expenses'));
-  }, [firestore, user]);
+    if (!firestore) return null;
+    return query(collection(firestore, 'expenses'));
+  }, [firestore]);
 
   const { data: incomes, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
   const { data: expenses, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(expensesQuery);
