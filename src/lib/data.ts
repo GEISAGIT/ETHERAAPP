@@ -69,12 +69,10 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
 export const defaultExpenseCategoryGroups: Omit<ExpenseCategoryGroup, 'id'>[] = [
     {
         name: 'PESSOAL E ENCARGOS',
-        categories: [
-            { id: 'cat1-1', name: 'BENEFICIOS', subCategories: [{ id: 'sub1-1-1', name: 'VA - VALE ALIMENTACAO' }] }
-        ]
+        categories: []
     },
     {
-        name: 'MATERIAIS MEDICOS E MEDICAMENTOS',
+        name: 'MATERIAIS MÉDICOS E MEDICAMENTOS',
         categories: []
     },
     {
