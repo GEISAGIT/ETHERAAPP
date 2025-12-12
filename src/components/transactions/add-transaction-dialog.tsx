@@ -180,6 +180,8 @@ export function AddTransactionDialog() {
       category: '',
       notes: '',
     });
+    setSelectedGroup('');
+    setSelectedExpenseCategory('');
     setOpen(false);
   };
 
@@ -241,23 +243,6 @@ export function AddTransactionDialog() {
                   </FormItem>
                 )}
               />
-              
-              {transactionType === 'income' && (
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descrição</FormLabel>
-                      <FormControl>
-                        <Input placeholder="ex: Consulta Dr. João" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField
@@ -318,30 +303,45 @@ export function AddTransactionDialog() {
               </div>
               
               {transactionType === 'income' ? (
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                     <FormItem>
-                      <FormLabel>Categoria</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                 <>
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Descrição</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma categoria" />
-                          </SelectTrigger>
+                          <Input placeholder="ex: Consulta Dr. João" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          {incomeCategoryOptions.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
-                              {cat}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                       <FormItem>
+                        <FormLabel>Categoria</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione uma categoria" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {incomeCategoryOptions.map((cat) => (
+                              <SelectItem key={cat} value={cat}>
+                                {cat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
               ) : (
                 <div className="space-y-4 rounded-md border p-4">
                   <h3 className="text-sm font-medium">Classificação da Despesa</h3>
@@ -367,7 +367,7 @@ export function AddTransactionDialog() {
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione uma categoria" />
-                            </Trigger>
+                            </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             {expenseCategoryOptions.map((opt) => (
@@ -386,7 +386,7 @@ export function AddTransactionDialog() {
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Selecione a descrição final" />
-                              </Trigger>
+                              </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {expenseSubCategoryOptions.map((opt) => (
