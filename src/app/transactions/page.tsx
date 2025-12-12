@@ -2,20 +2,33 @@
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { TransactionsClient } from '@/components/transactions/transactions-client';
-import { useCollectionGroup, useUser } from '@/firebase';
+import { useCollection, useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Transaction } from '@/lib/types';
 import { useMemo } from 'react';
+import { collection, query } from 'firebase/firestore';
+
 
 export default function TransactionsPage() {
   const { user } = useUser();
+  const firestore = useFirestore();
 
-  const { data: incomesData, isLoading: incomesLoading } = useCollectionGroup<Omit<Transaction, 'type'>>('incomes');
-  const { data: expensesData, isLoading: expensesLoading } = useCollectionGroup<Omit<Transaction, 'type'>>('expenses');
+  const incomesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'incomes'));
+  }, [firestore, user]);
+
+  const expensesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'expenses'));
+  }, [firestore, user]);
+
+  const { data: incomesData, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
+  const { data: expensesData, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(expensesQuery);
   
   const data = useMemo(() => {
     if (!user) return [];
     
-    // Combine all incomes and expenses from the collection group queries
+    // Combine all incomes and expenses from the collection queries
     const allIncomes = (incomesData ?? []).map(item => ({ ...item, type: 'income' as const }));
     const allExpenses = (expensesData ?? []).map(item => ({ ...item, type: 'expense' as const }));
 
