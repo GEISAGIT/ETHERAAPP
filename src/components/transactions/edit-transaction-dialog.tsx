@@ -142,7 +142,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     return expenseCategoryGroups.flatMap(group =>
       group.categories.flatMap(category =>
         category.subCategories.map(subCategory => ({
-          value: subCategory.name.toLowerCase(),
+          value: `${group.name} > ${category.name} > ${subCategory.name}`.toLowerCase(),
           label: `${group.name} > ${category.name} > ${subCategory.name}`,
           group: group.name,
           category: category.name,
@@ -421,9 +421,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                                     <CommandItem
                                       key={option.value}
                                       value={option.label}
-                                      onSelect={() => {
-                                        handleExpenseSelection(option.label)
-                                      }}
+                                      onSelect={handleExpenseSelection}
                                     >
                                       <Check
                                         className={cn(
