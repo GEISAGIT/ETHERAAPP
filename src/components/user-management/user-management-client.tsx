@@ -1,3 +1,4 @@
+
 'use client';
 import type { UserManagement, UserStatus } from '@/lib/types';
 import { columns } from './columns';
