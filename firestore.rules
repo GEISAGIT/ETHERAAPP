@@ -21,9 +21,14 @@ service cloud.firestore {
     }
 
     function isOriginalCreator() {
-      let data = resource == null ? request.resource.data : resource.data;
-      return isSignedIn() && request.auth.uid == data.userId;
+      // This works for create and update where request.resource.data is available.
+      return isSignedIn() && request.auth.uid == request.resource.data.userId;
     }
+    
+    function isExistingDocOwner(docId, collectionName) {
+      return isSignedIn() && get(/databases/$(database)/documents/$(collectionName)/$(docId)).data.userId == request.auth.uid;
+    }
+
 
     // ----------------------------------------------------------------------
     // Collection Rules
@@ -45,13 +50,17 @@ service cloud.firestore {
     match /incomes/{docId} {
         allow read: if isSignedIn();
         allow list: if isAdmin();
-        allow write: if isOriginalCreator() || isAdmin();
+        allow create: if isOriginalCreator();
+        allow update: if isExistingDocOwner(docId, 'incomes') || isAdmin();
+        allow delete: if isExistingDocOwner(docId, 'incomes') || isAdmin();
     }
 
     match /expenses/{docId} {
         allow read: if isSignedIn();
         allow list: if isAdmin();
-        allow write: if isOriginalCreator() || isAdmin();
+        allow create: if isOriginalCreator();
+        allow update: if isExistingDocOwner(docId, 'expenses') || isAdmin();
+        allow delete: if isExistingDocOwner(docId, 'expenses') || isAdmin();
     }
 
     match /budgets/{budgetId} {
