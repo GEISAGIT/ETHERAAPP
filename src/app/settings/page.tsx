@@ -3,7 +3,7 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { SettingsClient } from '@/components/settings/settings-client';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
+import type { IncomeCategory, ExpenseCategoryGroup } from '@/lib/types';
 
 export default function SettingsPage() {
   const firestore = useFirestore();
@@ -14,13 +14,13 @@ export default function SettingsPage() {
     return query(collection(firestore, 'incomeCategories'));
   }, [firestore, user]);
 
-  const expenseCategoriesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null; // Wait for user
-    return query(collection(firestore, 'expenseCategories'));
+  const expenseCategoryGroupsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'expenseCategoryGroups'));
   }, [firestore, user]);
 
   const { data: incomeCategories, isLoading: incomeLoading } = useCollection<IncomeCategory>(incomeCategoriesQuery);
-  const { data: expenseCategories, isLoading: expenseLoading } = useCollection<ExpenseCategory>(expenseCategoriesQuery);
+  const { data: expenseCategoryGroups, isLoading: expenseLoading } = useCollection<ExpenseCategoryGroup>(expenseCategoryGroupsQuery);
   
   const isLoading = isUserLoading || incomeLoading || expenseLoading;
 
@@ -28,7 +28,7 @@ export default function SettingsPage() {
     <AppLayout>
       <SettingsClient 
         incomeCategories={incomeCategories ?? []}
-        expenseCategories={expenseCategories ?? []}
+        expenseCategoryGroups={expenseCategoryGroups ?? []}
         isLoading={isLoading}
       />
     </AppLayout>

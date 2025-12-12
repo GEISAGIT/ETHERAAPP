@@ -1,5 +1,5 @@
 'use client';
-import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
+import type { IncomeCategory, ExpenseCategoryGroup } from '@/lib/types';
 import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,24 +24,23 @@ import { AddCategoryDialog } from './add-category-dialog';
 import { EditCategoryDialog } from './edit-category-dialog';
 import { DeleteCategoryAlert } from './delete-category-alert';
 import { useFirestore, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { defaultExpenseCategories, defaultIncomeCategories } from '@/lib/data';
-import type { UserProfile } from '@/lib/types';
+import { defaultIncomeCategories } from '@/lib/data';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 type CategoryType = 'income' | 'expense';
 
-interface CategoryTableProps {
+// This remains for Income Categories
+function CategoryTable({ title, description, categories, onAdd, onEdit, onDelete, type }: {
   title: string;
   description: string;
-  categories: (IncomeCategory | ExpenseCategory)[];
+  categories: IncomeCategory[];
   onAdd: () => void;
-  onEdit: (category: IncomeCategory | ExpenseCategory) => void;
-  onDelete: (id: string, type: CategoryType) => void;
-  type: CategoryType;
-}
-
-function CategoryTable({ title, description, categories, onAdd, onEdit, onDelete, type }: CategoryTableProps) {
+  onEdit: (category: IncomeCategory) => void;
+  onDelete: (id: string, type: 'income') => void;
+  type: 'income';
+}) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredCategories = useMemo(() => {
@@ -128,18 +127,18 @@ function CategoryTable({ title, description, categories, onAdd, onEdit, onDelete
 
 
 export function SettingsClient({ 
-    incomeCategories, 
-    expenseCategories, 
+    incomeCategories,
+    expenseCategoryGroups,
     isLoading: areCategoriesLoading 
 }: { 
     incomeCategories: IncomeCategory[], 
-    expenseCategories: ExpenseCategory[], 
+    expenseCategoryGroups: ExpenseCategoryGroup[],
     isLoading: boolean 
 }) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<IncomeCategory | ExpenseCategory | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<IncomeCategory | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; type: CategoryType } | null>(null);
 
   const [categoryType, setCategoryType] = useState<CategoryType>('income');
@@ -157,15 +156,9 @@ export function SettingsClient({
           addDocumentNonBlocking(incomeCollection, { name });
         });
       }
-      if (expenseCategories.length === 0) {
-        console.log("Seeding expense categories...");
-        const expenseCollection = collection(firestore, 'expenseCategories');
-        defaultExpenseCategories.forEach(name => {
-          addDocumentNonBlocking(expenseCollection, { name });
-        });
-      }
+      // Seeding for expense groups will be handled separately if needed
     }
-  }, [areCategoriesLoading, firestore, incomeCategories.length, expenseCategories.length]);
+  }, [areCategoriesLoading, firestore, incomeCategories.length]);
 
   const isLoading = areCategoriesLoading || isUserLoading;
 
@@ -199,7 +192,7 @@ export function SettingsClient({
       return;
     }
 
-    const collectionName = categoryType === 'income' ? 'incomeCategories' : 'expenseCategories';
+    const collectionName = categoryType === 'income' ? 'incomeCategories' : 'expenseCategoryGroups';
     const categoryCollection = collection(firestore, collectionName);
     
     addDocumentNonBlocking(categoryCollection, { name });
@@ -210,7 +203,7 @@ export function SettingsClient({
     });
   };
 
-  const handleEditClick = (category: IncomeCategory | ExpenseCategory) => {
+  const handleEditClick = (category: IncomeCategory) => {
     setSelectedCategory(category);
     setIsEditDialogOpen(true);
   };
@@ -218,8 +211,8 @@ export function SettingsClient({
   const handleEditCategory = (id: string, name: string) => {
     if (!firestore || !selectedCategory) return;
     
-    const type = incomeCategories.some(c => c.id === id) ? 'income' : 'expense';
-    const collectionName = type === 'income' ? 'incomeCategories' : 'expenseCategories';
+    // Only income categories are editable this way for now.
+    const collectionName = 'incomeCategories';
     const docRef = doc(firestore, collectionName, id);
 
     updateDocumentNonBlocking(docRef, { name });
@@ -288,18 +281,53 @@ export function SettingsClient({
             categories={incomeCategories}
             onAdd={() => handleAddCategoryClick('income')}
             onEdit={handleEditClick}
-            onDelete={handleDeleteClick}
+            onDelete={(id) => handleDeleteClick(id, 'income')}
             type="income"
           />
-          <CategoryTable
-            title="Categorias de Despesa"
-            description="Categorias usadas para classificar seus diferentes tipos de despesas."
-            categories={expenseCategories}
-            onAdd={() => handleAddCategoryClick('expense')}
-            onEdit={handleEditClick}
-            onDelete={handleDeleteClick}
-            type="expense"
-          />
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline">Categorias de Despesa</CardTitle>
+              <CardDescription>Estrutura hierárquica para classificar suas despesas.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Accordion type="multiple" className="w-full">
+                {expenseCategoryGroups.map(group => (
+                  <AccordionItem value={group.id} key={group.id}>
+                    <AccordionTrigger>{group.name}</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="pl-4">
+                        {group.categories.length > 0 ? (
+                          <Accordion type="multiple" className="w-full">
+                            {group.categories.map(category => (
+                              <AccordionItem value={category.id} key={category.id}>
+                                <AccordionTrigger className="text-sm">{category.name}</AccordionTrigger>
+                                <AccordionContent>
+                                  <ul className="pl-4 list-disc list-inside text-muted-foreground">
+                                    {category.subCategories.map(sub => (
+                                      <li key={sub.id}>{sub.name}</li>
+                                    ))}
+                                  </ul>
+                                </AccordionContent>
+                              </AccordionItem>
+                            ))}
+                          </Accordion>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Nenhuma categoria neste grupo.</p>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </CardContent>
+            <CardFooter>
+              <Button variant="outline" disabled>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Adicionar Grupo (Em breve)
+              </Button>
+            </CardFooter>
+          </Card>
         </div>
       </div>
     </>

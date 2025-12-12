@@ -1,5 +1,6 @@
 import type { Permissions, Role } from './types';
 
+// This is now deprecated and will be replaced by the hierarchical structure.
 const rawExpenseCategories = [
   "Aluguel",
   "Condomínio",
@@ -31,7 +32,6 @@ const rawExpenseCategories = [
   "Outros Custos Variáveis",
 ];
 
-// Remove duplicates to prevent React key errors
 export const defaultExpenseCategories = [...new Set(rawExpenseCategories)];
 
 

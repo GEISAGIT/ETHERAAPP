@@ -23,7 +23,7 @@ export type ExpenseTransaction = {
   description: string;
   amount: number;
   type: 'expense';
-  category: string;
+  category: string; // This will eventually be hierarchical
   costType?: 'fixed' | 'variable';
   notes?: string;
   updatedAt?: Timestamp;
@@ -40,17 +40,30 @@ export type Budget = {
   spent: number;
 };
 
+// Old simple category type
 export type IncomeCategory = {
   id: string;
   name: string;
   description?: string;
 };
 
-export type ExpenseCategory = {
+// NEW HIERARCHICAL EXPENSE CATEGORY STRUCTURE
+export interface ExpenseSubCategory {
   id: string;
   name: string;
-  description?: string;
-};
+}
+
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  subCategories: ExpenseSubCategory[];
+}
+
+export interface ExpenseCategoryGroup {
+  id: string;
+  name: string;
+  categories: ExpenseCategory[];
+}
 
 export type Category = string;
 
@@ -86,4 +99,3 @@ export type Role = {
 };
 
 export type MenuItemKey = keyof Omit<Permissions, 'accessControl'> | 'accessControl';
-    

@@ -115,5 +115,15 @@ service cloud.firestore {
         allow create: if isSignedIn();
         allow update, delete: if isAdmin();
     }
+
+    /**
+     * @description New hierarchical expense category groups.
+     *              Readable by all signed-in users. Writable only by admins.
+     * @path /expenseCategoryGroups/{groupId}
+     */
+    match /expenseCategoryGroups/{groupId} {
+        allow get, list: if isSignedIn();
+        allow write: if isAdmin();
+    }
   }
 }
