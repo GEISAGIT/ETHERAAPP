@@ -22,9 +22,10 @@ const formatDate = (timestamp: Timestamp) => {
 interface ColumnsProps {
     onEdit: (transaction: Transaction) => void;
     onDelete: (transaction: Transaction) => void;
+    userRole: 'admin' | 'user' | undefined;
 }
 
-export const columns = ({ onEdit, onDelete }: ColumnsProps) => [
+export const columns = ({ onEdit, onDelete, userRole }: ColumnsProps) => [
   {
     accessorKey: 'date',
     header: 'Data',
@@ -106,6 +107,10 @@ export const columns = ({ onEdit, onDelete }: ColumnsProps) => [
   {
     id: 'actions',
     cell: ({ row }: { row: { original: Transaction } }) => {
+      if (userRole !== 'admin') {
+        return null; // Don't render the actions menu for non-admins
+      }
+      
       const transaction = row.original;
       return (
         <DropdownMenu>

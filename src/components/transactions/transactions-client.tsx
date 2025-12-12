@@ -1,5 +1,5 @@
 'use client';
-import type { Transaction } from '@/lib/types';
+import type { Transaction, UserProfile } from '@/lib/types';
 import { columns } from '@/app/transactions/columns';
 import { DataTable } from '../data-table/data-table';
 import { AddTransactionDialog } from './add-transaction-dialog';
@@ -8,7 +8,7 @@ import { ImportTransactionsDialog } from './import-transactions-dialog';
 import { useState, useMemo } from 'react';
 import { EditTransactionDialog } from './edit-transaction-dialog';
 import { DeleteTransactionAlert } from './delete-transaction-alert';
-import { useFirestore, useUser, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useUser, deleteDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { DataTableToolbar } from '../data-table/data-table-toolbar';
@@ -31,6 +31,13 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterDate, setFilterDate] = useState<DateRange | undefined>(undefined);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile } = useDoc<UserProfile>(userDocRef);
 
   const allCategories = useMemo(() => {
     const categories = data.map(item => item.category);
@@ -147,7 +154,11 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
     document.body.removeChild(link);
   };
 
-  const dynamicColumns = columns({ onEdit: handleEdit, onDelete: handleDelete });
+  const dynamicColumns = columns({ 
+    onEdit: handleEdit, 
+    onDelete: handleDelete, 
+    userRole: userProfile?.role 
+  });
 
   if (isLoading) {
     return (
