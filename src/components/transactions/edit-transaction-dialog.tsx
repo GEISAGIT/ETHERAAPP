@@ -40,7 +40,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { updateDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, Timestamp, query, doc, serverTimestamp } from 'firebase/firestore';
-import type { IncomeCategory, ExpenseCategoryGroup, Transaction } from '@/lib/types';
+import type { IncomeCategory, ExpenseCategoryGroup, Transaction, ExpenseTransaction } from '@/lib/types';
 
 
 const formSchema = z.object({
@@ -53,11 +53,11 @@ const formSchema = z.object({
   notes: z.string().optional(),
 }).refine(data => {
     if (data.type === 'income') {
-        return !!data.description && data.description.length >= 3;
+        return !!data.description && data.description.length >= 2;
     }
     return true;
 }, {
-    message: 'A descrição é muito curta',
+    message: 'A descrição é obrigatória para receitas.',
     path: ['description'],
 });
 
@@ -104,24 +104,25 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
 
   useEffect(() => {
     if (transaction && expenseCategoryGroups) {
+      const isExpense = transaction.type === 'expense';
+      const expenseTransaction = transaction as ExpenseTransaction;
+
       form.reset({
         date: transaction.date.toDate(),
-        description: transaction.type === 'income' ? transaction.description : '',
+        description: isExpense ? undefined : transaction.description,
         amount: transaction.amount,
         type: transaction.type,
         category: transaction.category,
         notes: transaction.notes || '',
-        costType: transaction.type === 'expense' ? transaction.costType : undefined,
+        costType: isExpense ? expenseTransaction.costType : undefined,
       });
 
       // Pre-fill cascading selectors for expenses
-      if (transaction.type === 'expense') {
-        const path = (transaction as any).fullCategoryPath;
-        if (path) {
-          setSelectedGroup(path.group || '');
-          setSelectedExpenseCategory(path.category || '');
-        } else {
-            // Fallback for older data: try to find the category
+      if (isExpense && expenseTransaction.fullCategoryPath) {
+        setSelectedGroup(expenseTransaction.fullCategoryPath.group || '');
+        setSelectedExpenseCategory(expenseTransaction.fullCategoryPath.category || '');
+      } else if (isExpense) {
+            // Fallback for older data without fullCategoryPath
             for (const group of expenseCategoryGroups) {
                 for (const cat of group.categories) {
                     if (cat.subCategories.some(sub => sub.name === transaction.category)) {
@@ -132,7 +133,6 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                 }
                 if (selectedGroup) break;
             }
-        }
       }
     }
   }, [transaction, form, expenseCategoryGroups]);
@@ -172,18 +172,20 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
       return;
     }
     
+    const isExpense = values.type === 'expense';
+    
     // Base data for both update and potential re-creation
     const baseTransactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
-      description: values.type === 'expense' ? values.category : values.description,
+      description: isExpense ? values.category : values.description,
       amount: values.amount,
-      category: values.category,
+      category: isExpense ? selectedExpenseCategory : values.category,
       notes: values.notes,
       updatedAt: serverTimestamp(),
       updatedBy: user.uid,
     };
 
-    if (values.type === 'expense') {
+    if (isExpense) {
         baseTransactionData.costType = values.costType;
         baseTransactionData.fullCategoryPath = {
             group: selectedGroup,

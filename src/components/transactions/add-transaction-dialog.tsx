@@ -55,11 +55,11 @@ const formSchema = z.object({
   notes: z.string().optional(),
 }).refine(data => {
     if (data.type === 'income') {
-        return !!data.description && data.description.length >= 3;
+        return !!data.description && data.description.length >= 2;
     }
     return true;
 }, {
-    message: 'A descrição é muito curta',
+    message: 'A descrição é obrigatória para receitas.',
     path: ['description'],
 });
 
@@ -132,7 +132,7 @@ export function AddTransactionDialog() {
 
   
   const onSubmit = (values: FormValues) => {
-    if (!user) {
+    if (!user || !firestore) {
       toast({
         variant: 'destructive',
         title: 'Erro',
@@ -141,14 +141,15 @@ export function AddTransactionDialog() {
       return;
     }
     
-    const collectionName = values.type === 'income' ? 'incomes' : 'expenses';
+    const isExpense = values.type === 'expense';
+    const collectionName = isExpense ? 'expenses' : 'incomes';
     const transactionsCollection = collection(firestore, collectionName);
 
     const transactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
-      description: values.type === 'expense' ? values.category : values.description,
+      description: isExpense ? values.category : values.description,
       amount: values.amount,
-      category: values.category,
+      category: isExpense ? selectedExpenseCategory : values.category,
       notes: values.notes,
       userId: user.uid,
       createdByName: user.displayName || 'Usuário Desconhecido',
@@ -156,9 +157,8 @@ export function AddTransactionDialog() {
       updatedBy: user.uid,
     };
 
-    if (values.type === 'expense') {
+    if (isExpense) {
       transactionData.costType = values.costType;
-      // Store the full path for context if needed later
       transactionData.fullCategoryPath = {
         group: selectedGroup,
         category: selectedExpenseCategory,
@@ -386,7 +386,7 @@ export function AddTransactionDialog() {
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Selecione a descrição final" />
-                              </SelectTrigger>
+                              </Trigger>
                             </FormControl>
                             <SelectContent>
                               {expenseSubCategoryOptions.map((opt) => (

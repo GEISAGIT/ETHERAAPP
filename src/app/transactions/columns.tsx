@@ -81,11 +81,30 @@ export const columns = ({ onEdit, onDelete, userRole }: ColumnsProps) => [
     },
   },
   {
+    accessorKey: 'group',
+    header: 'Grupo',
+    cell: ({ row }: { row: { original: Transaction } }) => {
+        const expense = row.original as ExpenseTransaction;
+        if (expense.type === 'expense' && expense.fullCategoryPath?.group) {
+            return <Badge variant="outline">{expense.fullCategoryPath.group}</Badge>;
+        }
+        return null;
+    },
+  },
+  {
     accessorKey: 'category',
     header: 'Categoria',
-    cell: ({ row }: { row: { original: Transaction } }) => (
-        <Badge variant="outline">{row.original.category}</Badge>
-    ),
+    cell: ({ row }: { row: { original: Transaction } }) => {
+        const expense = row.original as ExpenseTransaction;
+        if (expense.type === 'expense' && expense.fullCategoryPath?.category) {
+             return <Badge variant="secondary">{expense.fullCategoryPath.category}</Badge>;
+        }
+        // For income, just show the regular category
+        if(row.original.type === 'income') {
+            return <Badge variant="outline">{row.original.category}</Badge>
+        }
+        return null;
+    },
   },
   {
     accessorKey: 'type',
