@@ -8,7 +8,7 @@ import { ImportTransactionsDialog } from './import-transactions-dialog';
 import { useState, useMemo } from 'react';
 import { EditTransactionDialog } from './edit-transaction-dialog';
 import { DeleteTransactionAlert } from './delete-transaction-alert';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore, useUser, deleteDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { DataTableToolbar } from '../data-table/data-table-toolbar';
@@ -17,7 +17,6 @@ import { Download } from 'lucide-react';
 import Papa from 'papaparse';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
-import { deleteDocumentNonBlocking } from '@/firebase';
 
 export function TransactionsClient({ data, isLoading }: { data: Transaction[], isLoading: boolean }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -102,24 +101,11 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
         return;
     }
 
-    const { type, id, userId } = selectedTransaction;
+    const { type, id } = selectedTransaction;
     const collectionName = type === 'income' ? 'incomes' : 'expenses';
 
-    // This is the correct, robust way to delete.
-    // It attempts to delete from both the new global collection and the old nested collection.
-    // Since delete operations don't throw an error if the doc doesn't exist,
-    // this is an idempotent way to ensure the data is removed, wherever it might be.
-
-    // 1. Define the path for the new, global collection structure.
-    const globalDocRef = doc(firestore, collectionName, id);
-    deleteDocumentNonBlocking(globalDocRef);
-
-    // 2. If a userId exists on the transaction, it *might* be from the old nested structure.
-    //    Define that path and attempt to delete from there as well.
-    if (userId) {
-        const nestedDocRef = doc(firestore, 'users', userId, collectionName, id);
-        deleteDocumentNonBlocking(nestedDocRef);
-    }
+    const docRef = doc(firestore, collectionName, id);
+    deleteDocumentNonBlocking(docRef);
 
     toast({
         title: 'Transação Excluída',
