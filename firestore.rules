@@ -16,8 +16,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Temporary check for prototype. Custom claims are preferred in production.
-      return isSignedIn() && request.auth.token.email == 'grupodallax@gmail.com';
+      // Checks if the user's document in the 'users' collection has the role 'admin'.
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isOriginalCreator() {
