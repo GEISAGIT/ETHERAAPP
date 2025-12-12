@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Loader2, ChevronsUpDown, Check } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -43,6 +43,14 @@ import { cn } from '@/lib/utils';
 import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, Timestamp, query, serverTimestamp } from 'firebase/firestore';
 import type { IncomeCategory, ExpenseCategoryGroup } from '@/lib/types';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 
 
 const formSchema = z.object({
@@ -69,6 +77,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
   const [isDatePickerOpen, setDatePickerOpen] = useState(false);
+  const [isComboboxOpen, setComboboxOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -113,22 +122,20 @@ export function AddTransactionDialog() {
     return incomeCategories?.map(c => c.name).sort() ?? [];
   }, [incomeCategories]);
 
-  const expenseGroupOptions = useMemo(() => {
-    return expenseCategoryGroups?.map(g => g.name).sort() ?? [];
+  const expenseSearchOptions = useMemo(() => {
+    if (!expenseCategoryGroups) return [];
+    return expenseCategoryGroups.flatMap(group =>
+      group.categories.flatMap(category =>
+        category.subCategories.map(subCategory => ({
+          value: `${group.name} > ${category.name} > ${subCategory.name}`.toLowerCase(),
+          label: `${group.name} > ${category.name} > ${subCategory.name}`,
+          group: group.name,
+          category: category.name,
+          subCategory: subCategory.name,
+        }))
+      )
+    );
   }, [expenseCategoryGroups]);
-
-  const expenseCategoryOptions = useMemo(() => {
-    if (!selectedGroup) return [];
-    const group = expenseCategoryGroups?.find(g => g.name === selectedGroup);
-    return group?.categories.map(c => c.name).sort() ?? [];
-  }, [expenseCategoryGroups, selectedGroup]);
-
-  const expenseSubCategoryOptions = useMemo(() => {
-    if (!selectedGroup || !selectedExpenseCategory) return [];
-    const group = expenseCategoryGroups?.find(g => g.name === selectedGroup);
-    const category = group?.categories.find(c => c.name === selectedExpenseCategory);
-    return category?.subCategories.map(sc => sc.name).sort() ?? [];
-  }, [expenseCategoryGroups, selectedGroup, selectedExpenseCategory]);
 
   
   const onSubmit = (values: FormValues) => {
@@ -193,16 +200,13 @@ export function AddTransactionDialog() {
     setSelectedExpenseCategory('');
   }
 
-  const handleGroupChange = (value: string) => {
-    setSelectedGroup(value);
-    setSelectedExpenseCategory('');
-    form.setValue('category', '');
-  }
+  const handleExpenseSelection = (option: { group: string; category: string; subCategory: string; }) => {
+    setSelectedGroup(option.group);
+    setSelectedExpenseCategory(option.category);
+    form.setValue("category", option.subCategory);
+    setComboboxOpen(false)
+  };
 
-  const handleExpenseCategoryChange = (value: string) => {
-    setSelectedExpenseCategory(value);
-    form.setValue('category', '');
-  }
 
   return (
     <>
@@ -345,62 +349,67 @@ export function AddTransactionDialog() {
               ) : (
                 <div className="space-y-4 rounded-md border p-4">
                   <h3 className="text-sm font-medium">Classificação da Despesa</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                     <FormItem>
-                        <FormLabel>Grupo</FormLabel>
-                        <Select onValueChange={handleGroupChange} value={selectedGroup}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione um grupo" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {expenseGroupOptions.map((opt) => (
-                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                      <FormItem>
-                        <FormLabel>Categoria</FormLabel>
-                        <Select onValueChange={handleExpenseCategoryChange} value={selectedExpenseCategory} disabled={!selectedGroup}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione uma categoria" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {expenseCategoryOptions.map((opt) => (
-                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    <FormField
-                      control={form.control}
-                      name="category"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Descrição</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value} disabled={!selectedExpenseCategory}>
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Pesquisar Descrição</FormLabel>
+                        <Popover open={isComboboxOpen} onOpenChange={setComboboxOpen}>
+                          <PopoverTrigger asChild>
                             <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione a descrição final" />
-                              </SelectTrigger>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn(
+                                  "w-full justify-between",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value
+                                  ? expenseSearchOptions.find(
+                                      (option) => option.subCategory === field.value
+                                    )?.label
+                                  : "Selecione ou pesquise a descrição"}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
                             </FormControl>
-                            <SelectContent>
-                              {expenseSubCategoryOptions.map((opt) => (
-                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command>
+                              <CommandInput placeholder="Pesquisar descrição..." />
+                              <CommandList>
+                                <CommandEmpty>Nenhuma descrição encontrada.</CommandEmpty>
+                                <CommandGroup>
+                                  {expenseSearchOptions.map((option) => (
+                                    <CommandItem
+                                      value={option.label}
+                                      key={option.value}
+                                      onSelect={() => handleExpenseSelection(option)}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          field.value === option.subCategory
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                      />
+                                      {option.label}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               )}
+
 
               {transactionType === 'expense' && (
                 <FormField
