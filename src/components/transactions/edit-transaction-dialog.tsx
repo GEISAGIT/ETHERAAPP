@@ -21,6 +21,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -100,10 +101,10 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
       
       form.reset({
         date: transaction.date.toDate(),
-        description: transaction.description,
+        description: isExpense ? expenseTransaction.fullCategoryPath?.description : transaction.description,
         amount: transaction.amount,
         type: transaction.type,
-        category: transaction.category || '',
+        category: isExpense ? expenseTransaction.fullCategoryPath?.category : transaction.category,
         notes: transaction.notes || '',
         costType: isExpense ? expenseTransaction.costType : undefined,
         group: isExpense ? expenseTransaction.fullCategoryPath?.group : undefined,
@@ -189,7 +190,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
             return;
         }
         baseTransactionData.costType = values.costType;
-        baseTransactionData.category = values.category;
+        baseTransactionData.category = values.category; // Legacy category for now
         baseTransactionData.fullCategoryPath = {
             group: values.group,
             category: values.category,
@@ -207,21 +208,27 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
       baseTransactionData.category = values.category;
     }
     
+    // If the transaction type changed, we need to delete the old document and create a new one in the correct collection
     if (values.type !== transaction.type) {
+        // Delete from old collection
         const oldCollectionName = transaction.type === 'income' ? 'incomes' : 'expenses';
         const oldDocRef = doc(firestore, oldCollectionName, transaction.id);
         deleteDocumentNonBlocking(oldDocRef);
 
+        // Add to new collection
         const newCollectionName = values.type === 'income' ? 'incomes' : 'expenses';
         const newCollectionRef = collection(firestore, newCollectionName);
         const newTransactionData = {
           ...baseTransactionData,
-          userId: transaction.userId, 
-          createdByName: transaction.createdByName,
+          userId: transaction.userId, // Preserve original creator
+          createdByName: transaction.createdByName, // Preserve original creator name
+          // `updatedAt` is already in baseTransactionData
         };
+        // We don't get a new ID here, but we're essentially creating a new logical record
         addDocumentNonBlocking(newCollectionRef, newTransactionData);
 
     } else {
+        // Type is the same, just update the existing document
         const collectionName = values.type === 'income' ? 'incomes' : 'expenses';
         const docRef = doc(firestore, collectionName, transaction.id);
         updateDocumentNonBlocking(docRef, baseTransactionData);
@@ -375,6 +382,13 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
               ) : (
                 <div className="space-y-4 rounded-md border p-4">
                   <h4 className="font-medium text-sm">Classificação da Despesa</h4>
+                   <div className="space-y-2">
+                        <Label>Pesquisar Descrição</Label>
+                        <Input 
+                            placeholder="Filtre pela descrição..."
+                            onChange={(e) => setDescriptionSearch(e.target.value)}
+                        />
+                    </div>
                   <FormField
                     control={form.control}
                     name="group"
@@ -407,14 +421,6 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                       </FormItem>
                     )}
                   />
-                   <div className="space-y-2">
-                        <Label>Pesquisar Descrição</Label>
-                        <Input 
-                            placeholder="Filtre pela descrição..."
-                            onChange={(e) => setDescriptionSearch(e.target.value)}
-                            disabled={!selectedCategory}
-                        />
-                    </div>
                   <FormField
                     control={form.control}
                     name="description"
