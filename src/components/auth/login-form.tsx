@@ -10,7 +10,7 @@ import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, type User, updateProfile } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
 import { defaultPermissions } from '@/lib/data';
 
@@ -42,13 +42,15 @@ export function LoginForm() {
     try {
       const docSnap = await getDoc(userDocRef);
 
-      if (!docSnap.exists() && isNewUser) {
-        // Creating a new user document
+      if (!docSnap.exists()) {
+        // Document does not exist, so we create it.
+        // This handles both new sign-ups and first-time logins for existing auth users (e.g., after DB clear).
         const initialStatus = isAdmin ? 'active' : 'pending';
         const initialRole = isAdmin ? 'admin' : 'user';
+
         const newUserProfile: UserProfile = {
           uid: user.uid,
-          displayName: user.displayName || name,
+          displayName: user.displayName || name || 'Usuário',
           email: user.email!,
           role: initialRole,
           status: initialStatus,
@@ -57,41 +59,22 @@ export function LoginForm() {
         };
         await setDoc(userDocRef, newUserProfile);
         
-        if (isAdmin) {
-          toast({
-            title: "Bem-vindo Administrador!",
-            description: "Sua conta de administrador foi configurada e está ativa.",
-          });
-        } else {
+        if (isNewUser) {
+          if (isAdmin) {
+             toast({
+              title: "Bem-vindo Administrador!",
+              description: "Sua conta de administrador foi criada e está ativa.",
+            });
+          } else {
             toast({
               title: "Cadastro realizado com sucesso!",
               description: "Sua conta foi criada e está pendente de aprovação.",
             });
+          }
         }
-      } else if (docSnap.exists()) {
-        // User document already exists. Ensure role and status are correct, especially for admin.
-        const userData = docSnap.data();
-        if (isAdmin && (userData.role !== 'admin' || userData.status !== 'active')) {
-            await updateDoc(userDocRef, { role: 'admin', status: 'active' });
-        }
-      } else if (!docSnap.exists() && !isNewUser) {
-        // This is the case where a user is logging in but their doc doesn't exist (e.g. deleted manually)
-        // We recreate it.
-        const initialStatus = isAdmin ? 'active' : 'pending';
-        const initialRole = isAdmin ? 'admin' : 'user';
-        const userProfile: UserProfile = {
-          uid: user.uid,
-          displayName: user.displayName || 'Nome Recuperado',
-          email: user.email!,
-          role: initialRole,
-          status: initialStatus,
-          createdAt: serverTimestamp() as any,
-          permissions: defaultPermissions[initialRole],
-        };
-        await setDoc(userDocRef, userProfile);
       }
       
-      // Force token refresh to get latest custom claims (if any were set server-side)
+      // Force a token refresh to ensure custom claims are up-to-date, if any.
       await user.getIdToken(true);
 
     } catch (error) {

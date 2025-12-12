@@ -22,23 +22,23 @@ export default function Home() {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
   useEffect(() => {
+    // While auth or profile data is loading, just wait.
     if (isUserLoading || isProfileLoading) {
-      // Still loading, do nothing
       return;
     }
 
+    // If auth is done and there's no user, redirect to login.
     if (!user) {
-      // No user, send to login
       router.replace('/login');
       return;
     }
     
-    // User is logged in, now check their profile from Firestore
+    // If auth is done, user object exists, and we have a user profile from Firestore.
     if (userProfile) {
       if (userProfile.status === 'active') {
         router.replace('/dashboard');
       } else {
-        // User is pending or rejected, log them out and show a message
+        // User is pending or rejected, log them out and show the relevant message.
         signOut(auth).then(() => {
             const message = userProfile.status === 'pending'
               ? 'Sua conta está pendente de aprovação.'
@@ -47,12 +47,10 @@ export default function Home() {
         });
       }
     } else {
-       // This is a race condition case: Auth is faster than Firestore user doc creation on first signup.
-       // The user doc is being created by the login form. To be safe, we log them out and ask them to
-       // try again in a moment. This prevents them from getting stuck here.
-       signOut(auth).then(() => {
-            router.replace('/login?message=Cadastro em processamento. Tente novamente em alguns instantes.');
-       });
+       // This case is now a waiting state. Auth is done but Firestore read is pending or the doc doesn't exist yet.
+       // Instead of logging out, we just wait for the useDoc hook to provide the userProfile.
+       // The loading screen will continue to show. If the doc never appears, they stay here,
+       // but the robust login form logic should prevent that.
     }
 
   }, [user, userProfile, isUserLoading, isProfileLoading, router, auth]);
