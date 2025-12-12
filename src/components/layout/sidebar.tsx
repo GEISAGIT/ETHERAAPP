@@ -65,14 +65,21 @@ export function AppSidebar() {
         }
 
         // Fallback for items that might not be in the permissions object yet
-        return item.key === 'profile' || item.key === 'settings' || item.key === 'dashboard';
+        return item.key === 'profile' || item.key === 'dashboard';
       });
     }
 
     // Fallback for when userProfile is loading or doesn't have permissions set
-    return allMenuItems.filter(item => item.key === 'profile' || item.key === 'settings' || item.key === 'dashboard');
+    return allMenuItems.filter(item => item.key === 'profile' || item.key === 'dashboard');
     
   }, [role, userProfile]);
+
+  const isActive = (href: string) => {
+    if (href === '/settings') {
+      return pathname.startsWith('/settings');
+    }
+    return pathname === href;
+  };
 
   return (
     <>
@@ -88,7 +95,7 @@ export function AppSidebar() {
             <SidebarMenuItem key={href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith(href)}
+                isActive={isActive(href)}
                 tooltip={{ children: label, side: 'right' }}
               >
                 <Link href={href}>
@@ -103,4 +110,3 @@ export function AppSidebar() {
     </>
   );
 }
-    

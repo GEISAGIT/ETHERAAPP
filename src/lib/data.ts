@@ -1,4 +1,4 @@
-import type { Permissions, Role } from './types';
+import type { Permissions, ExpenseCategoryGroup } from './types';
 
 // This is now deprecated and will be replaced by the hierarchical structure.
 const rawExpenseCategories = [
@@ -65,3 +65,32 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     settings: true,
   },
 };
+
+export const defaultExpenseCategoryGroups: Omit<ExpenseCategoryGroup, 'id'>[] = [
+    {
+        name: 'PESSOAL E ENCARGOS',
+        categories: [
+            { id: 'cat1-1', name: 'BENEFICIOS', subCategories: [{ id: 'sub1-1-1', name: 'VA - VALE ALIMENTACAO' }] }
+        ]
+    },
+    {
+        name: 'MATERIAIS MEDICOS E MEDICAMENTOS',
+        categories: []
+    },
+    {
+        name: 'INFRAESTRUTURA',
+        categories: []
+    },
+    {
+        name: 'TECNOLOGIA E EQUIPAMENTOS',
+        categories: []
+    },
+    {
+        name: 'MARKETING E COMERCIAL',
+        categories: []
+    },
+    {
+        name: 'DESPESAS GERAIS E ADMINISTRATIVAS',
+        categories: []
+    },
+];
