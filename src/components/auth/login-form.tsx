@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, type User, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, type User, updateProfile, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
 import { defaultPermissions } from '@/lib/data';
@@ -25,17 +25,9 @@ export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
-  const [authMessage, setAuthMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    const message = searchParams.get('message');
-    if (message) {
-      setAuthMessage(message);
-    }
-  }, [searchParams]);
-
+  
   const handleUserDocument = async (user: User, isNewUser: boolean = false) => {
-    if (!firestore) return;
+    if (!firestore) return null;
     const userDocRef = doc(firestore, 'users', user.uid);
     const isAdmin = user.email === 'grupodallax@gmail.com';
 
@@ -43,8 +35,6 @@ export function LoginForm() {
       const docSnap = await getDoc(userDocRef);
 
       if (!docSnap.exists()) {
-        // Document does not exist, so we create it.
-        // This handles both new sign-ups and first-time logins for existing auth users (e.g., after DB clear).
         const initialStatus = isAdmin ? 'active' : 'pending';
         const initialRole = isAdmin ? 'admin' : 'user';
 
@@ -72,10 +62,11 @@ export function LoginForm() {
             });
           }
         }
+        return newUserProfile;
+      } else {
+        await user.getIdToken(true);
+        return docSnap.data() as UserProfile;
       }
-      
-      // Force a token refresh to ensure custom claims are up-to-date, if any.
-      await user.getIdToken(true);
 
     } catch (error) {
       console.error("Erro ao gerenciar documento do usuário:", error);
@@ -84,14 +75,12 @@ export function LoginForm() {
         title: "Erro de Banco de Dados",
         description: "Não foi possível criar ou verificar suas informações de usuário.",
       });
-      // Propagate the error to stop the auth flow
       throw error;
     }
   };
 
   const handleAuthAction = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setAuthMessage(null);
     if (!auth || !email || !password || (isSignUp && !name)) {
       toast({
         variant: "destructive",
@@ -107,12 +96,27 @@ export function LoginForm() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
         await handleUserDocument(userCredential.user, true);
-        // After signup, show message and switch to login view, don't redirect
         setIsSignUp(false); 
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        await handleUserDocument(userCredential.user, false);
-        router.push('/'); // Redirect to home, which will handle routing based on status
+        const userProfile = await handleUserDocument(userCredential.user, false);
+
+        if (userProfile?.status !== 'active') {
+          const message = userProfile?.status === 'pending'
+            ? 'Sua conta está pendente de aprovação. Contate o administrador.'
+            : 'Sua conta foi rejeitada. Contate o administrador.';
+          
+          await signOut(auth); // Desloga o usuário
+          
+          toast({
+            variant: "destructive",
+            title: "Acesso Negado",
+            description: message,
+          });
+
+        } else {
+           router.push('/'); // Redireciona para home, que vai para o dashboard
+        }
       }
     } catch (error: any) {
       let message = "Ocorreu um erro. Tente novamente.";
@@ -179,13 +183,9 @@ export function LoginForm() {
         <CardTitle className="font-headline text-2xl">
           {isSignUp ? 'Crie sua conta' : 'Acesse sua conta'}
         </CardTitle>
-        {authMessage ? (
-          <CardDescription className="text-primary font-medium">{authMessage}</CardDescription>
-        ) : (
-          <CardDescription>
-            {isSignUp ? 'Preencha os campos para se cadastrar.' : 'Bem-vindo de volta!'}
-          </CardDescription>
-        )}
+        <CardDescription>
+          {isSignUp ? 'Preencha os campos para se cadastrar.' : 'Bem-vindo de volta!'}
+        </CardDescription>
       </CardHeader>
       <form onSubmit={handleAuthAction}>
         <CardContent className="space-y-4">

@@ -22,34 +22,26 @@ export default function Home() {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
   useEffect(() => {
-    // While auth or profile data is loading, just wait.
-    if (isUserLoading || isProfileLoading) {
+    if (isUserLoading || (user && isProfileLoading)) {
       return;
     }
 
-    // If auth is done and there's no user, redirect to login.
     if (!user) {
       router.replace('/login');
       return;
     }
     
-    // If auth is done, user object exists, and we have a user profile from Firestore.
-    if (userProfile) {
-      if (userProfile.status === 'active') {
+    if (user && userProfile) {
+       if (userProfile.status === 'active') {
         router.replace('/dashboard');
       } else {
-        // User is pending or rejected, log them out and show the relevant message.
-        const message = userProfile.status === 'pending'
-          ? 'Sua conta está pendente de aprovação.'
-          : 'Sua conta foi rejeitada.';
-        signOut(auth).then(() => {
-            router.replace(`/login?message=${encodeURIComponent(message)}`);
-        });
+         // This should now be handled by the login form,
+         // but as a fallback, we keep a check here.
+         // We avoid auto-signing out to prevent loops if there's a Firestore delay.
       }
-    } else {
-       // This case is a waiting state. Auth is done but Firestore read is pending or the doc doesn't exist yet.
-       // The loading screen will continue to show. If the doc never appears, they stay here,
-       // but the login form logic should handle creating the document, preventing an infinite loop.
+    } else if (user && !userProfile && !isProfileLoading) {
+        // User is authenticated but profile doesn't exist. This can happen right after signup.
+        // The login form should create it. We wait here.
     }
 
   }, [user, userProfile, isUserLoading, isProfileLoading, router, auth]);
