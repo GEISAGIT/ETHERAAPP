@@ -1,18 +1,23 @@
 'use client';
-import type { Transaction, Budget } from '@/lib/types';
+import type { Transaction, Budget, ExpenseTransaction } from '@/lib/types';
 import { StatsCards } from './stats-cards';
 import { OverviewChart } from './overview-chart';
 import { RecentTransactions } from './recent-transactions';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DrilldownExpenseChart } from './drilldown-expense-chart';
 
 export type StatsPeriod = 'allTime' | 'thisMonth' | 'lastMonth';
 
 export function DashboardClient({ transactions, budgets, isLoading }: { transactions: Transaction[], budgets: Budget[], isLoading: boolean }) {
   const [period, setPeriod] = useState<StatsPeriod>('allTime');
+
+  const expenseTransactions = useMemo(() => {
+    return transactions.filter(t => t.type === 'expense') as ExpenseTransaction[];
+  }, [transactions]);
 
   if (isLoading) {
     return (
@@ -33,6 +38,7 @@ export function DashboardClient({ transactions, budgets, isLoading }: { transact
                 <Skeleton className="lg:col-span-2 h-[422px]" />
                 <Skeleton className="h-[422px]" />
             </div>
+            <Skeleton className="h-[450px]" />
         </div>
     )
   }
@@ -80,6 +86,7 @@ export function DashboardClient({ transactions, budgets, isLoading }: { transact
         </div>
         <RecentTransactions transactions={transactions} />
       </div>
+      <DrilldownExpenseChart expenses={expenseTransactions} />
     </div>
   );
 }
