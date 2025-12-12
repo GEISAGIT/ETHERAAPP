@@ -3,7 +3,7 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { ReportsClient } from '@/components/reports/reports-client';
 import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import type { Transaction } from '@/lib/types';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
 import { useMemo } from 'react';
 
 export default function ReportsPage() {
@@ -12,12 +12,12 @@ export default function ReportsPage() {
 
   const incomesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collection(firestore, 'users', user.uid, 'incomes'));
+    return query(collection(firestore, 'incomes'));
   }, [firestore, user]);
 
   const expensesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collection(firestore, 'users', user.uid, 'expenses'));
+    return query(collection(firestore, 'expenses'));
   }, [firestore, user]);
 
   const { data: incomesData, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
