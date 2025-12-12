@@ -39,10 +39,10 @@ export default function Home() {
         router.replace('/dashboard');
       } else {
         // User is pending or rejected, log them out and show the relevant message.
+        const message = userProfile.status === 'pending'
+          ? 'Sua conta está pendente de aprovação.'
+          : 'Sua conta foi rejeitada.';
         signOut(auth).then(() => {
-            const message = userProfile.status === 'pending'
-              ? 'Sua conta está pendente de aprovação.'
-              : 'Sua conta foi rejeitada.';
             router.replace(`/login?message=${encodeURIComponent(message)}`);
         });
       }
