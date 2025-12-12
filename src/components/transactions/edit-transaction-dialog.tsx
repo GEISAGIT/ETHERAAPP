@@ -243,8 +243,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
         setSelectedExpenseCategory('');
     }
 
-    const handleExpenseSelection = (label: string) => {
-      const selectedOption = expenseSearchOptions.find(opt => opt.label === label);
+    const handleExpenseSelection = (currentValue: string) => {
+      const selectedOption = expenseSearchOptions.find(opt => opt.label === currentValue);
       if (selectedOption) {
           form.setValue("description", selectedOption.subCategory, { shouldValidate: true });
           setSelectedGroup(selectedOption.group);
