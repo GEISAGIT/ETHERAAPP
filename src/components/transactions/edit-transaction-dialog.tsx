@@ -52,10 +52,10 @@ import {
 
 
 const formSchema = z.object({
-  date: z.date(),
+  date: z.date({ required_error: 'A data é obrigatória.'}),
   amount: z.coerce.number().positive('O valor deve ser positivo'),
   type: z.enum(['income', 'expense']),
-  description: z.string().min(2, 'A descrição/classificação é obrigatória.'),
+  description: z.string().min(1, 'A descrição/classificação é obrigatória.'),
   category: z.string().optional(),
   costType: z.enum(['fixed', 'variable']).optional(),
   notes: z.string().optional(),
@@ -104,7 +104,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
 
 
   useEffect(() => {
-    if (transaction) {
+    if (transaction && open) {
       const isExpense = transaction.type === 'expense';
       const expenseTransaction = transaction as ExpenseTransaction;
       
@@ -124,8 +124,12 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
         // The description field now holds the subcategory name
         form.setValue('description', expenseTransaction.fullCategoryPath.description);
       }
+    } else if (!open) {
+      form.reset();
+      setSelectedGroup('');
+      setSelectedExpenseCategory('');
     }
-  }, [transaction, form]);
+  }, [transaction, open, form]);
 
 
   // --- Memoized Select Options ---
@@ -173,6 +177,14 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     };
 
     if (isExpense) {
+        if (!selectedGroup || !selectedExpenseCategory) {
+            toast({
+                variant: 'destructive',
+                title: 'Classificação Incompleta',
+                description: 'Por favor, selecione uma classificação de despesa válida.',
+            });
+            return;
+        }
         baseTransactionData.costType = values.costType;
         baseTransactionData.category = selectedExpenseCategory; // Middle-level category
         baseTransactionData.fullCategoryPath = {
@@ -181,6 +193,14 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
             description: values.description, // This is the subCategory name
         };
     } else {
+      if (!values.category) {
+         toast({
+          variant: 'destructive',
+          title: 'Categoria de Receita',
+          description: 'Por favor, selecione uma categoria para a receita.',
+        });
+        return;
+      }
       baseTransactionData.category = values.category;
     }
     
@@ -217,8 +237,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
   
     const handleTypeChange = (value: string) => {
         form.setValue('type', value as 'income' | 'expense');
-        form.setValue('description', '');
-        form.setValue('category', '');
+        form.resetField('description');
+        form.resetField('category');
         setSelectedGroup('');
         setSelectedExpenseCategory('');
     }
@@ -307,7 +327,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                             mode="single"
                             selected={field.value}
                             onSelect={(date) => {
-                                field.onChange(date)
+                                if (date) field.onChange(date)
                                 setDatePickerOpen(false)
                             }}
                             initialFocus
@@ -398,9 +418,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                                     <CommandItem
                                       key={option.value}
                                       value={option.label}
-                                      onSelect={() => {
-                                        handleExpenseSelection(option);
-                                      }}
+                                      onSelect={() => handleExpenseSelection(option)}
                                     >
                                       <Check
                                         className={cn(

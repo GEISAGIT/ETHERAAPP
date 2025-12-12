@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -54,13 +54,11 @@ import {
 
 
 const formSchema = z.object({
-  date: z.date(),
+  date: z.date({ required_error: 'A data é obrigatória.'}),
   amount: z.coerce.number().positive('O valor deve ser positivo'),
   type: z.enum(['income', 'expense']),
-  // For income, this is the typed description
-  // For expense, this is the final selected subCategory name
-  description: z.string().min(2, 'A descrição/classificação é obrigatória.'),
-  category: z.string().optional(), // For income, this is the category, for expense, the middle category
+  description: z.string().min(1, 'A descrição/classificação é obrigatória.'),
+  category: z.string().optional(),
   costType: z.enum(['fixed', 'variable']).optional(),
   notes: z.string().optional(),
 });
@@ -95,6 +93,19 @@ export function AddTransactionDialog() {
     control: form.control,
     name: 'type',
   });
+  
+  useEffect(() => {
+    form.reset({
+      date: new Date(),
+      description: '',
+      amount: 0,
+      type: 'expense',
+      category: '',
+      notes: '',
+    });
+    setSelectedGroup('');
+    setSelectedExpenseCategory('');
+  }, [open, form]);
 
   // --- Data Fetching ---
   const incomeCategoriesQuery = useMemoFirebase(() => {
@@ -158,6 +169,14 @@ export function AddTransactionDialog() {
     };
 
     if (isExpense) {
+      if (!selectedGroup || !selectedExpenseCategory) {
+        toast({
+          variant: 'destructive',
+          title: 'Classificação Incompleta',
+          description: 'Por favor, selecione uma classificação de despesa válida.',
+        });
+        return;
+      }
       transactionData.costType = values.costType;
       transactionData.category = selectedExpenseCategory; // Middle-level category
       transactionData.fullCategoryPath = {
@@ -166,6 +185,14 @@ export function AddTransactionDialog() {
         description: values.description, // This is the subCategory name
       };
     } else {
+      if (!values.category) {
+         toast({
+          variant: 'destructive',
+          title: 'Categoria de Receita',
+          description: 'Por favor, selecione uma categoria para a receita.',
+        });
+        return;
+      }
       // For income, 'category' is the selected category
       transactionData.category = values.category;
     }
@@ -176,23 +203,13 @@ export function AddTransactionDialog() {
       title: 'Transação Adicionada',
       description: 'Sua transação foi registrada com sucesso.',
     });
-    form.reset({
-      date: new Date(),
-      description: '',
-      amount: 0,
-      type: 'expense',
-      category: '',
-      notes: '',
-    });
-    setSelectedGroup('');
-    setSelectedExpenseCategory('');
     setOpen(false);
   };
 
   const handleTypeChange = (value: string) => {
     form.setValue('type', value as 'income' | 'expense');
-    form.setValue('description', '');
-    form.setValue('category', '');
+    form.resetField('description');
+    form.resetField('category');
     setSelectedGroup('');
     setSelectedExpenseCategory('');
   }
@@ -289,7 +306,7 @@ export function AddTransactionDialog() {
                             mode="single"
                             selected={field.value}
                             onSelect={(date) => {
-                              field.onChange(date);
+                              if (date) field.onChange(date);
                               setDatePickerOpen(false);
                             }}
                             initialFocus
@@ -380,9 +397,7 @@ export function AddTransactionDialog() {
                                     <CommandItem
                                       key={option.value}
                                       value={option.label}
-                                      onSelect={() => {
-                                        handleExpenseSelection(option);
-                                      }}
+                                      onSelect={() => handleExpenseSelection(option)}
                                     >
                                       <Check
                                         className={cn(
