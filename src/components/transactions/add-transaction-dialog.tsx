@@ -385,7 +385,12 @@ export function AddTransactionDialog() {
                                     <CommandItem
                                       key={option.value}
                                       value={option.value}
-                                      onSelect={() => handleExpenseSelection(option)}
+                                      onSelect={(currentValue) => {
+                                        const selectedOption = expenseSearchOptions.find(opt => opt.value === currentValue);
+                                        if (selectedOption) {
+                                            handleExpenseSelection(selectedOption);
+                                        }
+                                      }}
                                     >
                                       <Check
                                         className={cn(
