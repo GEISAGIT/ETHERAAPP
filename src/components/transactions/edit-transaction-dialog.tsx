@@ -34,7 +34,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Calendar } from '../ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -123,23 +123,24 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     return expenseCategoryGroups.flatMap(group =>
       group.categories.flatMap(category =>
         category.subCategories.map(subCategory => ({
-          label: subCategory.name, // Only the description name
+          label: subCategory.name,
           value: subCategory.name,
           group: group.name,
           category: category.name
         }))
       )
-    ).filter((value, index, self) => self.findIndex(t => t.label === value.label) === index); // Ensure unique labels
+    ).filter((value, index, self) => self.findIndex(t => t.label === value.label) === index)
+     .sort((a, b) => a.label.localeCompare(b.label));
   }, [expenseCategoryGroups]);
 
-  const handleExpenseSelection = (selectedValue: string) => {
-    const selected = expenseClassificationOptions.find(opt => opt.value === selectedValue);
+  const handleExpenseSelection = (currentValue: string) => {
+    const selected = expenseClassificationOptions.find(opt => opt.value.toLowerCase() === currentValue.toLowerCase());
     if (selected) {
         form.setValue('group', selected.group);
         form.setValue('category', selected.category);
         form.setValue('description', selected.value);
     }
-    form.trigger('description'); // Manually trigger validation
+    form.trigger('description');
     setComboboxOpen(false);
   }
 
@@ -391,26 +392,28 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                           <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                             <Command>
                               <CommandInput placeholder="Pesquisar descrição..." />
-                              <CommandEmpty>Nenhuma descrição encontrada.</CommandEmpty>
-                              <CommandGroup>
-                                {expenseClassificationOptions.map((option) => (
-                                  <CommandItem
-                                    value={option.value}
-                                    key={option.value}
-                                    onSelect={handleExpenseSelection}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        field.value === option.value
-                                          ? "opacity-100"
-                                          : "opacity-0"
-                                      )}
-                                    />
-                                    {option.label}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
+                              <CommandList>
+                                <CommandEmpty>Nenhuma descrição encontrada.</CommandEmpty>
+                                <CommandGroup>
+                                  {expenseClassificationOptions.map((option) => (
+                                    <CommandItem
+                                      value={option.value}
+                                      key={option.value}
+                                      onSelect={handleExpenseSelection}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          field.value === option.value
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                      />
+                                      {option.label}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
                             </Command>
                           </PopoverContent>
                         </Popover>
