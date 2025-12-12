@@ -9,6 +9,7 @@ import { CalendarIcon, X } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
+import type { DateRange } from "react-day-picker";
 
 
 interface DataTableToolbarProps {
@@ -19,8 +20,8 @@ interface DataTableToolbarProps {
   filterCategory: string;
   onFilterCategoryChange: (value: string) => void;
   allCategories: string[];
-  filterDate: Date | undefined;
-  onFilterDateChange: (date: Date | undefined) => void;
+  filterDate: DateRange | undefined;
+  onFilterDateChange: (date: DateRange | undefined) => void;
 }
 
 export function DataTableToolbar({
@@ -78,27 +79,41 @@ export function DataTableToolbar({
             </Select>
         </div>
         <Popover>
-            <PopoverTrigger asChild>
-                <Button
-                variant={"outline"}
-                className={cn(
-                    "w-full justify-start text-left font-normal sm:w-auto",
-                    !filterDate && "text-muted-foreground"
-                )}
-                >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {filterDate ? format(filterDate, "PPP", { locale: ptBR }) : <span>Filtrar por data</span>}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-                <Calendar
-                mode="single"
-                selected={filterDate}
-                onSelect={onFilterDateChange}
-                initialFocus
-                locale={ptBR}
-                />
-            </PopoverContent>
+          <PopoverTrigger asChild>
+            <Button
+              id="date"
+              variant={"outline"}
+              className={cn(
+                "w-full justify-start text-left font-normal sm:w-auto",
+                !filterDate && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {filterDate?.from ? (
+                filterDate.to ? (
+                  <>
+                    {format(filterDate.from, "LLL dd, y", { locale: ptBR })} -{" "}
+                    {format(filterDate.to, "LLL dd, y", { locale: ptBR })}
+                  </>
+                ) : (
+                  format(filterDate.from, "LLL dd, y", { locale: ptBR })
+                )
+              ) : (
+                <span>Selecione o período</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              initialFocus
+              mode="range"
+              defaultMonth={filterDate?.from}
+              selected={filterDate}
+              onSelect={onFilterDateChange}
+              numberOfMonths={2}
+              locale={ptBR}
+            />
+          </PopoverContent>
         </Popover>
         {isFiltered && (
             <Button variant="ghost" onClick={clearFilters} className="h-8 px-2 lg:px-3">

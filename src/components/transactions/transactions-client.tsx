@@ -8,14 +8,15 @@ import { ImportTransactionsDialog } from './import-transactions-dialog';
 import { useState, useMemo } from 'react';
 import { EditTransactionDialog } from './edit-transaction-dialog';
 import { DeleteTransactionAlert } from './delete-transaction-alert';
-import { useFirestore, useUser, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { DataTableToolbar } from '../data-table/data-table-toolbar';
 import { Button } from '../ui/button';
 import { Download } from 'lucide-react';
 import Papa from 'papaparse';
-import { isSameDay, format } from 'date-fns';
+import { format } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 
 export function TransactionsClient({ data, isLoading }: { data: Transaction[], isLoading: boolean }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -24,11 +25,10 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  // State for filters moved from DataTable to here
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+  const [filterDate, setFilterDate] = useState<DateRange | undefined>(undefined);
 
   const allCategories = useMemo(() => {
     const categories = data.map(item => item.category);
@@ -52,8 +52,20 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
       filtered = filtered.filter(item => item.category === filterCategory);
     }
 
-    if (filterDate) {
-      filtered = filtered.filter(item => isSameDay(item.date.toDate(), filterDate));
+    if (filterDate?.from && filterDate?.to) {
+        filtered = filtered.filter(item => {
+            const itemDate = item.date.toDate();
+            return itemDate >= filterDate.from! && itemDate <= filterDate.to!;
+        });
+    } else if (filterDate?.from) {
+        filtered = filtered.filter(item => {
+            const itemDate = item.date.toDate();
+            // Compare dates only, ignoring time
+            const fromDate = filterDate.from!;
+            return itemDate.getFullYear() === fromDate.getFullYear() &&
+                   itemDate.getMonth() === fromDate.getMonth() &&
+                   itemDate.getDate() === fromDate.getDate();
+        });
     }
 
     return filtered;
