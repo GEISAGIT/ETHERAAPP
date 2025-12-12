@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import Papa from 'papaparse';
 import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, Timestamp, query } from 'firebase/firestore';
-import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
+import type { IncomeCategory, ExpenseCategoryGroup } from '@/lib/types';
 
 
 const requiredHeaders = ['date', 'description', 'amount', 'type', 'category'];
@@ -36,16 +36,8 @@ export function ImportTransactionsDialog() {
     return query(collection(firestore, 'incomeCategories'));
   }, [firestore, user]);
 
-  const expenseCategoriesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'expenseCategories'));
-  }, [firestore, user]);
-
   const { data: incomeCategories } = useCollection<IncomeCategory>(incomeCategoriesQuery);
-  const { data: expenseCategories } = useCollection<ExpenseCategory>(expenseCategoriesQuery);
-  
   const incomeCategoryNames = useMemo(() => incomeCategories?.map(c => c.name) ?? [], [incomeCategories]);
-  const expenseCategoryNames = useMemo(() => expenseCategories?.map(c => c.name) ?? [], [expenseCategories]);
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,9 +98,8 @@ export function ImportTransactionsDialog() {
               throw new Error(`Tipo inválido na linha ${index + 2}: ${row.type}. Use 'income' ou 'expense'.`);
             }
             
-            const categoryList = type === 'income' ? incomeCategoryNames : expenseCategoryNames;
-            if (!categoryList.includes(row.category)) {
-              throw new Error(`Categoria inválida para o tipo '${type}' na linha ${index + 2}: ${row.category}`);
+            if (type === 'income' && !incomeCategoryNames.includes(row.category)) {
+              throw new Error(`Categoria de receita inválida na linha ${index + 2}: ${row.category}`);
             }
 
             const transactionData: any = {
@@ -117,6 +108,7 @@ export function ImportTransactionsDialog() {
               amount: amount,
               category: row.category,
               userId: user.uid,
+              createdByName: user.displayName || 'Usuário Desconhecido',
             };
             
             if(type === 'expense' && row.costType && ['fixed', 'variable'].includes(row.costType)) {
