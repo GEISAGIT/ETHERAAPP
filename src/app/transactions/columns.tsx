@@ -3,7 +3,7 @@
 import type { Transaction, ExpenseTransaction } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Timestamp } from 'firebase/firestore';
-import { MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -12,12 +12,29 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
-const formatDate = (timestamp: Timestamp) => {
+const formatDate = (timestamp?: Timestamp) => {
     if (!timestamp) return '';
     return timestamp.toDate().toLocaleDateString('pt-BR');
 }
+
+const AuditTooltipContent = ({ transaction }: { transaction: Transaction }) => {
+  return (
+    <div className="text-xs">
+      <p>
+        <span className="font-semibold">Criado por:</span> {transaction.createdByName || 'N/A'}
+      </p>
+      {transaction.updatedAt && (
+        <p>
+          <span className="font-semibold">Última edição:</span> {formatDate(transaction.updatedAt)}
+        </p>
+      )}
+    </div>
+  );
+};
+
 
 interface ColumnsProps {
     onEdit: (transaction: Transaction) => void;
@@ -36,11 +53,24 @@ export const columns = ({ onEdit, onDelete, userRole }: ColumnsProps) => [
   {
     accessorKey: 'description',
     header: 'Descrição',
-    cell: ({ row }: { row: { original: Transaction } }) => (
-      <div className="flex items-center gap-2">
-        <span className="max-w-[200px] truncate" title={row.original.description}>{row.original.description}</span>
-      </div>
-    ),
+    cell: ({ row }: { row: { original: Transaction } }) => {
+        const transaction = row.original;
+        return (
+            <div className="flex items-center gap-2">
+                <span className="max-w-[200px] truncate" title={transaction.description}>{transaction.description}</span>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <AuditTooltipContent transaction={transaction} />
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
+        );
+    },
   },
   {
     accessorKey: 'category',

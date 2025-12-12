@@ -39,7 +39,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { updateDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
-import { collection, Timestamp, query, doc } from 'firebase/firestore';
+import { collection, Timestamp, query, doc, serverTimestamp } from 'firebase/firestore';
 import type { IncomeCategory, ExpenseCategory, Transaction } from '@/lib/types';
 
 
@@ -125,34 +125,43 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
       return;
     }
     
-    const transactionData: Record<string, any> = {
+    // Base data for both update and potential re-creation
+    const baseTransactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
       description: values.description,
       amount: values.amount,
       category: values.category,
       notes: values.notes,
-      userId: user.uid,
+      updatedAt: serverTimestamp(),
+      updatedBy: user.uid,
     };
 
     if (values.type === 'expense' && values.costType) {
-      transactionData.costType = values.costType;
+      baseTransactionData.costType = values.costType;
     }
-
+    
+    // If the type has changed, we need to delete the old doc and create a new one
     if (values.type !== transaction.type) {
-        // Handle type change: delete from old collection, add to new one
+        // Delete the old document
         const oldCollectionName = transaction.type === 'income' ? 'incomes' : 'expenses';
         const oldDocRef = doc(firestore, oldCollectionName, transaction.id);
         deleteDocumentNonBlocking(oldDocRef);
 
+        // Create the new document in the correct collection
         const newCollectionName = values.type === 'income' ? 'incomes' : 'expenses';
         const newCollectionRef = collection(firestore, newCollectionName);
-        addDocumentNonBlocking(newCollectionRef, transactionData);
+        const newTransactionData = {
+          ...baseTransactionData,
+          userId: transaction.userId, // Preserve original creator
+          createdByName: transaction.createdByName, // Preserve original creator name
+        };
+        addDocumentNonBlocking(newCollectionRef, newTransactionData);
 
     } else {
-        // Type hasn't changed, just update the document
+        // Type is the same, just update the document in place
         const collectionName = values.type === 'income' ? 'incomes' : 'expenses';
         const docRef = doc(firestore, collectionName, transaction.id);
-        updateDocumentNonBlocking(docRef, transactionData);
+        updateDocumentNonBlocking(docRef, baseTransactionData);
     }
     
     toast({

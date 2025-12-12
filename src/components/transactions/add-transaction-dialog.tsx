@@ -41,7 +41,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, Timestamp, query } from 'firebase/firestore';
+import { collection, Timestamp, query, serverTimestamp } from 'firebase/firestore';
 import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
 
 
@@ -123,7 +123,10 @@ export function AddTransactionDialog() {
       amount: values.amount,
       category: values.category,
       notes: values.notes,
-      userId: user.uid, // Add userId to track who created the transaction
+      userId: user.uid,
+      createdByName: user.displayName || 'Usuário Desconhecido',
+      updatedAt: serverTimestamp(),
+      updatedBy: user.uid,
     };
 
     if (values.type === 'expense' && values.costType) {

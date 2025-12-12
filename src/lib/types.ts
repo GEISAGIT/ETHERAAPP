@@ -3,18 +3,22 @@ import { Timestamp } from 'firebase/firestore';
 
 export type IncomeTransaction = {
   id: string;
-  userId: string;
+  userId: string; // Creator's UID
+  createdByName: string;
   date: Timestamp;
   description: string;
   amount: number;
   type: 'income';
   category: string;
   notes?: string;
+  updatedAt?: Timestamp;
+  updatedBy?: string; // UID of user who last updated
 }
 
 export type ExpenseTransaction = {
-  id: string;
-  userId: string;
+  id:string;
+  userId: string; // Creator's UID
+  createdByName: string;
   date: Timestamp;
   description: string;
   amount: number;
@@ -22,6 +26,8 @@ export type ExpenseTransaction = {
   category: string;
   costType?: 'fixed' | 'variable';
   notes?: string;
+  updatedAt?: Timestamp;
+  updatedBy?: string; // UID of user who last updated
 }
 
 export type Transaction = IncomeTransaction | ExpenseTransaction;
