@@ -26,7 +26,9 @@ service cloud.firestore {
      * This is the recommended and most secure way to handle roles.
      */
     function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
+      // In production, you should use custom claims.
+      // For this prototype, we check the email of the admin user.
+      return isSignedIn() && request.auth.token.email == 'grupodallax@gmail.com';
     }
 
     /**
@@ -96,7 +98,7 @@ service cloud.firestore {
      */
     match /budgets/{budgetId} {
       // Only the user who created the budget or an admin can read/write.
-      allow read, write: if isSignedIn() && (isOriginalCreator() || isAdmin());
+      allow read: if isSignedIn() && (isOriginalCreator() || isAdmin());
       // Admins can list all budgets
       allow list: if isAdmin();
     }
@@ -107,8 +109,7 @@ service cloud.firestore {
      * @path /incomeCategories/{categoryId}
      */
     match /incomeCategories/{categoryId} {
-        allow get: if isSignedIn();
-        allow list: if isSignedIn() || request.query.limit <= 10;
+        allow get, list: if isSignedIn();
         allow create: if isSignedIn();
         allow update, delete: if isAdmin();
     }
