@@ -397,7 +397,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                                   {expenseSearchOptions.map((option) => (
                                     <CommandItem
                                       key={option.value}
-                                      value={option.value}
+                                      value={option.label}
                                       onSelect={() => {
                                         handleExpenseSelection(option);
                                       }}
