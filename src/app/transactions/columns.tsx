@@ -12,7 +12,7 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 const formatDate = (timestamp?: Timestamp) => {
@@ -42,6 +42,23 @@ const AuditTooltipContent = ({ transaction }: { transaction: Transaction }) => {
   );
 };
 
+const DescriptionCell = ({ transaction }: { transaction: Transaction }) => {
+    return (
+        <div className="flex items-center gap-2">
+            <span className="max-w-[200px] truncate" title={transaction.description}>
+                {transaction.description}
+            </span>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
+                </TooltipTrigger>
+                <TooltipContent>
+                    <AuditTooltipContent transaction={transaction} />
+                </TooltipContent>
+            </Tooltip>
+        </div>
+    );
+};
 
 interface ColumnsProps {
     onEdit: (transaction: Transaction) => void;
@@ -61,20 +78,7 @@ export const columns = ({ onEdit, onDelete, userRole }: ColumnsProps) => [
     accessorKey: 'description',
     header: 'Descrição',
     cell: ({ row }: { row: { original: Transaction } }) => {
-        const transaction = row.original;
-        return (
-            <div className="flex items-center gap-2">
-                <span className="max-w-[200px] truncate" title={transaction.description}>{transaction.description}</span>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <AuditTooltipContent transaction={transaction} />
-                    </TooltipContent>
-                </Tooltip>
-            </div>
-        );
+        return <DescriptionCell transaction={row.original} />;
     },
   },
   {
