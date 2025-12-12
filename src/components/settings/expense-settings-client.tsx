@@ -1,9 +1,9 @@
 'use client';
 import type { ExpenseCategoryGroup, ExpenseCategory, ExpenseSubCategory } from '@/lib/types';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, Trash2, MoreVertical } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, MoreVertical, Search } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AddCategoryDialog } from './add-category-dialog';
 import { EditCategoryDialog } from './edit-category-dialog';
 import { DeleteCategoryAlert } from './delete-category-alert';
+import { Input } from '../ui/input';
 
 
 export function ExpenseSettingsClient({
@@ -22,6 +23,7 @@ export function ExpenseSettingsClient({
     expenseCategoryGroups: ExpenseCategoryGroup[],
     isLoading: boolean
 }) {
+  const [searchTerm, setSearchTerm] = useState('');
   const [dialogState, setDialogState] = useState<{
     mode: 'add' | 'edit' | 'delete' | null;
     type: 'group' | 'category' | 'subCategory' | null;
@@ -129,6 +131,33 @@ export function ExpenseSettingsClient({
 
     closeDialog();
   };
+  
+    const filteredGroups = useMemo(() => {
+    if (!searchTerm) {
+        return expenseCategoryGroups;
+    }
+
+    const lowercasedFilter = searchTerm.toLowerCase();
+
+    return expenseCategoryGroups.map(group => {
+        const filteredCategories = group.categories.map(category => {
+            const filteredSubCategories = category.subCategories.filter(sub =>
+                sub.name.toLowerCase().includes(lowercasedFilter)
+            );
+
+            if (filteredSubCategories.length > 0 || category.name.toLowerCase().includes(lowercasedFilter)) {
+                return { ...category, subCategories: filteredSubCategories };
+            }
+            return null;
+        }).filter((c): c is ExpenseCategory => c !== null);
+
+        if (filteredCategories.length > 0 || group.name.toLowerCase().includes(lowercasedFilter)) {
+            return { ...group, categories: filteredCategories };
+        }
+        return null;
+    }).filter((g): g is ExpenseCategoryGroup => g !== null);
+
+  }, [expenseCategoryGroups, searchTerm]);
 
 
   if (isLoading) {
@@ -143,6 +172,7 @@ export function ExpenseSettingsClient({
             <Skeleton className="h-8 w-72" />
           </CardHeader>
           <CardContent className="space-y-4">
+            <Skeleton className="h-10 w-full max-w-sm" />
             {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
           </CardContent>
           <CardFooter>
@@ -195,9 +225,19 @@ export function ExpenseSettingsClient({
           <CardHeader>
             <CardTitle className="font-headline">Estrutura de Categorias de Despesa</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Pesquisar em grupos, categorias ou descrições..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
             <Accordion type="multiple" className="w-full">
-              {expenseCategoryGroups.map(group => (
+              {filteredGroups.map(group => (
                 <AccordionItem value={group.id} key={group.id}>
                     <div className="flex items-center group">
                         <AccordionTrigger className="text-lg font-semibold flex-1">{group.name}</AccordionTrigger>
@@ -283,6 +323,9 @@ export function ExpenseSettingsClient({
                 </AccordionItem>
               ))}
             </Accordion>
+            {filteredGroups.length === 0 && searchTerm && (
+                <p className="text-center text-muted-foreground pt-4">Nenhum resultado encontrado para "{searchTerm}".</p>
+            )}
           </CardContent>
           <CardFooter>
             <Button variant="outline" onClick={() => openDialog('add', 'group')}>
