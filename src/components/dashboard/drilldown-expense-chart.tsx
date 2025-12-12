@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from '../ui/breadcrumb';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -74,6 +75,7 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const isMobile = useIsMobile();
 
   const expensesByGroup = useMemo(() => {
     const groups: { [group: string]: { total: number, categories: { [category: string]: { total: number, descriptions: { [description: string]: number } } } } } = {};
@@ -182,7 +184,7 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
               </div>
           ) : (
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                  <div className='h-[350px] w-full'>
+                  <div className={cn("w-full", isMobile ? "h-[250px]" : "h-[350px]")}>
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -190,8 +192,8 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          outerRadius={100}
-                          innerRadius={60}
+                          outerRadius={isMobile ? 80 : 100}
+                          innerRadius={isMobile ? 40 : 60}
                           fill="#8884d8"
                           dataKey="value"
                           nameKey="name"
@@ -218,11 +220,12 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
                           formatter={(value: number) => formatCurrency(value)}
                         />
                          <Legend 
-                          layout="vertical" 
-                          align="right" 
-                          verticalAlign="middle" 
-                          wrapperStyle={{ lineHeight: '24px' }}
-                          formatter={(value, entry) => <span className="text-muted-foreground">{value}</span>}
+                           {...(isMobile 
+                             ? { layout: 'horizontal', align: 'center', verticalAlign: 'bottom', wrapperStyle: { paddingTop: 20 } }
+                             : { layout: 'vertical', align: 'right', verticalAlign: 'middle' }
+                           )}
+                           wrapperStyle={{ lineHeight: '24px' }}
+                           formatter={(value) => <span className="text-muted-foreground">{value}</span>}
                          />
                       </PieChart>
                     </ResponsiveContainer>
