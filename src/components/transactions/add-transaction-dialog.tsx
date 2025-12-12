@@ -383,8 +383,8 @@ export function AddTransactionDialog() {
                                 <CommandGroup>
                                   {expenseSearchOptions.map((option) => (
                                     <CommandItem
-                                      value={option.label}
                                       key={option.value}
+                                      value={option.value}
                                       onSelect={() => handleExpenseSelection(option)}
                                     >
                                       <Check
