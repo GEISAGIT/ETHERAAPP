@@ -1,15 +1,27 @@
 'use client';
 import { AppLayout } from '@/components/layout/app-layout';
 import { ReportsClient } from '@/components/reports/reports-client';
-import { useCollectionGroup, useUser } from '@/firebase';
+import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import type { Transaction } from '@/lib/types';
 import { useMemo } from 'react';
+import { collection, query } from 'firebase/firestore';
 
 export default function ReportsPage() {
   const { user } = useUser();
+  const firestore = useFirestore();
 
-  const { data: incomesData, isLoading: incomesLoading } = useCollectionGroup<Omit<Transaction, 'type'>>('incomes');
-  const { data: expensesData, isLoading: expensesLoading } = useCollectionGroup<Omit<Transaction, 'type'>>('expenses');
+  const incomesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'incomes'));
+  }, [firestore]);
+
+  const expensesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'expenses'));
+  }, [firestore]);
+
+  const { data: incomesData, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
+  const { data: expensesData, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(expensesQuery);
   
   const data = useMemo(() => {
     if (!user) return [];

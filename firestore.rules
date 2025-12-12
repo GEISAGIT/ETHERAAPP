@@ -44,11 +44,13 @@ service cloud.firestore {
     
     match /incomes/{docId} {
         allow read: if isSignedIn();
+        allow list: if isAdmin();
         allow write: if isOriginalCreator() || isAdmin();
     }
 
     match /expenses/{docId} {
         allow read: if isSignedIn();
+        allow list: if isAdmin();
         allow write: if isOriginalCreator() || isAdmin();
     }
 
