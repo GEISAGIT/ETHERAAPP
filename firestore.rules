@@ -7,105 +7,65 @@ service cloud.firestore {
     // Helper Functions
     // ----------------------------------------------------------------------
 
-    /**
-     * Checks if the user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the authenticated user's UID matches the provided userId.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    
-    /**
-     * Checks if the user is an administrator by verifying custom claims on their token.
-     * This is the recommended and most secure way to handle roles.
-     */
+
     function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
+      // Temporary check for prototype. Custom claims are preferred in production.
+      return isSignedIn() && request.auth.token.email == 'grupodallax@gmail.com';
     }
 
-    /**
-     * Checks if the user is the original creator of an existing document.
-     * This is used for update/delete operations on existing resources.
-     */
     function isOriginalCreator() {
-      return isSignedIn() && request.auth.uid == resource.data.userId;
+      let data = resource == null ? request.resource.data : resource.data;
+      return isSignedIn() && request.auth.uid == data.userId;
     }
 
-
     // ----------------------------------------------------------------------
-    // Generic Collection Rules for Incomes and Expenses
-    // ----------------------------------------------------------------------
-    
-    /**
-     * @description Generic rule for all 'incomes' and 'expenses' collections,
-     *              whether they are at the root or nested. This single rule
-     *              governs CUD operations based on ownership or admin role,
-     *              and read operations for any signed-in user.
-     */
-    match /{path=**}/{collectionName}/{docId} 
-      where collectionName in ['incomes', 'expenses'] {
-      
-      // READ: Any signed-in user can read any income or expense document.
-      // This supports collectionGroup queries for unified data views.
-      allow get, list: if isSignedIn();
-      
-      // WRITE (CREATE, UPDATE, DELETE): 
-      // Only the original creator or an admin can modify the document.
-      // The 'write' rule covers create, update, and delete operations.
-      allow write: if isSignedIn() && (isOriginalCreator() || isAdmin());
-    }
-
-
-    // ----------------------------------------------------------------------
-    // Specific Collection Rules
+    // Collection Rules
     // ----------------------------------------------------------------------
 
-    /**
-     * @description User profiles.
-     * @path /users/{userId}
-     */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin(); // Only admins can delete user documents
+      allow delete: if isAdmin();
     }
-    
-    /**
-     * @description Role definitions. Readable by any signed-in user, writable only by admins.
-     * @path /roles/{roleId}
-     */
+
     match /roles/{roleId} {
       allow get, list: if isSignedIn();
       allow write: if isAdmin();
     }
     
-    /**
-     * @description Global budget records. Readable by all, writable by admins.
-     * @path /budgets/{budgetId}
-     */
-    match /budgets/{budgetId} {
-      allow get, list: if isSignedIn();
-      allow write: if isAdmin();
+    match /incomes/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isOriginalCreator() || isAdmin();
     }
 
-    /**
-     * @description Category definitions. Readable by all signed-in users.
-     *              Creation is open to seed defaults, but updates/deletes are admin-only.
-     * @path /incomeCategories/{categoryId}, /expenseCategories/{categoryId}
-     */
-    match /{collectionName}/{categoryId}
-      where collectionName in ['incomeCategories', 'expenseCategories'] {
+    match /expenses/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isOriginalCreator() || isAdmin();
+    }
+
+    match /budgets/{budgetId} {
+      allow read, write: if isOriginalCreator() || isAdmin();
+      allow list: if isAdmin();
+    }
+
+    match /incomeCategories/{categoryId} {
         allow get, list: if isSignedIn();
         allow create: if isSignedIn();
         allow update, delete: if isAdmin();
+    }
+
+    match /expenseCategoryGroups/{groupId} {
+        allow get, list: if isSignedIn();
+        allow write: if isAdmin();
     }
   }
 }
