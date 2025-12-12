@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,17 +19,24 @@ interface AddCategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAddCategory: (name: string) => void;
-  categoryType: 'income' | 'expense';
+  categoryType: 'income' | 'expense' | 'group' | 'category' | 'subCategory' | null;
+  title?: string;
 }
 
 export function AddCategoryDialog({
   open,
   onOpenChange,
   onAddCategory,
-  categoryType,
+  title,
 }: AddCategoryDialogProps) {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setName('');
+    }
+  }, [open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +44,6 @@ export function AddCategoryDialog({
     setIsLoading(true);
     onAddCategory(name);
     setIsLoading(false);
-    setName('');
     onOpenChange(false);
   };
 
@@ -48,10 +53,10 @@ export function AddCategoryDialog({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle className="font-headline">
-              Adicionar Nova Categoria de {categoryType === 'income' ? 'Receita' : 'Despesa'}
+              {title || 'Adicionar Novo Item'}
             </DialogTitle>
             <DialogDescription>
-              Insira o nome para a nova categoria.
+              Insira o nome para o novo item.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">

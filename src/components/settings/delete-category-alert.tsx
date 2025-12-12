@@ -23,13 +23,12 @@ export function DeleteCategoryAlert({ open, onOpenChange, onConfirm }: DeleteCat
         <AlertDialogHeader>
           <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
           <AlertDialogDescription>
-            Essa ação não pode ser desfeita. Isso excluirá permanentemente a
-            categoria. Transações existentes nesta categoria não serão alteradas.
+            Essa ação não pode ser desfeita. Isso excluirá permanentemente o item e todos os seus sub-itens, se houver.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Continuar</AlertDialogAction>
+          <AlertDialogAction onClick={onConfirm} className="bg-red-600 hover:bg-red-700">Continuar</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

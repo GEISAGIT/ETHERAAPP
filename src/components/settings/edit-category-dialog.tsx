@@ -14,13 +14,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
 
 interface EditCategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEditCategory: (id: string, name: string) => void;
-  category: IncomeCategory | ExpenseCategory | null;
+  category: { id: string, name: string } | null;
+  title?: string;
 }
 
 export function EditCategoryDialog({
@@ -28,6 +28,7 @@ export function EditCategoryDialog({
   onOpenChange,
   onEditCategory,
   category,
+  title,
 }: EditCategoryDialogProps) {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -53,10 +54,10 @@ export function EditCategoryDialog({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle className="font-headline">
-              Editar Categoria
+              {title || 'Editar Item'}
             </DialogTitle>
             <DialogDescription>
-              Altere o nome da categoria.
+              Altere o nome do item.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
