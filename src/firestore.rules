@@ -22,12 +22,10 @@ service cloud.firestore {
     }
     
     /**
-     * Checks if the user is an administrator by verifying custom claims on their token.
-     * This is the recommended and most secure way to handle roles.
+     * Checks if the user is an administrator by verifying their email address.
+     * This is a temporary method for the prototype. In production, custom claims are preferred.
      */
     function isAdmin() {
-      // In production, you should use custom claims.
-      // For this prototype, we check the email of the admin user.
       return isSignedIn() && request.auth.token.email == 'grupodallax@gmail.com';
     }
 
@@ -55,23 +53,6 @@ service cloud.firestore {
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
-
-      /**
-       * @description User-owned incomes and expenses.
-       * @path /users/{userId}/incomes/{docId}
-       * @path /users/{userId}/expenses/{docId}
-       */
-      match /{collectionName}/{docId} where collectionName in ['incomes', 'expenses'] {
-          // READ: Owner or admin can read.
-          allow get: if isOwner(userId) || isAdmin();
-          
-          // LIST: Owner or admin can list their own transactions.
-          allow list: if isOwner(userId) || isAdmin();
-
-          // WRITE (CREATE, UPDATE, DELETE): 
-          // Only the owner or an admin can modify the document.
-          allow write: if isOwner(userId) || isAdmin();
-      }
     }
 
     /**
@@ -98,7 +79,7 @@ service cloud.firestore {
      */
     match /budgets/{budgetId} {
       // Only the user who created the budget or an admin can read/write.
-      allow read: if isSignedIn() && (isOriginalCreator() || isAdmin());
+      allow read, write: if (isOriginalCreator() || isAdmin());
       // Admins can list all budgets
       allow list: if isAdmin();
     }
@@ -125,5 +106,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
