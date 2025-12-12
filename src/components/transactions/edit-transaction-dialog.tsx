@@ -96,19 +96,17 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     return query(collection(firestore, 'incomeCategories'));
   }, [firestore, user]);
 
-  const expenseCategoriesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'expenseCategories'));
-  }, [firestore, user]);
-
   const { data: incomeCategories } = useCollection<IncomeCategory>(incomeCategoriesQuery);
-  const { data: expenseCategories } = useCollection<ExpenseCategory>(expenseCategoriesQuery);
+  // Temporarily use an empty array for expense categories to avoid query error
+  const expenseCategories: ExpenseCategory[] = [];
   
   const categories = useMemo(() => {
     let categoryNames: string[];
     if (transactionType === 'income') {
       categoryNames = incomeCategories?.map(c => c.name) ?? [];
     } else {
+      // Using the temporary empty array for now.
+      // TODO: Replace with new hierarchical category structure
       categoryNames = expenseCategories?.map(c => c.name) ?? [];
     }
     return [...new Set(categoryNames)].sort();
