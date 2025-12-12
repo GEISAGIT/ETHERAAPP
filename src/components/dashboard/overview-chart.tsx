@@ -3,10 +3,62 @@ import type { Transaction } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
 
 type OverviewChartProps = {
   transactions: Transaction[];
 };
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const income = payload.find((p: any) => p.dataKey === 'income')?.value || 0;
+      const expense = payload.find((p: any) => p.dataKey === 'expense')?.value || 0;
+      const profit = income - expense;
+
+      const formatCurrency = (value: number) => 
+        new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+        }).format(value);
+
+      return (
+        <div className="rounded-lg border bg-background p-2 shadow-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col space-y-1">
+                <span className="text-[0.70rem] uppercase text-muted-foreground">
+                    {label}
+                </span>
+                <span className="font-bold text-muted-foreground">
+                    Receitas
+                </span>
+                <span className="font-bold text-muted-foreground">
+                    Despesas
+                </span>
+                <span className="font-bold">
+                    Lucro
+                </span>
+            </div>
+            <div className="flex flex-col space-y-1 text-right">
+                <span className="text-[0.70rem] uppercase text-muted-foreground">
+                    &nbsp;
+                </span>
+                <span className="font-bold text-emerald-500">
+                    {formatCurrency(income)}
+                </span>
+                <span className="font-bold">
+                    {formatCurrency(expense)}
+                </span>
+                <span className={cn("font-bold", profit >= 0 ? "text-emerald-500" : "text-red-500")}>
+                    {formatCurrency(profit)}
+                </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  
+    return null;
+  };
 
 export function OverviewChart({ transactions }: OverviewChartProps) {
   const data = useMemo(() => {
@@ -66,11 +118,8 @@ export function OverviewChart({ transactions }: OverviewChartProps) {
               tickFormatter={(value) => `R$${value / 1000}k`}
             />
             <Tooltip
-              contentStyle={{
-                backgroundColor: 'hsl(var(--background))',
-                borderColor: 'hsl(var(--border))',
-              }}
-              formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)}
+              cursor={{ fill: 'hsl(var(--muted))' }}
+              content={<CustomTooltip />}
             />
             <Legend />
             <Bar dataKey="income" fill="hsl(var(--chart-1))" name="Receitas" radius={[4, 4, 0, 0]} />
