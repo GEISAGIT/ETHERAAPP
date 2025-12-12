@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Loader2, Check, ChevronsUpDown } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -22,7 +22,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -36,6 +35,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Calendar } from '../ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
@@ -63,7 +63,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
   const [isDatePickerOpen, setDatePickerOpen] = useState(false);
-  const [descriptionSearch, setDescriptionSearch] = useState('');
+  const [comboboxOpen, setComboboxOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -82,8 +82,6 @@ export function AddTransactionDialog() {
   });
   
   const transactionType = useWatch({ control: form.control, name: 'type' });
-  const selectedGroup = useWatch({ control: form.control, name: 'group' });
-  const selectedCategory = useWatch({ control: form.control, name: 'category' });
   
   useEffect(() => {
     if (!open) {
@@ -96,7 +94,6 @@ export function AddTransactionDialog() {
           group: '',
           notes: '',
         });
-        setDescriptionSearch('');
     }
   }, [open, form]);
 
@@ -120,39 +117,28 @@ export function AddTransactionDialog() {
     return incomeCategories?.map(c => c.name).sort() ?? [];
   }, [incomeCategories]);
 
-  const groupOptions = useMemo(() => {
-    return expenseCategoryGroups?.map(g => g.name).sort() ?? [];
+  const expenseClassificationOptions = useMemo(() => {
+    if (!expenseCategoryGroups) return [];
+    return expenseCategoryGroups.flatMap(group =>
+      group.categories.flatMap(category =>
+        category.subCategories.map(subCategory => ({
+          label: `${group.name} > ${category.name} > ${subCategory.name}`,
+          value: subCategory.name,
+          group: group.name,
+          category: category.name
+        }))
+      )
+    );
   }, [expenseCategoryGroups]);
 
-  const categoryOptions = useMemo(() => {
-    if (!selectedGroup) return [];
-    return expenseCategoryGroups
-      ?.find(g => g.name === selectedGroup)
-      ?.categories.map(c => c.name).sort() ?? [];
-  }, [expenseCategoryGroups, selectedGroup]);
-
-  const descriptionOptions = useMemo(() => {
-    if (!selectedGroup || !selectedCategory) return [];
-    const descriptions = expenseCategoryGroups
-      ?.find(g => g.name === selectedGroup)
-      ?.categories.find(c => c.name === selectedCategory)
-      ?.subCategories.map(sc => sc.name).sort() ?? [];
-    
-    if (descriptionSearch) {
-      return descriptions.filter(d => d.toLowerCase().includes(descriptionSearch.toLowerCase()));
+  const handleExpenseSelection = (label: string) => {
+    const selected = expenseClassificationOptions.find(opt => opt.label === label);
+    if (selected) {
+        form.setValue('group', selected.group);
+        form.setValue('category', selected.category);
+        form.setValue('description', selected.value);
     }
-    return descriptions;
-  }, [expenseCategoryGroups, selectedGroup, selectedCategory, descriptionSearch]);
-
-  const handleGroupChange = (value: string) => {
-    form.setValue('group', value);
-    form.resetField('category');
-    form.resetField('description');
-  }
-
-  const handleCategoryChange = (value: string) => {
-    form.setValue('category', value);
-    form.resetField('description');
+    setComboboxOpen(false);
   }
 
   
@@ -186,12 +172,12 @@ export function AddTransactionDialog() {
         toast({
           variant: 'destructive',
           title: 'Classificação Incompleta',
-          description: 'Por favor, selecione Grupo, Categoria e Descrição para a despesa.',
+          description: 'Por favor, selecione uma classificação de despesa completa.',
         });
         return;
       }
       transactionData.costType = values.costType;
-      transactionData.category = values.category;
+      transactionData.category = values.category; // Legacy category
       transactionData.fullCategoryPath = {
         group: values.group,
         category: values.category,
@@ -369,56 +355,56 @@ export function AddTransactionDialog() {
                   <h4 className="font-medium text-sm">Classificação da Despesa</h4>
                   <FormField
                     control={form.control}
-                    name="group"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Grupo</FormLabel>
-                        <Select onValueChange={handleGroupChange} value={field.value}>
-                          <FormControl><SelectTrigger><SelectValue placeholder="Selecione o Grupo" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            {groupOptions.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Categoria</FormLabel>
-                        <Select onValueChange={handleCategoryChange} value={field.value} disabled={!selectedGroup}>
-                          <FormControl><SelectTrigger><SelectValue placeholder="Selecione a Categoria" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                             {categoryOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                   <div className="space-y-2">
-                        <Label>Pesquisar Descrição</Label>
-                        <Input 
-                            placeholder="Filtre pela descrição..."
-                            onChange={(e) => setDescriptionSearch(e.target.value)}
-                            disabled={!selectedCategory}
-                        />
-                    </div>
-                  <FormField
-                    control={form.control}
                     name="description"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="flex flex-col">
                         <FormLabel>Descrição</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCategory}>
-                          <FormControl><SelectTrigger><SelectValue placeholder="Selecione a Descrição" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            {descriptionOptions.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn(
+                                  "w-full justify-between",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value
+                                  ? expenseClassificationOptions.find(
+                                      (opt) => opt.value === field.value
+                                    )?.label
+                                  : "Selecione uma classificação"}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command>
+                              <CommandInput placeholder="Pesquisar classificação..." />
+                              <CommandEmpty>Nenhuma classificação encontrada.</CommandEmpty>
+                              <CommandGroup>
+                                {expenseClassificationOptions.map((option) => (
+                                  <CommandItem
+                                    value={option.label}
+                                    key={option.label}
+                                    onSelect={() => handleExpenseSelection(option.label)}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        field.value === option.value
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      )}
+                                    />
+                                    {option.label}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -485,3 +471,5 @@ export function AddTransactionDialog() {
     </>
   );
 }
+
+    
