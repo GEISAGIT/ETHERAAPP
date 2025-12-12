@@ -12,11 +12,15 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 
 const formatDate = (timestamp?: Timestamp) => {
-    if (!timestamp) return '';
+    if (!timestamp) return 'N/A';
     const date = timestamp.toDate();
     return new Intl.DateTimeFormat('pt-BR', {
       day: '2-digit',
@@ -27,35 +31,30 @@ const formatDate = (timestamp?: Timestamp) => {
     }).format(date);
 }
 
-const AuditTooltipContent = ({ transaction }: { transaction: Transaction }) => {
-  return (
-    <div className="text-xs">
-      <p>
-        <span className="font-semibold">Criado por:</span> {transaction.createdByName || 'N/A'}
-      </p>
-      {transaction.updatedAt && (
-        <p>
-          <span className="font-semibold">Última edição:</span> {formatDate(transaction.updatedAt)}
-        </p>
-      )}
-    </div>
-  );
-};
-
 const DescriptionCell = ({ transaction }: { transaction: Transaction }) => {
     return (
         <div className="flex items-center gap-2">
             <span className="max-w-[200px] truncate" title={transaction.description}>
                 {transaction.description}
             </span>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
-                </TooltipTrigger>
-                <TooltipContent>
-                    <AuditTooltipContent transaction={transaction} />
-                </TooltipContent>
-            </Tooltip>
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                        <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-60">
+                    <div className="space-y-2 text-sm">
+                        <h4 className="font-semibold">Log de Auditoria</h4>
+                        <p>
+                            <span className="font-semibold text-muted-foreground">Criado por:</span> {transaction.createdByName || 'N/A'}
+                        </p>
+                        <p>
+                            <span className="font-semibold text-muted-foreground">Última edição:</span> {formatDate(transaction.updatedAt)}
+                        </p>
+                    </div>
+                </PopoverContent>
+            </Popover>
         </div>
     );
 };
