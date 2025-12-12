@@ -42,7 +42,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, Timestamp, query, serverTimestamp } from 'firebase/firestore';
-import type { IncomeCategory, ExpenseCategory } from '@/lib/types';
+import type { IncomeCategory, ExpenseCategoryGroup } from '@/lib/types';
 
 
 const formSchema = z.object({
@@ -50,7 +50,7 @@ const formSchema = z.object({
   description: z.string().min(3, 'A descrição é muito curta'),
   amount: z.coerce.number().positive('O valor deve ser positivo'),
   type: z.enum(['income', 'expense']),
-  category: z.string().min(1, 'Por favor, selecione uma categoria'),
+  category: z.string().min(1, 'Por favor, selecione uma categoria/descrição'),
   costType: z.enum(['fixed', 'variable']).optional(),
   notes: z.string().optional(),
 });
@@ -63,6 +63,9 @@ export function AddTransactionDialog() {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
+
+  const [selectedGroup, setSelectedGroup] = useState<string>('');
+  const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<string>('');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -81,26 +84,43 @@ export function AddTransactionDialog() {
     name: 'type',
   });
 
+  // --- Data Fetching ---
   const incomeCategoriesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'incomeCategories'));
   }, [firestore, user]);
 
+  const expenseCategoryGroupsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'expenseCategoryGroups'));
+  }, [firestore, user]);
+
   const { data: incomeCategories } = useCollection<IncomeCategory>(incomeCategoriesQuery);
-  // Temporarily use an empty array for expense categories to avoid query error
-  const expenseCategories: ExpenseCategory[] = [];
-  
-  const categories = useMemo(() => {
-    let categoryNames: string[];
-    if (transactionType === 'income') {
-      categoryNames = incomeCategories?.map(c => c.name) ?? [];
-    } else {
-      // Using the temporary empty array for now.
-      // TODO: Replace with new hierarchical category structure
-      categoryNames = expenseCategories?.map(c => c.name) ?? [];
-    }
-    return [...new Set(categoryNames)].sort();
-  }, [transactionType, incomeCategories, expenseCategories]);
+  const { data: expenseCategoryGroups } = useCollection<ExpenseCategoryGroup>(expenseCategoryGroupsQuery);
+
+
+  // --- Memoized Select Options ---
+  const incomeCategoryOptions = useMemo(() => {
+    return incomeCategories?.map(c => c.name).sort() ?? [];
+  }, [incomeCategories]);
+
+  const expenseGroupOptions = useMemo(() => {
+    return expenseCategoryGroups?.map(g => g.name).sort() ?? [];
+  }, [expenseCategoryGroups]);
+
+  const expenseCategoryOptions = useMemo(() => {
+    if (!selectedGroup) return [];
+    const group = expenseCategoryGroups?.find(g => g.name === selectedGroup);
+    return group?.categories.map(c => c.name).sort() ?? [];
+  }, [expenseCategoryGroups, selectedGroup]);
+
+  const expenseSubCategoryOptions = useMemo(() => {
+    if (!selectedGroup || !selectedExpenseCategory) return [];
+    const group = expenseCategoryGroups?.find(g => g.name === selectedGroup);
+    const category = group?.categories.find(c => c.name === selectedExpenseCategory);
+    return category?.subCategories.map(sc => sc.name).sort() ?? [];
+  }, [expenseCategoryGroups, selectedGroup, selectedExpenseCategory]);
+
   
   const onSubmit = (values: FormValues) => {
     if (!user) {
@@ -127,8 +147,14 @@ export function AddTransactionDialog() {
       updatedBy: user.uid,
     };
 
-    if (values.type === 'expense' && values.costType) {
+    if (values.type === 'expense') {
       transactionData.costType = values.costType;
+      // Store the full path for context if needed later
+      transactionData.fullCategoryPath = {
+        group: selectedGroup,
+        category: selectedExpenseCategory,
+        description: values.category
+      };
     }
 
     addDocumentNonBlocking(transactionsCollection, transactionData);
@@ -141,6 +167,24 @@ export function AddTransactionDialog() {
     setOpen(false);
   };
 
+  const handleTypeChange = (value: string) => {
+    form.setValue('type', value as 'income' | 'expense');
+    form.setValue('category', '');
+    setSelectedGroup('');
+    setSelectedExpenseCategory('');
+  }
+
+  const handleGroupChange = (value: string) => {
+    setSelectedGroup(value);
+    setSelectedExpenseCategory('');
+    form.setValue('category', '');
+  }
+
+  const handleExpenseCategoryChange = (value: string) => {
+    setSelectedExpenseCategory(value);
+    form.setValue('category', '');
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -150,7 +194,7 @@ export function AddTransactionDialog() {
             Adicionar Transação
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">Nova Transação</DialogTitle>
             <DialogDescription>
@@ -165,10 +209,7 @@ export function AddTransactionDialog() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tipo</FormLabel>
-                    <Select onValueChange={(value) => {
-                        field.onChange(value);
-                        form.setValue('category', '');
-                    }} defaultValue={field.value}>
+                    <Select onValueChange={handleTypeChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione o tipo de transação" />
@@ -258,55 +299,112 @@ export function AddTransactionDialog() {
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                       <FormItem>
+              {transactionType === 'income' ? (
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                     <FormItem>
+                      <FormLabel>Categoria</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma categoria" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {incomeCategoryOptions.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : (
+                <div className="space-y-4 rounded-md border p-4">
+                  <h3 className="text-sm font-medium">Classificação da Despesa</h3>
+                  <div className="grid grid-cols-1 gap-4">
+                     <FormItem>
+                        <FormLabel>Grupo</FormLabel>
+                        <Select onValueChange={handleGroupChange} value={selectedGroup}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione um grupo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {expenseGroupOptions.map((opt) => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                      <FormItem>
                         <FormLabel>Categoria</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={handleExpenseCategoryChange} value={selectedExpenseCategory} disabled={!selectedGroup}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione uma categoria" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {categories.map((cat) => (
-                              <SelectItem key={cat} value={cat}>
-                                {cat}
-                              </SelectItem>
+                            {expenseCategoryOptions.map((opt) => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        <FormMessage />
                       </FormItem>
-                    )}
-                  />
-                  {transactionType === 'expense' && (
-                      <FormField
+                    <FormField
                       control={form.control}
-                      name="costType"
+                      name="category" // Final value is the sub-category/description
                       render={({ field }) => (
-                          <FormItem>
-                          <FormLabel>Tipo de Custo</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
+                        <FormItem>
+                          <FormLabel>Descrição</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value} disabled={!selectedExpenseCategory}>
+                            <FormControl>
                               <SelectTrigger>
-                                  <SelectValue placeholder="Fixo ou Variável" />
+                                <SelectValue placeholder="Selecione a descrição final" />
                               </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                              <SelectItem value="fixed">Custo Fixo</SelectItem>
-                              <SelectItem value="variable">Custo Variável</SelectItem>
-                              </SelectContent>
+                            </FormControl>
+                            <SelectContent>
+                              {expenseSubCategoryOptions.map((opt) => (
+                                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                              ))}
+                            </SelectContent>
                           </Select>
                           <FormMessage />
-                          </FormItem>
+                        </FormItem>
                       )}
-                      />
+                    />
+                  </div>
+                </div>
+              )}
+
+                <FormField
+                  control={form.control}
+                  name="costType"
+                  render={({ field }) => (
+                      <FormItem className={cn(transactionType !== 'expense' && 'hidden')}>
+                      <FormLabel>Tipo de Custo</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                          <SelectTrigger>
+                              <SelectValue placeholder="Fixo ou Variável" />
+                          </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                          <SelectItem value="fixed">Custo Fixo</SelectItem>
+                          <SelectItem value="variable">Custo Variável</SelectItem>
+                          </SelectContent>
+                      </Select>
+                      <FormMessage />
+                      </FormItem>
                   )}
-              </div>
+                />
 
               <FormField
                 control={form.control}

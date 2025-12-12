@@ -28,6 +28,11 @@ export type ExpenseTransaction = {
   notes?: string;
   updatedAt?: Timestamp;
   updatedBy?: string; // UID of user who last updated
+  fullCategoryPath?: {
+    group: string;
+    category: string;
+    description: string;
+  }
 }
 
 export type Transaction = IncomeTransaction | ExpenseTransaction;
