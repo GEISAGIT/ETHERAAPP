@@ -102,15 +102,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Category definitions. Readable by all signed-in users.
+     * @description Category definitions for income. Readable by all signed-in users.
      *              Creation is open to any user, but updates/deletes are admin-only.
-     * @path /incomeCategories/{categoryId}, /expenseCategories/{categoryId}
+     * @path /incomeCategories/{categoryId}
      */
-    match /{collectionName}/{categoryId}
-      where collectionName in ['incomeCategories', 'expenseCategories'] {
+    match /incomeCategories/{categoryId} {
         allow get: if isSignedIn();
-        // Allow list for signed in users OR if the query has a small limit.
-        // This helps prevent initial-load errors if auth hasn't finished yet.
         allow list: if isSignedIn() || request.query.limit <= 10;
         allow create: if isSignedIn();
         allow update, delete: if isAdmin();
