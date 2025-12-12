@@ -130,19 +130,20 @@ export const columns = ({ onRoleChange, onStatusChange, currentUserId }: Columns
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                {user.status === 'pending' && (
-                    <>
-                        <DropdownMenuItem onClick={() => onStatusChange(user.uid, 'active')} className="text-green-600 focus:text-green-600">
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Aprovar Usuário
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onStatusChange(user.uid, 'rejected')} className="text-red-600 focus:text-red-600">
-                            <XCircle className="mr-2 h-4 w-4" />
-                            Rejeitar Usuário
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                    </>
+                {user.status !== 'active' && (
+                    <DropdownMenuItem onClick={() => onStatusChange(user.uid, 'active')} className="text-green-600 focus:text-green-600">
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Aprovar Usuário
+                    </DropdownMenuItem>
                 )}
+                {user.status !== 'rejected' && (
+                    <DropdownMenuItem onClick={() => onStatusChange(user.uid, 'rejected')} className="text-red-600 focus:text-red-600">
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Rejeitar Usuário
+                    </DropdownMenuItem>
+                )}
+                {(user.status === 'active' || user.status === 'rejected') && <DropdownMenuSeparator />}
+                
                 <DropdownMenuItem onClick={() => handleManageAccess(user.uid)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Gerenciar Acessos
