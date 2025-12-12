@@ -122,22 +122,23 @@ export function AddTransactionDialog() {
     return expenseCategoryGroups.flatMap(group =>
       group.categories.flatMap(category =>
         category.subCategories.map(subCategory => ({
-          label: `${group.name} > ${category.name} > ${subCategory.name}`,
+          label: subCategory.name, // Only the description name
           value: subCategory.name,
           group: group.name,
           category: category.name
         }))
       )
-    );
+    ).filter((value, index, self) => self.findIndex(t => t.label === value.label) === index); // Ensure unique labels
   }, [expenseCategoryGroups]);
 
-  const handleExpenseSelection = (label: string) => {
-    const selected = expenseClassificationOptions.find(opt => opt.label === label);
+  const handleExpenseSelection = (selectedValue: string) => {
+    const selected = expenseClassificationOptions.find(opt => opt.value === selectedValue);
     if (selected) {
         form.setValue('group', selected.group);
         form.setValue('category', selected.category);
         form.setValue('description', selected.value);
     }
+    form.trigger('description'); // Manually trigger validation
     setComboboxOpen(false);
   }
 
@@ -358,7 +359,7 @@ export function AddTransactionDialog() {
                     name="description"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Descrição</FormLabel>
+                        <FormLabel>Descrição da Despesa</FormLabel>
                         <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -371,24 +372,22 @@ export function AddTransactionDialog() {
                                 )}
                               >
                                 {field.value
-                                  ? expenseClassificationOptions.find(
-                                      (opt) => opt.value === field.value
-                                    )?.label
-                                  : "Selecione uma classificação"}
+                                  ? field.value
+                                  : "Selecione uma descrição"}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </FormControl>
                           </PopoverTrigger>
                           <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                             <Command>
-                              <CommandInput placeholder="Pesquisar classificação..." />
-                              <CommandEmpty>Nenhuma classificação encontrada.</CommandEmpty>
+                              <CommandInput placeholder="Pesquisar descrição..." />
+                              <CommandEmpty>Nenhuma descrição encontrada.</CommandEmpty>
                               <CommandGroup>
                                 {expenseClassificationOptions.map((option) => (
                                   <CommandItem
-                                    value={option.label}
-                                    key={option.label}
-                                    onSelect={() => handleExpenseSelection(option.label)}
+                                    value={option.value}
+                                    key={option.value}
+                                    onSelect={handleExpenseSelection}
                                   >
                                     <Check
                                       className={cn(
@@ -471,5 +470,3 @@ export function AddTransactionDialog() {
     </>
   );
 }
-
-    
