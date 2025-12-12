@@ -157,7 +157,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     return expenseCategoryGroups.flatMap(group =>
       group.categories.flatMap(category =>
         category.subCategories.map(subCategory => ({
-          value: `${group.name} > ${category.name} > ${subCategory.name}`.toLowerCase(),
+          value: subCategory.name.toLowerCase(),
           label: `${group.name} > ${category.name} > ${subCategory.name}`,
           group: group.name,
           category: category.name,
@@ -380,14 +380,12 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                   )}
                 />
               ) : (
-                <div className="space-y-4 rounded-md border p-4">
-                  <h3 className="text-sm font-medium">Classificação da Despesa</h3>
-                  <FormField
+                <FormField
                     control={form.control}
                     name="category"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Pesquisar Descrição</FormLabel>
+                        <FormLabel>Classificação da Despesa</FormLabel>
                          <Popover open={isComboboxOpen} onOpenChange={setComboboxOpen}>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -409,7 +407,9 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                             </FormControl>
                           </PopoverTrigger>
                           <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
+                            <Command
+                                onValueChange={field.onChange}
+                            >
                               <CommandInput placeholder="Pesquisar descrição..." />
                                <CommandList>
                                 <CommandEmpty>Nenhuma descrição encontrada.</CommandEmpty>
@@ -417,12 +417,9 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                                   {expenseSearchOptions.map((option) => (
                                     <CommandItem
                                       key={option.value}
-                                      value={option.value}
-                                      onSelect={(currentValue) => {
-                                        const selectedOption = expenseSearchOptions.find(opt => opt.value === currentValue);
-                                        if (selectedOption) {
-                                            handleExpenseSelection(selectedOption);
-                                        }
+                                      value={option.subCategory}
+                                      onSelect={() => {
+                                        handleExpenseSelection(option);
                                       }}
                                     >
                                       <Check
@@ -445,7 +442,6 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                       </FormItem>
                     )}
                   />
-                </div>
               )}
 
                 <FormField
