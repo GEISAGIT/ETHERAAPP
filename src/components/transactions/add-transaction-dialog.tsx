@@ -44,6 +44,8 @@ import { cn } from '@/lib/utils';
 import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, Timestamp, query, serverTimestamp } from 'firebase/firestore';
 import type { IncomeCategory, ExpenseCategoryGroup } from '@/lib/types';
+import { Label } from '../ui/label';
+import { Switch } from '../ui/switch';
 
 
 const formSchema = z.object({
@@ -64,6 +66,7 @@ export function AddTransactionDialog() {
   const [open, setOpen] = useState(false);
   const [isDatePickerOpen, setDatePickerOpen] = useState(false);
   const [comboboxOpen, setComboboxOpen] = useState(false);
+  const [manualEntry, setManualEntry] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -94,6 +97,7 @@ export function AddTransactionDialog() {
           group: '',
           notes: '',
         });
+        setManualEntry(false);
     }
   }, [open, form]);
 
@@ -353,63 +357,118 @@ export function AddTransactionDialog() {
                 </>
               ) : (
                 <div className="space-y-4 rounded-md border p-4">
-                  <h4 className="font-medium text-sm">Classificação da Despesa</h4>
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Descrição da Despesa</FormLabel>
-                        <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                className={cn(
-                                  "w-full justify-between",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value
-                                  ? field.value
-                                  : "Selecione uma descrição"}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
-                              <CommandInput placeholder="Pesquisar descrição..." />
-                              <CommandList>
-                                <CommandEmpty>Nenhuma descrição encontrada.</CommandEmpty>
-                                <CommandGroup>
-                                  {expenseClassificationOptions.map((option) => (
-                                    <CommandItem
-                                      value={option.value}
-                                      key={option.value}
-                                      onSelect={handleExpenseSelection}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          field.value === option.value
-                                            ? "opacity-100"
-                                            : "opacity-0"
-                                        )}
-                                      />
-                                      {option.label}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="flex items-center justify-between">
+                     <h4 className="font-medium text-sm">Classificação da Despesa</h4>
+                      <div className="flex items-center space-x-2">
+                        <Label htmlFor="manual-entry-switch" className="text-sm font-normal">Entrada Manual</Label>
+                        <Switch
+                          id="manual-entry-switch"
+                          checked={manualEntry}
+                          onCheckedChange={setManualEntry}
+                        />
+                      </div>
+                  </div>
+                  
+                  {manualEntry ? (
+                    <div className="space-y-4">
+                       <FormField
+                          control={form.control}
+                          name="group"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Grupo</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Grupo da despesa" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="category"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Categoria</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Categoria da despesa" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Descrição</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Descrição final da despesa" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                    </div>
+                  ) : (
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Classificação da Despesa</FormLabel>
+                          <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className={cn(
+                                    "w-full justify-between",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value
+                                    ? expenseClassificationOptions.find(opt => opt.value === field.value)?.label
+                                    : "Selecione uma classificação"}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                              <Command>
+                                <CommandInput placeholder="Pesquisar classificação..." />
+                                <CommandList>
+                                  <CommandEmpty>Nenhuma classificação encontrada.</CommandEmpty>
+                                  <CommandGroup>
+                                    {expenseClassificationOptions.map((option) => (
+                                      <CommandItem
+                                        value={option.value}
+                                        key={option.value}
+                                        onSelect={handleExpenseSelection}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            field.value === option.value
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                        {option.label}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
               )}
 
