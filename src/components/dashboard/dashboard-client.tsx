@@ -6,15 +6,23 @@ import { RecentTransactions } from './recent-transactions';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
+import { useState } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+export type StatsPeriod = 'allTime' | 'thisMonth' | 'lastMonth';
 
 export function DashboardClient({ transactions, budgets, isLoading }: { transactions: Transaction[], budgets: Budget[], isLoading: boolean }) {
+  const [period, setPeriod] = useState<StatsPeriod>('allTime');
 
   if (isLoading) {
     return (
         <div className="flex flex-col gap-8">
-             <header>
-                <Skeleton className="h-9 w-48" />
-                <Skeleton className="h-5 w-96 mt-2" />
+             <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div>
+                    <Skeleton className="h-9 w-48" />
+                    <Skeleton className="h-5 w-96 mt-2" />
+                </div>
+                <Skeleton className="h-10 w-40" />
             </header>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Skeleton className="h-28" />
@@ -33,13 +41,25 @@ export function DashboardClient({ transactions, budgets, isLoading }: { transact
 
   return (
     <div className="flex flex-col gap-8">
-      <header>
-        <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Painel
-        </h1>
-        <p className="text-muted-foreground">
-          Bem-vindo de volta! Aqui está um resumo das finanças da sua clínica.
-        </p>
+      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div>
+          <h1 className="font-headline text-3xl font-bold tracking-tight">
+            Painel
+          </h1>
+          <p className="text-muted-foreground">
+            Bem-vindo de volta! Aqui está um resumo das finanças da sua clínica.
+          </p>
+        </div>
+        <Select value={period} onValueChange={(value: StatsPeriod) => setPeriod(value)}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Selecione o período" />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value="allTime">Todo o Período</SelectItem>
+                <SelectItem value="thisMonth">Este Mês</SelectItem>
+                <SelectItem value="lastMonth">Último Mês</SelectItem>
+            </SelectContent>
+        </Select>
       </header>
 
       {overspentBudgets.length > 0 && (
@@ -53,7 +73,7 @@ export function DashboardClient({ transactions, budgets, isLoading }: { transact
         </Alert>
       )}
 
-      <StatsCards transactions={transactions} />
+      <StatsCards transactions={transactions} period={period} />
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <OverviewChart transactions={transactions} />

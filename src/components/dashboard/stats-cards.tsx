@@ -1,44 +1,17 @@
 'use client';
 import type { Transaction } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingDown, TrendingUp, CalendarClock, Banknote } from 'lucide-react';
-import { subMonths, startOfMonth, endOfMonth, isWithinInterval, format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { TrendingDown, TrendingUp, Banknote } from 'lucide-react';
+import { subMonths, startOfMonth, endOfMonth, isWithinInterval, startOfToday, endOfToday } from 'date-fns';
+import type { StatsPeriod } from './dashboard-client';
+import { useMemo } from 'react';
 
 type StatsCardsProps = {
   transactions: Transaction[];
+  period: StatsPeriod;
 };
 
-export function StatsCards({ transactions }: StatsCardsProps) {
-  const now = new Date();
-  const oneMonthAgo = subMonths(now, 1);
-  const startOfLastMonth = startOfMonth(oneMonthAgo);
-  const endOfLastMonth = endOfMonth(oneMonthAgo);
-
-  // All time calculations
-  const totalIncome = transactions
-    .filter(t => t.type === 'income')
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const totalExpenses = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => acc + t.amount, 0);
-  
-  // Last month calculations
-  const lastMonthTransactions = transactions.filter(t => {
-      const transactionDate = t.date.toDate();
-      return isWithinInterval(transactionDate, { start: startOfLastMonth, end: endOfLastMonth });
-  });
-
-  const lastMonthIncome = lastMonthTransactions
-    .filter(t => t.type === 'income')
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const lastMonthExpenses = lastMonthTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const lastMonthProfit = lastMonthIncome - lastMonthExpenses;
+export function StatsCards({ transactions, period }: StatsCardsProps) {
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -47,43 +20,64 @@ export function StatsCards({ transactions }: StatsCardsProps) {
     }).format(value);
   };
   
-  const lastMonthName = format(startOfLastMonth, 'MMMM', { locale: ptBR });
-  const capitalizedLastMonthName = lastMonthName.charAt(0).toUpperCase() + lastMonthName.slice(1);
+  const { totalIncome, totalExpenses, description } = useMemo(() => {
+    const now = new Date();
+    let descriptionText = 'Desde o início';
+    let filteredTransactions = transactions;
 
+    if (period === 'thisMonth') {
+        const start = startOfMonth(now);
+        const end = endOfToday(); // Use end of today to include all of today's transactions
+        filteredTransactions = transactions.filter(t => isWithinInterval(t.date.toDate(), { start, end }));
+        descriptionText = 'Este Mês';
+    } else if (period === 'lastMonth') {
+        const lastMonth = subMonths(now, 1);
+        const start = startOfMonth(lastMonth);
+        const end = endOfMonth(lastMonth);
+        filteredTransactions = transactions.filter(t => isWithinInterval(t.date.toDate(), { start, end }));
+        descriptionText = 'Último Mês';
+    }
+    
+    const income = filteredTransactions
+        .filter(t => t.type === 'income')
+        .reduce((acc, t) => acc + t.amount, 0);
+
+    const expenses = filteredTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((acc, t) => acc + t.amount, 0);
+        
+    return {
+        totalIncome: income,
+        totalExpenses: expenses,
+        description: descriptionText
+    };
+  }, [transactions, period]);
+
+  const netProfit = totalIncome - totalExpenses;
 
   const stats = [
     {
-      title: 'Receita Total (Geral)',
+      title: 'Receita Total',
       value: totalIncome,
       icon: TrendingUp,
       color: 'text-emerald-500',
-      description: 'Desde o início',
     },
     {
-      title: 'Despesa Total (Geral)',
+      title: 'Despesa Total',
       value: totalExpenses,
       icon: TrendingDown,
       color: 'text-red-500',
-      description: 'Desde o início',
     },
     {
-      title: 'Receita do Último Mês',
-      value: lastMonthIncome,
-      icon: CalendarClock,
-      color: 'text-blue-500',
-      description: `Ref. a ${capitalizedLastMonthName}`,
-    },
-    {
-      title: 'Lucro do Último Mês',
-      value: lastMonthProfit,
+      title: 'Lucro Líquido',
+      value: netProfit,
       icon: Banknote,
-      color: lastMonthProfit >= 0 ? 'text-emerald-500' : 'text-red-500',
-      description: `Ref. a ${capitalizedLastMonthName}`,
+      color: netProfit >= 0 ? 'text-emerald-500' : 'text-red-500',
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {stats.map(stat => (
         <Card key={stat.title}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -95,7 +89,7 @@ export function StatsCards({ transactions }: StatsCardsProps) {
               {formatCurrency(stat.value)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stat.description}
+              {description}
             </p>
           </CardContent>
         </Card>
