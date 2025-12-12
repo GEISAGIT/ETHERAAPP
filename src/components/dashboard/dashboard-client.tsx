@@ -9,15 +9,32 @@ import { Skeleton } from '../ui/skeleton';
 import { useState, useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DrilldownExpenseChart } from './drilldown-expense-chart';
+import { subMonths, startOfMonth, endOfMonth, isWithinInterval, startOfToday } from 'date-fns';
 
 export type StatsPeriod = 'allTime' | 'thisMonth' | 'lastMonth';
 
 export function DashboardClient({ transactions, budgets, isLoading }: { transactions: Transaction[], budgets: Budget[], isLoading: boolean }) {
   const [period, setPeriod] = useState<StatsPeriod>('allTime');
 
-  const expenseTransactions = useMemo(() => {
-    return transactions.filter(t => t.type === 'expense') as ExpenseTransaction[];
-  }, [transactions]);
+  const filteredExpenses = useMemo(() => {
+    let filteredTransactions = transactions;
+
+    if (period === 'thisMonth') {
+        const now = new Date();
+        const start = startOfMonth(now);
+        const end = endOfToday();
+        filteredTransactions = transactions.filter(t => isWithinInterval(t.date.toDate(), { start, end }));
+    } else if (period === 'lastMonth') {
+        const now = new Date();
+        const lastMonth = subMonths(now, 1);
+        const start = startOfMonth(lastMonth);
+        const end = endOfMonth(lastMonth);
+        filteredTransactions = transactions.filter(t => isWithinInterval(t.date.toDate(), { start, end }));
+    }
+
+    return filteredTransactions.filter(t => t.type === 'expense') as ExpenseTransaction[];
+  }, [transactions, period]);
+
 
   if (isLoading) {
     return (
@@ -86,7 +103,7 @@ export function DashboardClient({ transactions, budgets, isLoading }: { transact
         </div>
         <RecentTransactions transactions={transactions} />
       </div>
-      <DrilldownExpenseChart expenses={expenseTransactions} />
+      <DrilldownExpenseChart expenses={filteredExpenses} />
     </div>
   );
 }
