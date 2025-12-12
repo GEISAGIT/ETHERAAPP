@@ -47,7 +47,7 @@ export function UserManagementClient({ data }: { data: UserManagement[] }) {
   }, [data, searchTerm, filterRole, filterStatus]);
 
   const handleUpdate = (uid: string, data: Partial<UserManagement>) => {
-     if (!user) {
+     if (!user || !firestore) {
         toast({
             variant: 'destructive',
             title: 'Erro de autenticação',
