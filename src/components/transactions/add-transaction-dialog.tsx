@@ -55,20 +55,14 @@ import {
 
 const formSchema = z.object({
   date: z.date(),
-  description: z.string().optional(),
   amount: z.coerce.number().positive('O valor deve ser positivo'),
   type: z.enum(['income', 'expense']),
-  category: z.string().min(1, 'Por favor, selecione uma categoria/descrição'),
+  // For income, this is the typed description
+  // For expense, this is the final selected subCategory name
+  description: z.string().min(2, 'A descrição/classificação é obrigatória.'),
+  category: z.string().optional(), // For income, this is the category, for expense, the middle category
   costType: z.enum(['fixed', 'variable']).optional(),
   notes: z.string().optional(),
-}).refine(data => {
-    if (data.type === 'income') {
-        return !!data.description && data.description.length >= 2;
-    }
-    return true;
-}, {
-    message: 'A descrição é obrigatória para receitas.',
-    path: ['description'],
 });
 
 
@@ -127,7 +121,7 @@ export function AddTransactionDialog() {
     return expenseCategoryGroups.flatMap(group =>
       group.categories.flatMap(category =>
         category.subCategories.map(subCategory => ({
-          value: subCategory.name.toLowerCase(),
+          value: `${group.name} > ${category.name} > ${subCategory.name}`.toLowerCase(),
           label: `${group.name} > ${category.name} > ${subCategory.name}`,
           group: group.name,
           category: category.name,
@@ -154,9 +148,8 @@ export function AddTransactionDialog() {
 
     const transactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
-      description: isExpense ? values.category : values.description,
+      description: values.description,
       amount: values.amount,
-      category: isExpense ? selectedExpenseCategory : values.category,
       notes: values.notes,
       userId: user.uid,
       createdByName: user.displayName || 'Usuário Desconhecido',
@@ -166,11 +159,15 @@ export function AddTransactionDialog() {
 
     if (isExpense) {
       transactionData.costType = values.costType;
+      transactionData.category = selectedExpenseCategory; // Middle-level category
       transactionData.fullCategoryPath = {
         group: selectedGroup,
         category: selectedExpenseCategory,
-        description: values.category
+        description: values.description, // This is the subCategory name
       };
+    } else {
+      // For income, 'category' is the selected category
+      transactionData.category = values.category;
     }
 
     addDocumentNonBlocking(transactionsCollection, transactionData);
@@ -194,8 +191,8 @@ export function AddTransactionDialog() {
 
   const handleTypeChange = (value: string) => {
     form.setValue('type', value as 'income' | 'expense');
-    form.setValue('category', '');
     form.setValue('description', '');
+    form.setValue('category', '');
     setSelectedGroup('');
     setSelectedExpenseCategory('');
   }
@@ -203,8 +200,8 @@ export function AddTransactionDialog() {
   const handleExpenseSelection = (option: { group: string; category: string; subCategory: string; }) => {
     setSelectedGroup(option.group);
     setSelectedExpenseCategory(option.category);
-    form.setValue("category", option.subCategory);
-    setComboboxOpen(false)
+    form.setValue("description", option.subCategory);
+    setComboboxOpen(false);
   };
 
 
@@ -349,7 +346,7 @@ export function AddTransactionDialog() {
               ) : (
                 <FormField
                     control={form.control}
-                    name="category"
+                    name="description"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>Classificação da Despesa</FormLabel>
@@ -374,9 +371,7 @@ export function AddTransactionDialog() {
                             </FormControl>
                           </PopoverTrigger>
                           <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command
-                                onValueChange={field.onChange}
-                            >
+                            <Command>
                               <CommandInput placeholder="Pesquisar descrição..." />
                               <CommandList>
                                 <CommandEmpty>Nenhuma descrição encontrada.</CommandEmpty>
@@ -384,7 +379,7 @@ export function AddTransactionDialog() {
                                   {expenseSearchOptions.map((option) => (
                                     <CommandItem
                                       key={option.value}
-                                      value={option.subCategory}
+                                      value={option.value}
                                       onSelect={() => {
                                         handleExpenseSelection(option);
                                       }}

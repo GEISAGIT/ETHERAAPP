@@ -53,20 +53,12 @@ import {
 
 const formSchema = z.object({
   date: z.date(),
-  description: z.string().optional(),
   amount: z.coerce.number().positive('O valor deve ser positivo'),
   type: z.enum(['income', 'expense']),
-  category: z.string().min(1, 'Por favor, selecione uma categoria/descrição'),
+  description: z.string().min(2, 'A descrição/classificação é obrigatória.'),
+  category: z.string().optional(),
   costType: z.enum(['fixed', 'variable']).optional(),
   notes: z.string().optional(),
-}).refine(data => {
-    if (data.type === 'income') {
-        return !!data.description && data.description.length >= 2;
-    }
-    return true;
-}, {
-    message: 'A descrição é obrigatória para receitas.',
-    path: ['description'],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -112,39 +104,28 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
 
 
   useEffect(() => {
-    if (transaction && expenseCategoryGroups) {
+    if (transaction) {
       const isExpense = transaction.type === 'expense';
       const expenseTransaction = transaction as ExpenseTransaction;
-
+      
       form.reset({
         date: transaction.date.toDate(),
-        description: isExpense ? undefined : transaction.description,
+        description: transaction.description,
         amount: transaction.amount,
         type: transaction.type,
-        category: isExpense ? expenseTransaction.fullCategoryPath?.description : transaction.category,
+        category: transaction.category || '',
         notes: transaction.notes || '',
         costType: isExpense ? expenseTransaction.costType : undefined,
       });
 
-      // Pre-fill cascading selectors for expenses
       if (isExpense && expenseTransaction.fullCategoryPath) {
         setSelectedGroup(expenseTransaction.fullCategoryPath.group || '');
         setSelectedExpenseCategory(expenseTransaction.fullCategoryPath.category || '');
-      } else if (isExpense) {
-            // Fallback for older data without fullCategoryPath
-            for (const group of expenseCategoryGroups) {
-                for (const cat of group.categories) {
-                    if (cat.subCategories.some(sub => sub.name === transaction.category)) {
-                        setSelectedGroup(group.name);
-                        setSelectedExpenseCategory(cat.name);
-                        break;
-                    }
-                }
-                if (selectedGroup) break;
-            }
+        // The description field now holds the subcategory name
+        form.setValue('description', expenseTransaction.fullCategoryPath.description);
       }
     }
-  }, [transaction, form, expenseCategoryGroups]);
+  }, [transaction, form]);
 
 
   // --- Memoized Select Options ---
@@ -157,7 +138,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     return expenseCategoryGroups.flatMap(group =>
       group.categories.flatMap(category =>
         category.subCategories.map(subCategory => ({
-          value: subCategory.name.toLowerCase(),
+          value: `${group.name} > ${category.name} > ${subCategory.name}`.toLowerCase(),
           label: `${group.name} > ${category.name} > ${subCategory.name}`,
           group: group.name,
           category: category.name,
@@ -184,9 +165,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     // Base data for both update and potential re-creation
     const baseTransactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
-      description: isExpense ? values.category : values.description,
+      description: values.description,
       amount: values.amount,
-      category: isExpense ? selectedExpenseCategory : values.category,
       notes: values.notes,
       updatedAt: serverTimestamp(),
       updatedBy: user.uid,
@@ -194,11 +174,14 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
 
     if (isExpense) {
         baseTransactionData.costType = values.costType;
+        baseTransactionData.category = selectedExpenseCategory; // Middle-level category
         baseTransactionData.fullCategoryPath = {
             group: selectedGroup,
             category: selectedExpenseCategory,
-            description: values.category
+            description: values.description, // This is the subCategory name
         };
+    } else {
+      baseTransactionData.category = values.category;
     }
     
     // If the type has changed, we need to delete the old doc and create a new one
@@ -234,8 +217,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
   
     const handleTypeChange = (value: string) => {
         form.setValue('type', value as 'income' | 'expense');
-        form.setValue('category', '');
         form.setValue('description', '');
+        form.setValue('category', '');
         setSelectedGroup('');
         setSelectedExpenseCategory('');
     }
@@ -243,8 +226,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     const handleExpenseSelection = (option: { group: string; category: string; subCategory: string; }) => {
         setSelectedGroup(option.group);
         setSelectedExpenseCategory(option.category);
-        form.setValue("category", option.subCategory);
-        setComboboxOpen(false)
+        form.setValue("description", option.subCategory);
+        setComboboxOpen(false);
     };
 
   return (
@@ -280,22 +263,6 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                 )}
               />
               
-              {transactionType === 'income' && (
-                 <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Descrição</FormLabel>
-                        <FormControl>
-                          <Input placeholder="ex: Consulta Dr. João" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-              )}
-
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -355,34 +322,49 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
               </div>
               
               {transactionType === 'income' ? (
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                     <FormItem>
-                      <FormLabel>Categoria</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                 <>
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Descrição</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione uma categoria" />
-                          </SelectTrigger>
+                          <Input placeholder="ex: Consulta Dr. João" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          {incomeCategoryOptions.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
-                              {cat}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                       <FormItem>
+                        <FormLabel>Categoria</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione uma categoria" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {incomeCategoryOptions.map((cat) => (
+                              <SelectItem key={cat} value={cat}>
+                                {cat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
               ) : (
                 <FormField
                     control={form.control}
-                    name="category"
+                    name="description"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>Classificação da Despesa</FormLabel>
@@ -407,9 +389,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                             </FormControl>
                           </PopoverTrigger>
                           <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command
-                                onValueChange={field.onChange}
-                            >
+                            <Command>
                               <CommandInput placeholder="Pesquisar descrição..." />
                                <CommandList>
                                 <CommandEmpty>Nenhuma descrição encontrada.</CommandEmpty>
@@ -417,7 +397,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                                   {expenseSearchOptions.map((option) => (
                                     <CommandItem
                                       key={option.value}
-                                      value={option.subCategory}
+                                      value={option.value}
                                       onSelect={() => {
                                         handleExpenseSelection(option);
                                       }}
