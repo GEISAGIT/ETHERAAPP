@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
-import { useAuth, useFirestore, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile, type User } from 'firebase/auth';
-import { doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export function LoginForm() {
   const router = useRouter();
@@ -33,19 +33,18 @@ export function LoginForm() {
     try {
         const userDocSnap = await getDoc(userDocRef);
         
-        const userData = {
-          uid: user.uid,
-          displayName: user.displayName,
-          email: user.email,
-          photoURL: user.photoURL,
-          role: userRole,
-        };
-
         if (!userDocSnap.exists()) {
-            setDocumentNonBlocking(userDocRef, { ...userData, createdAt: serverTimestamp() }, { merge: false });
+            await setDoc(userDocRef, {
+                uid: user.uid,
+                displayName: user.displayName,
+                email: user.email,
+                photoURL: user.photoURL,
+                role: userRole,
+                createdAt: serverTimestamp()
+            }, { merge: false });
         } else {
             // Se o usuário já existe, apenas atualiza o `role` para garantir que esteja correto.
-            updateDocumentNonBlocking(userDocRef, { role: userRole });
+            await setDoc(userDocRef, { role: userRole }, { merge: true });
         }
 
         // CRÍTICO: Força a atualização do token de ID para obter as custom claims mais recentes no cliente.
