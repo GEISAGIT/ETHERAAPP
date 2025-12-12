@@ -22,9 +22,9 @@ export default function IncomeSettingsPage() {
    useEffect(() => {
     if (!incomeLoading && incomeCategories?.length === 0 && firestore) {
       console.log("Seeding income categories...");
-      const incomeCollection = collection(firestore, 'incomeCategories');
+      const incomeCategoriesCollection = collection(firestore, 'incomeCategories');
       defaultIncomeCategories.forEach(name => {
-        addDocumentNonBlocking(incomeCollection, { name });
+        addDocumentNonBlocking(incomeCategoriesCollection, { name });
       });
     }
   }, [incomeLoading, incomeCategories, firestore]);
