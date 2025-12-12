@@ -8,7 +8,7 @@ import { ImportTransactionsDialog } from './import-transactions-dialog';
 import { useState, useMemo } from 'react';
 import { EditTransactionDialog } from './edit-transaction-dialog';
 import { DeleteTransactionAlert } from './delete-transaction-alert';
-import { useFirestore } from '@/firebase';
+import { useFirestore, deleteDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { DataTableToolbar } from '../data-table/data-table-toolbar';
