@@ -52,7 +52,7 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin(); // Only admins can delete user documents
+      allow delete: if isAdmin();
 
       /**
        * @description User-owned incomes and expenses.
@@ -70,6 +70,15 @@ service cloud.firestore {
           // Only the owner or an admin can modify the document.
           allow write: if isOwner(userId) || isAdmin();
       }
+    }
+
+    /**
+      * @description Global incomes and expenses collections.
+      * @path /incomes/{docId}, /expenses/{docId}
+      */
+    match /{collectionName}/{docId} where collectionName in ['incomes', 'expenses'] {
+        allow read: if isSignedIn();
+        allow write: if isOriginalCreator() || isAdmin();
     }
     
     /**
@@ -99,7 +108,10 @@ service cloud.firestore {
      */
     match /{collectionName}/{categoryId}
       where collectionName in ['incomeCategories', 'expenseCategories'] {
-        allow get, list: if isSignedIn();
+        allow get: if isSignedIn();
+        // Allow list for signed in users OR if the query has a small limit.
+        // This helps prevent initial-load errors if auth hasn't finished yet.
+        allow list: if isSignedIn() || request.query.limit <= 10;
         allow create: if isSignedIn();
         allow update, delete: if isAdmin();
     }

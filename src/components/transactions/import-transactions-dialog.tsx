@@ -32,14 +32,14 @@ export function ImportTransactionsDialog() {
   const { user } = useUser();
 
   const incomeCategoriesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'incomeCategories'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const expenseCategoriesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'expenseCategories'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: incomeCategories } = useCollection<IncomeCategory>(incomeCategoriesQuery);
   const { data: expenseCategories } = useCollection<ExpenseCategory>(expenseCategoriesQuery);

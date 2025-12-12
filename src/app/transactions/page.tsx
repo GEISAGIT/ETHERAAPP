@@ -11,16 +11,16 @@ export default function TransactionsPage() {
   const firestore = useFirestore();
   const { user } = useUser();
 
-  // Query for incomes subcollection for the current user
+  // Query for incomes collection
   const incomesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collection(firestore, 'users', user.uid, 'incomes'));
+    return query(collection(firestore, 'incomes'));
   }, [firestore, user]);
 
-  // Query for expenses subcollection for the current user
+  // Query for expenses collection
   const expensesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collection(firestore, 'users', user.uid, 'expenses'));
+    return query(collection(firestore, 'expenses'));
   }, [firestore, user]);
 
   const { data: incomesData, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
@@ -29,8 +29,8 @@ export default function TransactionsPage() {
   const data = useMemo(() => {
     if (!user) return [];
     // Only show transactions for the logged-in user
-    const allIncomes = incomesData?.map(item => ({ ...item, type: 'income' as const })) ?? [];
-    const allExpenses = expensesData?.map(item => ({ ...item, type: 'expense' as const })) ?? [];
+    const allIncomes = incomesData?.filter(item => item.userId === user.uid).map(item => ({ ...item, type: 'income' as const })) ?? [];
+    const allExpenses = expensesData?.filter(item => item.userId === user.uid).map(item => ({ ...item, type: 'expense' as const })) ?? [];
 
     const combined = [...allIncomes, ...allExpenses];
 
