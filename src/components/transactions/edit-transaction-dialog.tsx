@@ -45,12 +45,20 @@ import type { IncomeCategory, ExpenseCategoryGroup, Transaction } from '@/lib/ty
 
 const formSchema = z.object({
   date: z.date(),
-  description: z.string().min(3, 'A descrição é muito curta'),
+  description: z.string().optional(),
   amount: z.coerce.number().positive('O valor deve ser positivo'),
   type: z.enum(['income', 'expense']),
   category: z.string().min(1, 'Por favor, selecione uma categoria/descrição'),
   costType: z.enum(['fixed', 'variable']).optional(),
   notes: z.string().optional(),
+}).refine(data => {
+    if (data.type === 'income') {
+        return !!data.description && data.description.length >= 3;
+    }
+    return true;
+}, {
+    message: 'A descrição é muito curta',
+    path: ['description'],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -98,7 +106,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     if (transaction && expenseCategoryGroups) {
       form.reset({
         date: transaction.date.toDate(),
-        description: transaction.description,
+        description: transaction.type === 'income' ? transaction.description : '',
         amount: transaction.amount,
         type: transaction.type,
         category: transaction.category,
@@ -167,7 +175,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     // Base data for both update and potential re-creation
     const baseTransactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
-      description: values.description,
+      description: values.type === 'expense' ? values.category : values.description,
       amount: values.amount,
       category: values.category,
       notes: values.notes,
@@ -218,6 +226,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     const handleTypeChange = (value: string) => {
         form.setValue('type', value as 'income' | 'expense');
         form.setValue('category', '');
+        form.setValue('description', '');
         setSelectedGroup('');
         setSelectedExpenseCategory('');
     }
@@ -266,19 +275,21 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descrição</FormLabel>
-                    <FormControl>
-                        <Input placeholder="ex: Material de escritório" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {transactionType === 'income' && (
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descrição</FormLabel>
+                      <FormControl>
+                          <Input placeholder="ex: Consulta Dr. João" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField

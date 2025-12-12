@@ -47,13 +47,22 @@ import type { IncomeCategory, ExpenseCategoryGroup } from '@/lib/types';
 
 const formSchema = z.object({
   date: z.date(),
-  description: z.string().min(3, 'A descrição é muito curta'),
+  description: z.string().optional(),
   amount: z.coerce.number().positive('O valor deve ser positivo'),
   type: z.enum(['income', 'expense']),
   category: z.string().min(1, 'Por favor, selecione uma categoria/descrição'),
   costType: z.enum(['fixed', 'variable']).optional(),
   notes: z.string().optional(),
+}).refine(data => {
+    if (data.type === 'income') {
+        return !!data.description && data.description.length >= 3;
+    }
+    return true;
+}, {
+    message: 'A descrição é muito curta',
+    path: ['description'],
 });
+
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -137,7 +146,7 @@ export function AddTransactionDialog() {
 
     const transactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
-      description: values.description,
+      description: values.type === 'expense' ? values.category : values.description,
       amount: values.amount,
       category: values.category,
       notes: values.notes,
@@ -163,13 +172,21 @@ export function AddTransactionDialog() {
       title: 'Transação Adicionada',
       description: 'Sua transação foi registrada com sucesso.',
     });
-    form.reset();
+    form.reset({
+      date: new Date(),
+      description: '',
+      amount: 0,
+      type: 'expense',
+      category: '',
+      notes: '',
+    });
     setOpen(false);
   };
 
   const handleTypeChange = (value: string) => {
     form.setValue('type', value as 'income' | 'expense');
     form.setValue('category', '');
+    form.setValue('description', '');
     setSelectedGroup('');
     setSelectedExpenseCategory('');
   }
@@ -225,21 +242,22 @@ export function AddTransactionDialog() {
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descrição</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input placeholder="ex: Material de escritório" {...field} />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {transactionType === 'income' && (
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descrição</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ex: Consulta Dr. João" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField
