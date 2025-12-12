@@ -367,7 +367,7 @@ export function AddTransactionDialog() {
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione uma categoria" />
-                            </SelectTrigger>
+                            </Trigger>
                           </FormControl>
                           <SelectContent>
                             {expenseCategoryOptions.map((opt) => (
@@ -378,7 +378,7 @@ export function AddTransactionDialog() {
                       </FormItem>
                     <FormField
                       control={form.control}
-                      name="category" // Final value is the sub-category/description
+                      name="category"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Descrição</FormLabel>
@@ -402,11 +402,12 @@ export function AddTransactionDialog() {
                 </div>
               )}
 
+              {transactionType === 'expense' && (
                 <FormField
                   control={form.control}
                   name="costType"
                   render={({ field }) => (
-                      <FormItem className={cn(transactionType !== 'expense' && 'hidden')}>
+                      <FormItem>
                       <FormLabel>Tipo de Custo</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
@@ -423,6 +424,7 @@ export function AddTransactionDialog() {
                       </FormItem>
                   )}
                 />
+              )}
 
               <FormField
                 control={form.control}
