@@ -2,21 +2,14 @@
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { TransactionsClient } from '@/components/transactions/transactions-client';
-import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import type { Transaction, UserProfile } from '@/lib/types';
-import { collection, query, doc } from 'firebase/firestore';
+import { useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
+import type { Transaction } from '@/lib/types';
+import { collection, query } from 'firebase/firestore';
 import { useMemo } from 'react';
 
 export default function TransactionsPage() {
   const firestore = useFirestore();
   const { user } = useUser();
-
-  const userDocRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
-  
-  const { data: userProfile } = useDoc<UserProfile>(userDocRef);
 
   // Query for incomes collection
   const incomesQuery = useMemoFirebase(() => {
@@ -34,23 +27,16 @@ export default function TransactionsPage() {
   const { data: expensesData, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(expensesQuery);
   
   const data = useMemo(() => {
-    if (!user || !userProfile) return [];
+    if (!user) return [];
     
-    const isAdmin = userProfile.role === 'admin';
-
-    // Admins see all transactions, users only see their own.
-    const allIncomes = (incomesData ?? [])
-      .filter(item => isAdmin || item.userId === user.uid)
-      .map(item => ({ ...item, type: 'income' as const }));
-      
-    const allExpenses = (expensesData ?? [])
-      .filter(item => isAdmin || item.userId === user.uid)
-      .map(item => ({ ...item, type: 'expense' as const }));
+    // Combine all incomes and expenses without filtering by user
+    const allIncomes = (incomesData ?? []).map(item => ({ ...item, type: 'income' as const }));
+    const allExpenses = (expensesData ?? []).map(item => ({ ...item, type: 'expense' as const }));
 
     const combined = [...allIncomes, ...allExpenses];
 
     return combined;
-  }, [incomesData, expensesData, user, userProfile]);
+  }, [incomesData, expensesData, user]);
 
   const isLoading = incomesLoading || expensesLoading;
 
