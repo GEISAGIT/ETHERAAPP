@@ -137,7 +137,7 @@ export function AddTransactionDialog() {
   }, [expenseCategoryGroups]);
 
   const handleExpenseSelection = (currentValue: string) => {
-    const selected = expenseClassificationOptions.find(opt => opt.value.toLowerCase() === currentValue.toLowerCase());
+    const selected = expenseClassificationOptions.find(opt => opt.value === currentValue);
     if (selected) {
         form.setValue('group', selected.group);
         form.setValue('category', selected.category);
@@ -177,7 +177,7 @@ export function AddTransactionDialog() {
         toast({
           variant: 'destructive',
           title: 'Classificação Incompleta',
-          description: 'Por favor, selecione uma classificação de despesa completa.',
+          description: 'Por favor, selecione ou preencha a classificação de despesa completa.',
         });
         return;
       }
@@ -410,6 +410,45 @@ export function AddTransactionDialog() {
                             </FormItem>
                           )}
                         />
+                        <div className="space-y-2">
+                          <Label className='text-xs text-muted-foreground'>Ou use a busca para preencher</Label>
+                          <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className="w-full justify-between font-normal"
+                                >
+                                  Pesquisar classificação...
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                              <Command>
+                                <CommandInput placeholder="Pesquisar classificação..." />
+                                <CommandList>
+                                  <CommandEmpty>Nenhuma classificação encontrada.</CommandEmpty>
+                                  <CommandGroup>
+                                    {expenseClassificationOptions.map((option) => (
+                                      <CommandItem
+                                        value={option.value}
+                                        key={option.value}
+                                        onSelect={handleExpenseSelection}
+                                      >
+                                        <Check
+                                          className="mr-2 h-4 w-4 opacity-0"
+                                        />
+                                        {option.label}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                     </div>
                   ) : (
                     <FormField
@@ -417,7 +456,6 @@ export function AddTransactionDialog() {
                       name="description"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
-                          <FormLabel>Classificação da Despesa</FormLabel>
                           <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
                             <PopoverTrigger asChild>
                               <FormControl>
