@@ -16,13 +16,8 @@ const formatCurrency = (value: number) => {
   };
   
 const COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-  '#82ca9d',
-  '#ffc658'
+  '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', 
+  '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'
 ];
 
 type ChartData = { name: string; value: number };
@@ -192,8 +187,8 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          outerRadius={isMobile ? 80 : 100}
-                          innerRadius={isMobile ? 40 : 60}
+                          outerRadius={isMobile ? 80 : 120}
+                          innerRadius={isMobile ? 40 : 70}
                           fill="#8884d8"
                           dataKey="value"
                           nameKey="name"
@@ -220,12 +215,14 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
                           formatter={(value: number) => formatCurrency(value)}
                         />
                          <Legend 
-                           {...(isMobile 
-                             ? { layout: 'horizontal', align: 'center', verticalAlign: 'bottom', wrapperStyle: { paddingTop: 20 } }
-                             : { layout: 'vertical', align: 'right', verticalAlign: 'middle' }
-                           )}
-                           wrapperStyle={{ lineHeight: '24px' }}
-                           formatter={(value) => <span className="text-muted-foreground">{value}</span>}
+                           layout="horizontal"
+                           align="center"
+                           verticalAlign="bottom"
+                           wrapperStyle={{ paddingTop: 20, lineHeight: '24px' }}
+                           formatter={(value, entry) => {
+                             const color = COLORS[entry.color as any % COLORS.length];
+                             return <span style={{ color: entry.color }} className="text-muted-foreground">{value}</span>
+                           }}
                          />
                       </PieChart>
                     </ResponsiveContainer>
@@ -240,12 +237,16 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {chartData.sort((a,b) => b.value - a.value).map(item => {
+                        {chartData.sort((a,b) => b.value - a.value).map((item, index) => {
                           const total = chartData.reduce((acc, curr) => acc + curr.value, 0);
                           const percentage = total > 0 ? (item.value / total) * 100 : 0;
+                          const color = COLORS[index % COLORS.length];
                           return (
                               <TableRow key={item.name}>
-                                  <TableCell className="font-medium truncate max-w-40">{item.name}</TableCell>
+                                  <TableCell className="font-medium truncate max-w-40 flex items-center">
+                                    <span style={{ backgroundColor: color }} className="w-2.5 h-2.5 rounded-full mr-2 inline-block"></span>
+                                    {item.name}
+                                  </TableCell>
                                   <TableCell>{percentage.toFixed(2)}%</TableCell>
                                   <TableCell className="text-right">{formatCurrency(item.value)}</TableCell>
                               </TableRow>
