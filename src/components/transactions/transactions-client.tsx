@@ -232,7 +232,7 @@ export function TransactionsClient({ data, contracts, isLoading }: { data: Trans
             <TabsTrigger value="manual">Lançamentos Manuais</TabsTrigger>
           </TabsList>
           <TabsContent value="recurring" className="space-y-4">
-            <RecurringTransactions contracts={contracts} />
+            <RecurringTransactions contracts={contracts.filter(c => c.status === 'active')} />
           </TabsContent>
           <TabsContent value="manual" className="space-y-4">
             <TransactionsSummary transactions={filteredData} />

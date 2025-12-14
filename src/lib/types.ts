@@ -26,6 +26,7 @@ export type ExpenseTransaction = {
   category: string; // This will eventually be hierarchical
   costType?: 'fixed' | 'variable';
   notes?: string;
+  receiptUrl?: string;
   updatedAt?: Timestamp;
   updatedBy?: string; // UID of user who last updated
   fullCategoryPath?: {
