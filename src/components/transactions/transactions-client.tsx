@@ -58,13 +58,16 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
     if (filterType !== 'all') {
       filtered = filtered.filter(item => item.type === filterType);
     }
-
-    if (filterCostType !== 'all' && filterType === 'expense') {
+    
+    // Only apply cost type filter if it's not 'all' and we are looking at expenses
+    if (filterCostType !== 'all') {
         filtered = filtered.filter(item => {
-            if (item.type === 'expense') {
-                return (item as ExpenseTransaction).costType === filterCostType;
+            // If item is not an expense, it doesn't have costType, so it shouldn't be filtered out by this logic.
+            if (item.type !== 'expense') {
+                return true;
             }
-            return true;
+            // If it is an expense, check if it matches the filter.
+            return (item as ExpenseTransaction).costType === filterCostType;
         });
     }
 
