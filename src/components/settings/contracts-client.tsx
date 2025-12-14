@@ -1,10 +1,11 @@
 
+
 'use client';
 import type { Contract } from '@/lib/types';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Tag, FileText, Repeat, FolderTree } from 'lucide-react';
+import { PlusCircle, Calendar, Tag, FileText, Repeat, FolderTree, CalendarClock } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { AddContractDialog } from './add-contract-dialog';
 import { Badge } from '../ui/badge';
@@ -48,9 +49,9 @@ export function ContractsClient({
           <Skeleton className="h-10 w-44" />
         </header>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <Skeleton className="h-56" />
-            <Skeleton className="h-56" />
-            <Skeleton className="h-56" />
+            <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
         </div>
       </div>
     );
@@ -113,10 +114,19 @@ export function ContractsClient({
                       <span className="text-muted-foreground">Frequência:</span>
                       <span className="font-medium text-foreground">{frequencyMap[contract.paymentFrequency]}</span>
                    </div>
+                    {contract.paymentDueDate && (
+                       <div className="flex items-center gap-2">
+                         <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                         <span className="text-muted-foreground">Vencimento:</span>
+                         <span className="font-medium text-foreground">
+                            Todo dia {contract.paymentDueDate}
+                         </span>
+                       </div>
+                    )}
                   {contract.expirationDate && (
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Vencimento:</span>
+                      <span className="text-muted-foreground">Fim do Contrato:</span>
                       <span className="font-medium text-foreground">
                         {format(contract.expirationDate.toDate(), 'dd/MM/yyyy', { locale: ptBR })}
                       </span>

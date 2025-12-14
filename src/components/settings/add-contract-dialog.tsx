@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -53,6 +54,7 @@ const formSchema = z.object({
   type: z.enum(['fixed', 'variable']),
   amount: z.coerce.number().optional(),
   paymentFrequency: z.enum(['monthly', 'bimonthly', 'quarterly', 'semiannually', 'annually']),
+  paymentDueDate: z.coerce.number().min(1, "O dia deve ser entre 1 e 31").max(31, "O dia deve ser entre 1 e 31").optional(),
   expirationDate: z.date().optional(),
   expenseDescription: z.string().min(1, 'A classificação é obrigatória.'),
   group: z.string().optional(),
@@ -106,6 +108,7 @@ export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps
         type: 'fixed',
         paymentFrequency: 'monthly',
         amount: undefined,
+        paymentDueDate: undefined,
         expirationDate: undefined,
         expenseDescription: '',
         group: '',
@@ -190,6 +193,7 @@ export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps
       description: values.description,
       type: values.type,
       paymentFrequency: values.paymentFrequency,
+      paymentDueDate: values.paymentDueDate,
       fullCategoryPath: {
         group: values.group,
         category: values.category,
@@ -452,7 +456,22 @@ export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps
                       </FormItem>
                     )}
                   />
-                 <FormField
+                   <FormField
+                    control={form.control}
+                    name="paymentDueDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Dia do Vencimento</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="Ex: 5" min="1" max="31" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+               </div>
+
+                <FormField
                     control={form.control}
                     name="expirationDate"
                     render={({ field }) => (
@@ -494,7 +513,6 @@ export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps
                     </FormItem>
                     )}
                   />
-               </div>
               
               <DialogFooter className="pt-4">
                 <DialogClose asChild>

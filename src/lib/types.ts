@@ -113,6 +113,7 @@ export type Contract = {
   type: 'fixed' | 'variable';
   amount?: number;
   paymentFrequency: 'monthly' | 'bimonthly' | 'quarterly' | 'semiannually' | 'annually';
+  paymentDueDate?: number;
   expirationDate?: Timestamp;
   createdAt: Timestamp;
   updatedAt: Timestamp;

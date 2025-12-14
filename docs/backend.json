@@ -370,6 +370,10 @@
           "description": "The frequency of payment.",
           "enum": ["monthly", "bimonthly", "quarterly", "semiannually", "annually"]
         },
+        "paymentDueDate": {
+          "type": "number",
+          "description": "The day of the month the payment is due (e.g., 5 for the 5th)."
+        },
         "expirationDate": {
           "type": "string",
           "description": "The date when the contract expires.",
