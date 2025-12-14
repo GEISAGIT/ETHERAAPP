@@ -30,28 +30,23 @@ const getNextDueDate = (contract: Contract): Date | null => {
 
     if (!paymentDueDate) return null;
 
-    // Start with the due date in the current month
+    // Start with the due date in the current month.
     let nextDueDate = new Date(today.getFullYear(), today.getMonth(), paymentDueDate);
-
-    // If today is already past this month's due date, move to the next payment cycle
-    if (isAfter(today, nextDueDate)) {
-        nextDueDate = frequencyFunctionMap[paymentFrequency](nextDueDate, 1);
-    }
     
-    // Ensure the first due date isn't before the contract started
+    // If the contract was created after this month's due date, start from the next cycle.
     if (isBefore(nextDueDate, createdAt.toDate())) {
-        nextDueDate = new Date(createdAt.toDate());
-        nextDueDate.setDate(paymentDueDate);
-        while(isBefore(nextDueDate, createdAt.toDate())) {
+        nextDueDate = new Date(createdAt.toDate().getFullYear(), createdAt.toDate().getMonth(), paymentDueDate);
+        if (isBefore(nextDueDate, createdAt.toDate())) {
              nextDueDate = frequencyFunctionMap[paymentFrequency](nextDueDate, 1);
         }
-         // After finding the first due date after creation, make sure it's also after today
-        while (isBefore(nextDueDate, today)) {
-            nextDueDate = frequencyFunctionMap[paymentFrequency](nextDueDate, 1);
-        }
     }
-    
-    // Check if the calculated next date is past the contract's expiration date
+
+    // While the calculated due date is in the past, advance to the next payment cycle.
+    while (isBefore(nextDueDate, today)) {
+        nextDueDate = frequencyFunctionMap[paymentFrequency](nextDueDate, 1);
+    }
+
+    // Check if the calculated next date is past the contract's expiration date.
     if (expirationDate && isAfter(nextDueDate, expirationDate.toDate())) {
         return null;
     }
