@@ -1,8 +1,6 @@
-
-
 'use client';
 import type { Contract, ContractStatus } from '@/lib/types';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Calendar, Tag, FileText, Repeat, FolderTree, CalendarClock, MoreVertical, Edit, Trash2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
@@ -18,6 +16,8 @@ import { useFirestore, deleteDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 
 const formatCurrency = (value?: number) => {
@@ -54,6 +54,8 @@ export function ContractsClient({
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | ContractStatus>('all');
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -86,14 +88,22 @@ export function ContractsClient({
     setSelectedContract(null);
   };
 
-  const processedContracts = contracts.map(contract => {
+  const processedContracts = useMemo(() => contracts.map(contract => {
     const isExpired = contract.expirationDate ? isAfter(new Date(), contract.expirationDate.toDate()) : false;
     let status: ContractStatus = contract.status || 'active'; // Fallback to 'active'
     if (status === 'active' && isExpired) {
         status = 'expired';
     }
     return { ...contract, status };
-  });
+  }), [contracts]);
+  
+  const filteredContracts = useMemo(() => {
+    return processedContracts.filter(contract => {
+        const nameMatch = searchTerm ? contract.name.toLowerCase().includes(searchTerm.toLowerCase()) : true;
+        const statusMatch = filterStatus === 'all' ? true : contract.status === filterStatus;
+        return nameMatch && statusMatch;
+    })
+  }, [processedContracts, searchTerm, filterStatus]);
 
 
   if (isLoading) {
@@ -147,16 +157,36 @@ export function ContractsClient({
           </Button>
         </header>
 
-        {contracts.length === 0 ? (
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+            <Input
+                placeholder="Filtrar por nome do contrato..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full sm:max-w-xs"
+            />
+            <Select value={filterStatus} onValueChange={(value: 'all' | ContractStatus) => setFilterStatus(value)}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="Filtrar por status" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Todos os Status</SelectItem>
+                    <SelectItem value="active">Ativos</SelectItem>
+                    <SelectItem value="expired">Expirados</SelectItem>
+                    <SelectItem value="cancelled">Cancelados</SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
+
+        {filteredContracts.length === 0 ? (
           <div className="flex h-60 items-center justify-center rounded-md border-2 border-dashed">
             <div className="text-center">
-                <h3 className="text-lg font-semibold">Nenhum contrato cadastrado</h3>
-                <p className="text-sm text-muted-foreground">Comece adicionando seu primeiro contrato recorrente.</p>
+                <h3 className="text-lg font-semibold">Nenhum contrato encontrado</h3>
+                <p className="text-sm text-muted-foreground">Tente ajustar seus filtros ou adicione um novo contrato.</p>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {processedContracts.map(contract => {
+            {filteredContracts.map(contract => {
               const StatusIcon = statusConfig[contract.status].icon;
               return (
               <Card key={contract.id} className="flex flex-col">
