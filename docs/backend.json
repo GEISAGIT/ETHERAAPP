@@ -333,6 +333,60 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "Contract": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Contract",
+      "type": "object",
+      "description": "Represents a recurring contract for services or expenses.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Contract entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who created the contract."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name or title of the contract (e.g., 'Aluguel do Consultório')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the contract."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of contract value.",
+          "enum": ["fixed", "variable"]
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount for fixed contracts. Not applicable for variable contracts."
+        },
+        "paymentFrequency": {
+          "type": "string",
+          "description": "The frequency of payment.",
+          "enum": ["monthly", "bimonthly", "quarterly", "semiannually", "annually"]
+        },
+        "expirationDate": {
+          "type": "string",
+          "description": "The date when the contract expires.",
+          "format": "date"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the contract was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the contract was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "userId", "name", "type", "paymentFrequency", "createdAt", "updatedAt"]
     }
   },
   "auth": {
@@ -453,9 +507,25 @@
             }
           ]
         }
+      },
+       {
+        "path": "/contracts/{contractId}",
+        "definition": {
+          "entityName": "Contract",
+          "schema": {
+            "$ref": "#/backend/entities/Contract"
+          },
+          "description": "Stores recurring contracts for the clinic.",
+          "params": [
+            {
+              "name": "contractId",
+              "description": "The unique identifier for the contract record."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability for the ClinicFlow application. The primary strategy employed is denormalization to avoid hierarchical authorization dependencies, as described in the CORE DESIGN PRINCIPLES. Each top-level collection (users, incomes, expenses, budgets, fileUploads) represents a distinct entity, enabling a homogeneous security posture. User-owned data is nested under `/users/{userId}` ensuring clear ownership. The addition of a top-level `roles` collection allows for centralized management of permissions, which can be read by all users but only written to by admins. This design makes it possible to secure `list` operations without complex filtering in rules.\n\nAuthorization Independence:\nAll subcollections under `/users/{userId}` inherently inherit the user's ID, removing the need for `get()` calls in security rules to verify ownership. For example, access to `/users/{userId}/incomes/{incomeId}` is directly controlled by the `userId` in the path.  This eliminates authorization dependency on the parent document and avoids breaking atomic operations.\n\nQAPs (Rules are not Filters):\nThe structure facilitates secure `list` operations by ensuring that each collection contains documents with the same security requirements. For example, listing incomes under `/users/{userId}/incomes` is secure because all documents in that collection are owned by the specified user. No filtering is needed in the rules, as the path itself defines the authorization context."
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability for the ClinicFlow application. The primary strategy employed is denormalization to avoid hierarchical authorization dependencies, as described in the CORE DESIGN PRINCIPLES. Each top-level collection (users, incomes, expenses, budgets, fileUploads, contracts) represents a distinct entity, enabling a homogeneous security posture. User-owned data is nested under `/users/{userId}` ensuring clear ownership. The addition of a top-level `roles` collection allows for centralized management of permissions, which can be read by all users but only written to by admins. This design makes it possible to secure `list` operations without complex filtering in rules.\n\nAuthorization Independence:\nAll subcollections under `/users/{userId}` inherently inherit the user's ID, removing the need for `get()` calls in security rules to verify ownership. For example, access to `/users/{userId}/incomes/{incomeId}` is directly controlled by the `userId` in the path.  This eliminates authorization dependency on the parent document and avoids breaking atomic operations.\n\nQAPs (Rules are not Filters):\nThe structure facilitates secure `list` operations by ensuring that each collection contains documents with the same security requirements. For example, listing incomes under `/users/{userId}/incomes` is secure because all documents in that collection are owned by the specified user. No filtering is needed in the rules, as the path itself defines the authorization context."
   }
 }
 

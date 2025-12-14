@@ -78,5 +78,14 @@ service cloud.firestore {
         allow get, list: if isSignedIn();
         allow write: if isAdmin();
     }
+
+    match /contracts/{contractId} {
+      allow read, list: if isSignedIn();
+      allow create: if isOriginalCreator();
+      allow update: if isExistingDocOwner(contractId, 'contracts') || isAdmin();
+      allow delete: if isExistingDocOwner(contractId, 'contracts') || isAdmin();
+    }
   }
 }
+
+    

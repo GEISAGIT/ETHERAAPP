@@ -104,3 +104,18 @@ export type Role = {
 };
 
 export type MenuItemKey = keyof Omit<Permissions, 'accessControl'> | 'accessControl';
+
+export type Contract = {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  type: 'fixed' | 'variable';
+  amount?: number;
+  paymentFrequency: 'monthly' | 'bimonthly' | 'quarterly' | 'semiannually' | 'annually';
+  expirationDate?: Timestamp;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+};
+
+    
