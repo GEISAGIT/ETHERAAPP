@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, CalendarClock, CheckCircle2, FileText, Forward, XCircle, CalendarOff, AlertCircleIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
-import { addMonths, addYears, format, differenceInDays, isAfter, isBefore, startOfMonth, startOfDay } from 'date-fns';
+import { addMonths, addYears, format, differenceInDays, isAfter, isBefore, startOfDay, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const formatCurrency = (value?: number) => {
@@ -27,58 +27,64 @@ const frequencyFunctionMap = {
 };
 
 type PaymentStatus = {
-    status: 'Vencido' | 'Em dia' | 'Vence hoje';
+    status: 'Vencido' | 'Vence hoje' | 'Vence em breve' | 'Em dia';
+    daysRemaining: number;
     dueDate: Date;
     isDue: boolean;
 };
 
 const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
-    if (contract.status !== 'active' && contract.status) return null;
+    if (contract.status !== 'active') return null;
 
     const today = startOfDay(new Date());
     const { paymentFrequency, paymentDueDate, createdAt, expirationDate } = contract;
 
     if (!paymentDueDate) return null;
 
-    let dueDateInCurrentCycle = new Date(today.getFullYear(), today.getMonth(), paymentDueDate);
+    let dueDateInCycle = new Date(today.getFullYear(), today.getMonth(), paymentDueDate);
+    
+    // Adjust for contracts created after the due day in the current month
+    if (isAfter(today, dueDateInCycle) && isAfter(today, createdAt.toDate())) {
+      dueDateInCycle = frequencyFunctionMap[paymentFrequency](dueDateInCycle, 1);
+    } else if (isBefore(today, createdAt.toDate())) {
+      // Find first due date after creation
+      let firstDueDate = new Date(createdAt.toDate());
+      firstDueDate.setDate(paymentDueDate);
+       while(isBefore(firstDueDate, createdAt.toDate())) {
+          firstDueDate = frequencyFunctionMap[paymentFrequency](firstDueDate, 1);
+      }
+      dueDateInCycle = firstDueDate;
+    }
 
-    if (isAfter(today, dueDateInCurrentCycle)) {
-        dueDateInCurrentCycle = addMonths(dueDateInCurrentCycle, 1);
+    // Ensure we are not calculating a due date for a cycle that hasn't started yet
+    while (isBefore(dueDateInCycle, today)) {
+        const nextPossibleDueDate = frequencyFunctionMap[paymentFrequency](dueDateInCycle, 1);
+        if (isAfter(nextPossibleDueDate, dueDateInCycle)) { // Ensure date is increasing
+            dueDateInCycle = nextPossibleDueDate;
+        } else {
+            break;
+        }
     }
     
-    const cycleStartDate = startOfMonth(dueDateInCurrentCycle);
-    if(isAfter(cycleStartDate, createdAt.toDate())) {
-        let firstDueDate = new Date(createdAt.toDate());
-        firstDueDate.setDate(paymentDueDate);
-        while(isBefore(firstDueDate, createdAt.toDate())) {
-            firstDueDate = frequencyFunctionMap[paymentFrequency](firstDueDate, 1);
-        }
-        dueDateInCurrentCycle = firstDueDate;
-    }
-
-
-    while (isBefore(dueDateInCurrentCycle, today)) {
-        const nextPossibleDueDate = frequencyFunctionMap[paymentFrequency](dueDateInCurrentCycle, 1);
-         if (isAfter(nextPossibleDueDate, dueDateInCurrentCycle)) {
-            dueDateInCurrentCycle = nextPossibleDueDate;
-        } else {
-            break; 
-        }
-    }
-
-    if (expirationDate && isAfter(dueDateInCurrentCycle, expirationDate.toDate())) {
+    if (expirationDate && isAfter(dueDateInCycle, expirationDate.toDate())) {
         return null;
     }
-    
-    const dueDateStartOfDay = startOfDay(dueDateInCurrentCycle);
-    const isOverdue = isBefore(dueDateStartOfDay, today);
 
-    let status: 'Vencido' | 'Em dia' | 'Vence hoje' = 'Em dia';
-    if(isOverdue) status = 'Vencido';
+    const daysRemaining = differenceInDays(dueDateInCycle, today);
+
+    let status: 'Vencido' | 'Vence hoje' | 'Vence em breve' | 'Em dia' = 'Em dia';
+    if (daysRemaining < 0) {
+        status = 'Vencido';
+    } else if (daysRemaining === 0) {
+        status = 'Vence hoje';
+    } else if (daysRemaining <= 10) {
+        status = 'Vence em breve';
+    }
 
     return {
-        status: status,
-        dueDate: dueDateInCurrentCycle,
+        status,
+        daysRemaining,
+        dueDate: dueDateInCycle,
         isDue: true,
     };
 };
@@ -92,11 +98,11 @@ export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
         ...contract,
         paymentStatus: getPaymentStatus(contract)
     }))
-    .filter(p => p.paymentStatus !== null)
+    .filter((p): p is typeof p & { paymentStatus: PaymentStatus } => p.paymentStatus !== null)
     .sort((a, b) => {
-        if (a.paymentStatus!.status === 'Vencido' && b.paymentStatus!.status !== 'Vencido') return -1;
-        if (a.paymentStatus!.status !== 'Vencido' && b.paymentStatus!.status === 'Vencido') return 1;
-        return a.paymentStatus!.dueDate.getTime() - b.paymentStatus!.dueDate.getTime();
+        if (a.paymentStatus.status === 'Vencido' && b.paymentStatus.status !== 'Vencido') return -1;
+        if (a.paymentStatus.status !== 'Vencido' && b.paymentStatus.status === 'Vencido') return 1;
+        return a.paymentStatus.dueDate.getTime() - b.paymentStatus.dueDate.getTime();
     });
   }, [activeContracts]);
 
@@ -112,6 +118,40 @@ export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
   }, [activeContracts]);
 
   const overdueCount = paymentPendencies.filter(p => p.paymentStatus?.status === 'Vencido').length;
+
+  const getStatusComponent = (paymentStatus: PaymentStatus) => {
+    switch (paymentStatus.status) {
+        case 'Vencido':
+            return (
+                <div className="flex items-center gap-1.5 font-semibold text-red-500">
+                    <XCircle className="h-4 w-4" />
+                    <span>Vencido</span>
+                </div>
+            );
+        case 'Vence hoje':
+             return (
+                <div className="flex items-center gap-1.5 font-semibold text-amber-600">
+                    <AlertCircleIcon className="h-4 w-4" />
+                    <span>Vence hoje!</span>
+                </div>
+            );
+        case 'Vence em breve':
+            return (
+                <div className="flex items-center gap-1.5 font-semibold text-amber-600">
+                    <AlertCircleIcon className="h-4 w-4" />
+                    <span>Vence em {paymentStatus.daysRemaining} dias</span>
+                </div>
+            );
+        default:
+            return (
+                <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span>Em dia</span>
+                </div>
+            );
+    }
+  }
+
 
   return (
     <>
@@ -162,20 +202,10 @@ export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
                              </div>
                              <div className="flex items-center gap-4 text-sm w-full sm:w-auto justify-between">
                                 <Badge variant="secondary" className="font-mono">{formatCurrency(item.amount)}</Badge>
-                                 {item.paymentStatus!.status === 'Vencido' ? (
-                                    <div className="flex items-center gap-1.5 font-semibold text-red-500">
-                                        <XCircle className="h-4 w-4" />
-                                        <span>Vencido</span>
-                                    </div>
-                                 ) : (
-                                    <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
-                                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                        <span>Em dia</span>
-                                    </div>
-                                 )}
+                                 {getStatusComponent(item.paymentStatus)}
                                 <div className="flex items-center gap-1.5 text-muted-foreground">
                                     <CalendarClock className="h-4 w-4" />
-                                    <span>{format(item.paymentStatus!.dueDate, "dd 'de' MMM", { locale: ptBR })}</span>
+                                    <span>{format(item.paymentStatus.dueDate, "dd 'de' MMM", { locale: ptBR })}</span>
                                 </div>
                              </div>
                          </div>

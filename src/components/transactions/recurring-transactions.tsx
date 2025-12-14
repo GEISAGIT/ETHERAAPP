@@ -3,10 +3,11 @@ import type { Contract } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { addMonths, addYears, format, isAfter, startOfDay, isBefore, startOfMonth } from 'date-fns';
+import { addMonths, addYears, format, isAfter, startOfDay, isBefore, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useMemo } from 'react';
 import { PayRecurringTransactionDialog } from './pay-recurring-transaction-dialog';
+import { AlertCircleIcon, CheckCircle2, XCircle } from 'lucide-react';
 
 const formatCurrency = (value?: number) => {
     if (value === undefined) return 'Variável';
@@ -24,45 +25,64 @@ const frequencyFunctionMap = {
     annually: (date: Date, count: number) => addYears(date, count),
 };
 
-const getNextDueDate = (contract: Contract): Date | null => {
-    if (contract.status !== 'active' && contract.status) return null;
+type PaymentStatus = {
+    status: 'Vencido' | 'Vence hoje' | 'Vence em breve' | 'Em dia';
+    daysRemaining: number;
+    dueDate: Date;
+    isDue: boolean;
+};
+
+const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
+    if (contract.status !== 'active') return null;
 
     const today = startOfDay(new Date());
     const { paymentFrequency, paymentDueDate, createdAt, expirationDate } = contract;
 
     if (!paymentDueDate) return null;
 
-    let dueDateInCurrentCycle = new Date(today.getFullYear(), today.getMonth(), paymentDueDate);
+    let dueDateInCycle = new Date(today.getFullYear(), today.getMonth(), paymentDueDate);
+    
+    if (isAfter(today, dueDateInCycle) && isAfter(today, createdAt.toDate())) {
+      dueDateInCycle = frequencyFunctionMap[paymentFrequency](dueDateInCycle, 1);
+    } else if (isBefore(today, createdAt.toDate())) {
+      let firstDueDate = new Date(createdAt.toDate());
+      firstDueDate.setDate(paymentDueDate);
+       while(isBefore(firstDueDate, createdAt.toDate())) {
+          firstDueDate = frequencyFunctionMap[paymentFrequency](firstDueDate, 1);
+      }
+      dueDateInCycle = firstDueDate;
+    }
 
-    if (isAfter(today, dueDateInCurrentCycle)) {
-        dueDateInCurrentCycle = addMonths(dueDateInCurrentCycle, 1);
+    while (isBefore(dueDateInCycle, today)) {
+        const nextPossibleDueDate = frequencyFunctionMap[paymentFrequency](dueDateInCycle, 1);
+        if (isAfter(nextPossibleDueDate, dueDateInCycle)) { 
+            dueDateInCycle = nextPossibleDueDate;
+        } else {
+            break;
+        }
     }
     
-    const cycleStartDate = startOfMonth(dueDateInCurrentCycle);
-    if(isAfter(cycleStartDate, createdAt.toDate())) {
-        let firstDueDate = new Date(createdAt.toDate());
-        firstDueDate.setDate(paymentDueDate);
-        while(isBefore(firstDueDate, createdAt.toDate())) {
-            firstDueDate = frequencyFunctionMap[paymentFrequency](firstDueDate, 1);
-        }
-        dueDateInCurrentCycle = firstDueDate;
-    }
-
-
-    while (isBefore(dueDateInCurrentCycle, today)) {
-        const nextPossibleDueDate = frequencyFunctionMap[paymentFrequency](dueDateInCurrentCycle, 1);
-         if (isAfter(nextPossibleDueDate, dueDateInCurrentCycle)) {
-            dueDateInCurrentCycle = nextPossibleDueDate;
-        } else {
-            break; 
-        }
-    }
-
-    if (expirationDate && isAfter(dueDateInCurrentCycle, expirationDate.toDate())) {
+    if (expirationDate && isAfter(dueDateInCycle, expirationDate.toDate())) {
         return null;
     }
 
-    return dueDateInCurrentCycle;
+    const daysRemaining = differenceInDays(dueDateInCycle, today);
+
+    let status: 'Vencido' | 'Vence hoje' | 'Vence em breve' | 'Em dia' = 'Em dia';
+    if (daysRemaining < 0) {
+        status = 'Vencido';
+    } else if (daysRemaining === 0) {
+        status = 'Vence hoje';
+    } else if (daysRemaining <= 10) {
+        status = 'Vence em breve';
+    }
+
+    return {
+        status,
+        daysRemaining,
+        dueDate: dueDateInCycle,
+        isDue: true,
+    };
 };
 
 
@@ -74,10 +94,10 @@ export function RecurringTransactions({ contracts }: { contracts: Contract[] }) 
         return contracts
             .map(contract => ({
                 ...contract,
-                nextDueDate: getNextDueDate(contract)
+                paymentStatus: getPaymentStatus(contract)
             }))
-            .filter((payment): payment is typeof payment & { nextDueDate: Date } => payment.nextDueDate !== null)
-            .sort((a, b) => a.nextDueDate.getTime() - b.nextDueDate.getTime());
+            .filter((payment): payment is typeof payment & { paymentStatus: PaymentStatus } => payment.paymentStatus !== null)
+            .sort((a, b) => a.paymentStatus.dueDate.getTime() - b.paymentStatus.dueDate.getTime());
     }, [contracts]);
 
 
@@ -85,6 +105,40 @@ export function RecurringTransactions({ contracts }: { contracts: Contract[] }) 
         setSelectedPayment({ contract, dueDate });
         setIsPayDialogOpen(true);
     };
+
+    const getStatusComponent = (paymentStatus: PaymentStatus) => {
+        switch (paymentStatus.status) {
+            case 'Vencido':
+                return (
+                    <Badge variant="destructive" className="items-center gap-1">
+                        <XCircle className="h-3.5 w-3.5" />
+                        <span>Vencido</span>
+                    </Badge>
+                );
+            case 'Vence hoje':
+                 return (
+                    <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600 items-center gap-1">
+                        <AlertCircleIcon className="h-3.5 w-3.5" />
+                        <span>Vence hoje!</span>
+                    </Badge>
+                );
+            case 'Vence em breve':
+                return (
+                    <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700 items-center gap-1">
+                        <AlertCircleIcon className="h-3.5 w-3.5" />
+                        <span>Vence em {paymentStatus.daysRemaining} dias</span>
+                    </Badge>
+                );
+            default:
+                return (
+                     <Badge variant="secondary" className="items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                        <span>Em dia</span>
+                    </Badge>
+                );
+        }
+    }
+
 
     return (
         <>
@@ -121,12 +175,12 @@ export function RecurringTransactions({ contracts }: { contracts: Contract[] }) 
                                         <div className="flex items-center justify-between sm:justify-start gap-4">
                                             <Badge variant="outline">{formatCurrency(payment.amount)}</Badge>
                                             <p className="text-sm font-medium">
-                                                Vence em: {payment.nextDueDate ? format(payment.nextDueDate, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}
+                                                Vence em: {payment.paymentStatus ? format(payment.paymentStatus.dueDate, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}
                                             </p>
                                         </div>
                                     <div className="flex items-center justify-between sm:justify-start gap-4">
-                                        <Badge>Pendente</Badge>
-                                        <Button size="sm" onClick={() => handlePayClick(payment, payment.nextDueDate!)}>
+                                        {getStatusComponent(payment.paymentStatus)}
+                                        <Button size="sm" onClick={() => handlePayClick(payment, payment.paymentStatus.dueDate)}>
                                             Pagar
                                         </Button>
                                     </div>
