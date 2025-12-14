@@ -1,12 +1,31 @@
-
 'use client';
 import type { Contract } from '@/lib/types';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Calendar, Tag, FileText, Repeat } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { AddContractDialog } from './add-contract-dialog';
+import { Badge } from '../ui/badge';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+const formatCurrency = (value?: number) => {
+  if (value === undefined) return 'N/A';
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
+};
+
+const frequencyMap = {
+  monthly: 'Mensal',
+  bimonthly: 'Bimestral',
+  quarterly: 'Trimestral',
+  semiannually: 'Semestral',
+  annually: 'Anual',
+};
+
 
 export function ContractsClient({
     contracts,
@@ -27,14 +46,11 @@ export function ContractsClient({
           </div>
           <Skeleton className="h-10 w-44" />
         </header>
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-8 w-72" />
-          </CardHeader>
-          <CardContent className="flex h-60 items-center justify-center">
-            <Skeleton className="h-12 w-12 rounded-full" />
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <Skeleton className="h-56" />
+            <Skeleton className="h-56" />
+            <Skeleton className="h-56" />
+        </div>
       </div>
     );
   }
@@ -70,13 +86,50 @@ export function ContractsClient({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Contract cards will go here */}
-            <p>Contratos serão listados aqui.</p>
+            {contracts.map(contract => (
+              <Card key={contract.id} className="flex flex-col">
+                <CardHeader>
+                  <CardTitle className="font-headline flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    {contract.name}
+                  </CardTitle>
+                  <CardDescription>
+                    {contract.description || 'Sem descrição.'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow space-y-3 text-sm">
+                   <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-muted-foreground" />
+                      <Badge variant={contract.type === 'fixed' ? 'default' : 'secondary'}>
+                        {contract.type === 'fixed' ? 'Fixo' : 'Variável'}
+                      </Badge>
+                      <span className="font-semibold text-foreground">
+                        {formatCurrency(contract.amount)}
+                      </span>
+                  </div>
+                   <div className="flex items-center gap-2">
+                      <Repeat className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Frequência:</span>
+                      <span className="font-medium text-foreground">{frequencyMap[contract.paymentFrequency]}</span>
+                   </div>
+                  {contract.expirationDate && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Vencimento:</span>
+                      <span className="font-medium text-foreground">
+                        {format(contract.expirationDate.toDate(), 'dd/MM/yyyy', { locale: ptBR })}
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter>
+                    {/* Actions can go here later */}
+                </CardFooter>
+              </Card>
+            ))}
           </div>
         )}
       </div>
     </>
   );
 }
-
-    
