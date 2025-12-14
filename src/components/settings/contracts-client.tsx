@@ -196,15 +196,16 @@ export function ContractsClient({
                          </span>
                        </div>
                     )}
-                  {contract.expirationDate && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Fim do Contrato:</span>
-                      <span className="font-medium text-foreground">
-                        {format(contract.expirationDate.toDate(), 'dd/MM/yyyy', { locale: ptBR })}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Vigência:</span>
+                    <span className="font-medium text-foreground">
+                        {contract.expirationDate 
+                            ? `Encerra em ${format(contract.expirationDate.toDate(), 'dd/MM/yyyy', { locale: ptBR })}`
+                            : 'Indeterminada'
+                        }
+                    </span>
+                  </div>
                   {contract.fullCategoryPath && (
                      <div className="flex items-start gap-2 pt-2 border-t border-dashed">
                       <FolderTree className="h-4 w-4 text-muted-foreground mt-0.5" />
