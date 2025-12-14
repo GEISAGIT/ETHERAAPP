@@ -57,11 +57,11 @@ export function DashboardClient({ transactions, budgets, contracts, isLoading }:
                 <Skeleton className="h-28" />
                 <Skeleton className="h-28" />
             </div>
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-                <Skeleton className="lg:col-span-2 h-[422px]" />
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                <Skeleton className="lg:col-span-1 h-[422px]" />
                 <Skeleton className="h-[422px]" />
             </div>
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-8">
                 <Skeleton className="h-[450px]" />
                 <Skeleton className="h-[450px]" />
             </div>

@@ -3,12 +3,11 @@ import type { Contract } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, CalendarClock, CheckCircle2, FileText, Forward, XCircle } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CheckCircle2, FileText, Forward, XCircle, CalendarOff, AlertCircleIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { addMonths, addYears, format, differenceInDays, isAfter, isBefore, startOfMonth, endOfMonth, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
 
 const formatCurrency = (value?: number) => {
     if (value === undefined) return 'Variável';
@@ -40,15 +39,12 @@ const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
 
     let dueDateInCurrentCycle = new Date(today.getFullYear(), today.getMonth(), paymentDueDate);
 
-    // If today is already past the due date this month, the cycle we care about is next month's due date
     if (isAfter(today, dueDateInCurrentCycle)) {
         dueDateInCurrentCycle = addMonths(dueDateInCurrentCycle, 1);
     }
     
-    // Check if the contract was even active at the start of this cycle
     const cycleStartDate = startOfMonth(dueDateInCurrentCycle);
     if(isAfter(cycleStartDate, createdAt.toDate())) {
-        // Find the very first due date
         let firstDueDate = new Date(createdAt.toDate());
         firstDueDate.setDate(paymentDueDate);
         while(isBefore(firstDueDate, createdAt.toDate())) {
@@ -77,20 +73,12 @@ const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
     let status: 'Vencido' | 'Em dia' | 'Vence hoje' = 'Em dia';
     if(isOverdue) status = 'Vencido';
 
-    // This check is simplified, assuming a monthly cycle for "Vencido" status.
-    // A more robust solution would check if a payment for the "current period" was made.
-    const startOfCurrentMonth = startOfMonth(today);
-    const endOfCurrentMonth = endOfMonth(today);
-    let isDueInCurrentMonth = isAfter(dueDateInCurrentCycle, startOfCurrentMonth) && isBefore(dueDateInCurrentCycle, endOfCurrentMonth);
-
-
     return {
         status: status,
         dueDate: dueDateInCurrentCycle,
-        isDue: true, // Simplified for now
+        isDue: true,
     };
 };
-
 
 export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
   
@@ -101,16 +89,27 @@ export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
     }))
     .filter(p => p.paymentStatus !== null)
     .sort((a, b) => {
-        // Vencidos primeiro, depois por data de vencimento
         if (a.paymentStatus!.status === 'Vencido' && b.paymentStatus!.status !== 'Vencido') return -1;
         if (a.paymentStatus!.status !== 'Vencido' && b.paymentStatus!.status === 'Vencido') return 1;
         return a.paymentStatus!.dueDate.getTime() - b.paymentStatus!.dueDate.getTime();
     });
   }, [contracts]);
 
+  const contractsWithExpiration = useMemo(() => {
+    const today = new Date();
+    return contracts
+      .filter(contract => contract.expirationDate)
+      .map(contract => {
+        const daysRemaining = differenceInDays(contract.expirationDate!.toDate(), today);
+        return { ...contract, daysRemaining };
+      })
+      .sort((a, b) => a.daysRemaining - b.daysRemaining);
+  }, [contracts]);
+
   const overdueCount = paymentPendencies.filter(p => p.paymentStatus?.status === 'Vencido').length;
 
   return (
+    <>
     <Card className="flex h-full flex-col">
       <CardHeader>
         <div className="flex items-start justify-between">
@@ -126,7 +125,6 @@ export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
         </div>
       </CardHeader>
       <CardContent className="flex-1 space-y-4">
-
         {overdueCount > 0 && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3">
                 <div className="flex items-start gap-3">
@@ -194,5 +192,59 @@ export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
             </Button>
       </CardFooter>
     </Card>
+
+    <Card>
+        <CardHeader>
+            <CardTitle className="font-headline text-xl">Vigência de Contratos</CardTitle>
+            <CardDescription>Contratos com data de encerramento definida.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            {contractsWithExpiration.length === 0 ? (
+                 <div className="flex h-32 items-center justify-center rounded-md border border-dashed">
+                    <p className="text-sm text-muted-foreground">Nenhum contrato com data de expiração.</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {contractsWithExpiration.map(contract => {
+                        const isExpiringSoon = contract.daysRemaining <= 30 && contract.daysRemaining >= 0;
+                        const isExpired = contract.daysRemaining < 0;
+                        return (
+                            <div key={contract.id} className="flex flex-col sm:flex-row items-start justify-between rounded-md border p-3 gap-3">
+                                <div className="flex-1">
+                                    <p className="font-medium">{contract.name}</p>
+                                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
+                                        <CalendarOff className="h-4 w-4" />
+                                        <span>
+                                            {isExpired 
+                                                ? `Venceu em ${format(contract.expirationDate!.toDate(), "dd/MM/yyyy")}`
+                                                : `Vence em ${format(contract.expirationDate!.toDate(), "dd/MM/yyyy")}`
+                                            }
+                                        </span>
+                                    </div>
+                                    {isExpiringSoon && !isExpired && (
+                                        <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-amber-600">
+                                            <AlertCircleIcon className="h-4 w-4" />
+                                            <span>Vence em {contract.daysRemaining} dias!</span>
+                                        </div>
+                                    )}
+                                    {isExpired && (
+                                        <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-red-600">
+                                            <XCircle className="h-4 w-4" />
+                                            <span>Contrato Vencido</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2 self-start sm:self-center">
+                                    <Button variant="outline" size="sm" disabled>Renovar</Button>
+                                    <Button variant="ghost" size="sm" disabled>Cancelar</Button>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            )}
+        </CardContent>
+    </Card>
+    </>
   );
 }
