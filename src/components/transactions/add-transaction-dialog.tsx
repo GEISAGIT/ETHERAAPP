@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Check, ChevronsUpDown } from 'lucide-react';
+import { PlusCircle, Loader2, Check, ChevronsUpDown, UploadCloud } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -41,9 +41,10 @@ import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase, useStorage } from '@/firebase';
 import { collection, Timestamp, query, serverTimestamp } from 'firebase/firestore';
-import type { IncomeCategory, ExpenseCategoryGroup, ExpenseCategory, ExpenseSubCategory } from '@/lib/types';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import type { IncomeCategory, ExpenseCategoryGroup } from '@/lib/types';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 
@@ -57,6 +58,7 @@ const formSchema = z.object({
   group: z.string().optional(),
   costType: z.enum(['fixed', 'variable']).optional(),
   notes: z.string().optional(),
+  receipt: z.instanceof(File).optional(),
 });
 
 
@@ -67,8 +69,10 @@ export function AddTransactionDialog() {
   const [isDatePickerOpen, setDatePickerOpen] = useState(false);
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [manualEntry, setManualEntry] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const storage = useStorage();
   const { user } = useUser();
 
   const form = useForm<FormValues>({
@@ -81,6 +85,7 @@ export function AddTransactionDialog() {
       category: '',
       group: '',
       notes: '',
+      receipt: undefined,
     },
   });
   
@@ -98,6 +103,7 @@ export function AddTransactionDialog() {
           category: '',
           group: '',
           notes: '',
+          receipt: undefined,
         });
         setManualEntry(false);
     }
@@ -165,8 +171,8 @@ export function AddTransactionDialog() {
     setComboboxOpen(false);
   }
   
-  const onSubmit = (values: FormValues) => {
-    if (!user || !firestore) {
+  const onSubmit = async (values: FormValues) => {
+    if (!user || !firestore || !storage) {
       toast({
         variant: 'destructive',
         title: 'Erro',
@@ -175,10 +181,28 @@ export function AddTransactionDialog() {
       return;
     }
     
+    setIsUploading(true);
+
     const isExpense = values.type === 'expense';
     const collectionName = isExpense ? 'expenses' : 'incomes';
     const transactionsCollection = collection(firestore, collectionName);
 
+    let receiptUrl: string | undefined = undefined;
+    if (isExpense && values.receipt) {
+      try {
+        const receiptRef = ref(storage, `receipts/${user.uid}/${Date.now()}_${values.receipt.name}`);
+        const snapshot = await uploadBytes(receiptRef, values.receipt);
+        receiptUrl = await getDownloadURL(snapshot.ref);
+      } catch (error) {
+          console.error("Erro no upload do comprovante:", error);
+          toast({
+              variant: 'destructive',
+              title: 'Erro no Upload',
+              description: 'Não foi possível enviar o comprovante. A transação será salva sem ele.',
+          });
+      }
+    }
+    
     const transactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
       description: values.description,
@@ -197,10 +221,12 @@ export function AddTransactionDialog() {
           title: 'Classificação Incompleta',
           description: 'Por favor, selecione ou preencha a classificação de despesa completa.',
         });
+        setIsUploading(false);
         return;
       }
       transactionData.costType = values.costType;
       transactionData.category = values.category; // Legacy category
+      transactionData.receiptUrl = receiptUrl;
       transactionData.fullCategoryPath = {
         group: values.group,
         category: values.category,
@@ -213,6 +239,7 @@ export function AddTransactionDialog() {
           title: 'Categoria de Receita',
           description: 'Por favor, selecione uma categoria para a receita.',
         });
+        setIsUploading(false);
         return;
       }
       transactionData.category = values.category;
@@ -224,6 +251,8 @@ export function AddTransactionDialog() {
       title: 'Transação Adicionada',
       description: 'Sua transação foi registrada com sucesso.',
     });
+    
+    setIsUploading(false);
     setOpen(false);
   };
 
@@ -554,6 +583,7 @@ export function AddTransactionDialog() {
 
 
               {transactionType === 'expense' && (
+                <>
                 <FormField
                   control={form.control}
                   name="costType"
@@ -575,6 +605,35 @@ export function AddTransactionDialog() {
                       </FormItem>
                   )}
                 />
+                 <FormField
+                  control={form.control}
+                  name="receipt"
+                  render={({ field: { onChange, value, ...rest } }) => (
+                      <FormItem>
+                          <FormLabel>Comprovante (Opcional)</FormLabel>
+                          <FormControl>
+                              <div className="flex items-center gap-2">
+                                  <label
+                                      htmlFor="receipt-upload-add"
+                                      className="flex-1 cursor-pointer items-center gap-2 rounded-md border border-input bg-background p-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground flex"
+                                  >
+                                      <UploadCloud className="mr-2 inline h-4 w-4" />
+                                      {value?.name || 'Selecionar arquivo'}
+                                  </label>
+                                  <Input 
+                                      id="receipt-upload-add"
+                                      type="file" 
+                                      className="sr-only"
+                                      onChange={e => onChange(e.target.files?.[0])}
+                                      {...rest}
+                                  />
+                              </div>
+                          </FormControl>
+                          <FormMessage />
+                      </FormItem>
+                  )}
+                />
+                </>
               )}
 
               <FormField
@@ -599,8 +658,8 @@ export function AddTransactionDialog() {
                 <DialogClose asChild>
                   <Button type="button" variant="ghost">Cancelar</Button>
                 </DialogClose>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" disabled={isUploading || form.formState.isSubmitting}>
+                  {(isUploading || form.formState.isSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Salvar Transação
                 </Button>
               </DialogFooter>

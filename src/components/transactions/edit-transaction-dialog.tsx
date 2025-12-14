@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2, CalendarIcon, Check, ChevronsUpDown, UploadCloud } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -39,8 +39,9 @@ import { Calendar } from '../ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { updateDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { updateDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase, deleteDocumentNonBlocking, addDocumentNonBlocking, useStorage } from '@/firebase';
 import { collection, Timestamp, query, doc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { IncomeCategory, ExpenseCategoryGroup, Transaction, ExpenseTransaction } from '@/lib/types';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -55,6 +56,7 @@ const formSchema = z.object({
   group: z.string().optional(),
   costType: z.enum(['fixed', 'variable']).optional(),
   notes: z.string().optional(),
+  receipt: z.union([z.instanceof(File), z.string()]).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -69,8 +71,10 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
   const [isDatePickerOpen, setDatePickerOpen] = useState(false);
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [manualEntry, setManualEntry] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const storage = useStorage();
   const { user } = useUser();
 
   const form = useForm<FormValues>({
@@ -111,6 +115,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
         notes: transaction.notes || '',
         costType: isExpense ? expenseTransaction.costType : undefined,
         group: isExpense ? expenseTransaction.fullCategoryPath?.group : undefined,
+        receipt: isExpense ? expenseTransaction.receiptUrl : undefined,
       });
        setManualEntry(false);
     } else if (!open) {
@@ -165,8 +170,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     setComboboxOpen(false);
   }
 
-  const onSubmit = (values: FormValues) => {
-    if (!user || !transaction) {
+  const onSubmit = async (values: FormValues) => {
+    if (!user || !transaction || !storage) {
       toast({
         variant: 'destructive',
         title: 'Erro',
@@ -175,8 +180,42 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
       return;
     }
     
+    setIsUploading(true);
+
     const isExpense = values.type === 'expense';
-    
+    let receiptUrl: string | undefined = isExpense ? (transaction as ExpenseTransaction).receiptUrl : undefined;
+
+    // Handle receipt upload/update
+    if (isExpense && values.receipt) {
+      if (values.receipt instanceof File) {
+          // If there's an old receipt, delete it first
+          if (receiptUrl) {
+              try {
+                  const oldReceiptRef = ref(storage, receiptUrl);
+                  await deleteObject(oldReceiptRef);
+              } catch (error: any) {
+                  // Don't block update if old receipt deletion fails, just log it
+                  console.warn("Could not delete old receipt:", error);
+              }
+          }
+          // Upload new receipt
+          try {
+            const newReceiptRef = ref(storage, `receipts/${user.uid}/${Date.now()}_${values.receipt.name}`);
+            const snapshot = await uploadBytes(newReceiptRef, values.receipt);
+            receiptUrl = await getDownloadURL(snapshot.ref);
+          } catch (error) {
+             console.error("Erro no upload do comprovante:", error);
+             toast({ variant: 'destructive', title: 'Erro de Upload', description: 'Não foi possível enviar o novo comprovante.' });
+             setIsUploading(false);
+             return;
+          }
+      } else {
+        // It's a string, so it's the existing URL
+        receiptUrl = values.receipt;
+      }
+    }
+
+
     const baseTransactionData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
       description: values.description,
@@ -193,10 +232,12 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                 title: 'Classificação Incompleta',
                 description: 'Por favor, selecione ou preencha a classificação de despesa completa.',
             });
+            setIsUploading(false);
             return;
         }
         baseTransactionData.costType = values.costType;
-        baseTransactionData.category = values.category; // Legacy category for now
+        baseTransactionData.category = values.category; // Legacy
+        baseTransactionData.receiptUrl = receiptUrl;
         baseTransactionData.fullCategoryPath = {
             group: values.group,
             category: values.category,
@@ -204,35 +245,24 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
         };
     } else {
       if (!values.category) {
-         toast({
-          variant: 'destructive',
-          title: 'Categoria de Receita',
-          description: 'Por favor, selecione uma categoria para a receita.',
-        });
-        return;
+         toast({ variant: 'destructive', title: 'Categoria de Receita', description: 'Por favor, selecione uma categoria.' });
+         setIsUploading(false);
+         return;
       }
       baseTransactionData.category = values.category;
     }
     
-    // If the transaction type changed, we need to delete the old document and create a new one in the correct collection
     if (values.type !== transaction.type) {
-        // Delete from old collection
         const oldCollectionName = transaction.type === 'income' ? 'incomes' : 'expenses';
         const oldDocRef = doc(firestore, oldCollectionName, transaction.id);
         deleteDocumentNonBlocking(oldDocRef);
 
-        // Add to new collection
         const newCollectionName = values.type === 'income' ? 'incomes' : 'expenses';
         const newCollectionRef = collection(firestore, newCollectionName);
-        const newTransactionData = {
-          ...baseTransactionData,
-          userId: transaction.userId, // Preserve original creator
-          createdByName: transaction.createdByName, // Preserve original creator name
-        };
+        const newTransactionData = { ...baseTransactionData, userId: transaction.userId, createdByName: transaction.createdByName };
         addDocumentNonBlocking(newCollectionRef, newTransactionData);
 
     } else {
-        // Type is the same, just update the existing document
         const collectionName = values.type === 'income' ? 'incomes' : 'expenses';
         const docRef = doc(firestore, collectionName, transaction.id);
         updateDocumentNonBlocking(docRef, baseTransactionData);
@@ -242,6 +272,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
       title: 'Transação Atualizada',
       description: 'Sua transação foi atualizada com sucesso.',
     });
+    
+    setIsUploading(false);
     onOpenChange(false);
   };
   
@@ -561,28 +593,63 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                   )}
                 </div>
               )}
-
-                <FormField
-                  control={form.control}
-                  name="costType"
-                  render={({ field }) => (
-                      <FormItem className={cn(transactionType !== 'expense' && 'hidden')}>
-                      <FormLabel>Tipo de Custo</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+               {transactionType === 'expense' && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="costType"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Tipo de Custo</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Fixo ou Variável" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            <SelectItem value="fixed">Custo Fixo</SelectItem>
+                            <SelectItem value="variable">Custo Variável</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="receipt"
+                    render={({ field: { onChange, value, ...rest } }) => (
+                      <FormItem>
+                          <FormLabel>Comprovante</FormLabel>
                           <FormControl>
-                          <SelectTrigger>
-                              <SelectValue placeholder="Fixo ou Variável" />
-                          </SelectTrigger>
+                              <div className="flex items-center gap-2">
+                                  <label
+                                      htmlFor="receipt-upload-edit"
+                                      className="flex-1 cursor-pointer items-center gap-2 rounded-md border border-input bg-background p-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground flex"
+                                  >
+                                      <UploadCloud className="mr-2 inline h-4 w-4" />
+                                      {typeof value === 'string' ? 'Substituir comprovante' : value?.name || 'Selecionar arquivo'}
+                                  </label>
+                                  <Input 
+                                      id="receipt-upload-edit"
+                                      type="file" 
+                                      className="sr-only"
+                                      onChange={e => onChange(e.target.files?.[0])}
+                                      {...rest}
+                                  />
+                              </div>
                           </FormControl>
-                          <SelectContent>
-                          <SelectItem value="fixed">Custo Fixo</SelectItem>
-                          <SelectItem value="variable">Custo Variável</SelectItem>
-                          </SelectContent>
-                      </Select>
-                      <FormMessage />
+                          {typeof value === 'string' && value && (
+                            <p className='text-xs text-muted-foreground'>Arquivo atual: <a href={value} target='_blank' rel='noopener noreferrer' className='underline'>{value.split('%2F').pop()?.split('?')[0]}</a></p>
+                          )}
+                          <FormMessage />
                       </FormItem>
-                  )}
-                />
+                    )}
+                  />
+                </>
+              )}
+
 
               <FormField
                 control={form.control}
@@ -606,8 +673,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                 <DialogClose asChild>
                   <Button type="button" variant="ghost">Cancelar</Button>
                 </DialogClose>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" disabled={isUploading || form.formState.isSubmitting}>
+                  {(isUploading || form.formState.isSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Salvar Alterações
                 </Button>
               </DialogFooter>

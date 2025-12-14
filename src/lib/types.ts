@@ -11,6 +11,7 @@ export type IncomeTransaction = {
   type: 'income';
   category: string;
   notes?: string;
+  receiptUrl?: string; // Added for consistency, though less common for income
   updatedAt?: Timestamp;
   updatedBy?: string; // UID of user who last updated
 }

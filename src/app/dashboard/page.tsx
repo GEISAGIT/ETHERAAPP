@@ -2,7 +2,7 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import type { Budget, Transaction, UserProfile, Contract } from '@/lib/types';
+import type { Budget, Transaction, UserProfile, Contract, ExpenseTransaction } from '@/lib/types';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useMemo } from 'react';
 
@@ -24,7 +24,6 @@ export default function DashboardPage() {
   
   const incomesQuery = useMemoFirebase(() => {
     if (!firestore || !user || !userProfile) return null;
-    // Admin sees all, user sees their own
     return userProfile.role === 'admin'
       ? query(collection(firestore, 'incomes'))
       : query(collection(firestore, 'incomes'), where('userId', '==', user.uid));
@@ -32,7 +31,6 @@ export default function DashboardPage() {
 
   const expensesQuery = useMemoFirebase(() => {
     if (!firestore || !user || !userProfile) return null;
-    // Admin sees all, user sees their own
     return userProfile.role === 'admin'
       ? query(collection(firestore, 'expenses'))
       : query(collection(firestore, 'expenses'), where('userId', '==', user.uid));
@@ -40,13 +38,12 @@ export default function DashboardPage() {
 
   const contractsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    // For now, let's assume users can only see their own contracts on the dashboard
     return query(collection(firestore, 'contracts'), where('userId', '==', user.uid));
   }, [firestore, user]);
 
 
   const { data: incomes, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
-  const { data: expenses, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(expensesQuery);
+  const { data: expenses, isLoading: expensesLoading } = useCollection<ExpenseTransaction>(expensesQuery);
   const { data: budgets, isLoading: budgetsLoading } = useCollection<Budget>(budgetsQuery);
   const { data: contracts, isLoading: contractsLoading } = useCollection<Contract>(contractsQuery);
 
@@ -56,8 +53,6 @@ export default function DashboardPage() {
     
     const combined = [...allIncomes, ...allExpenses];
     
-    // Sort all transactions by date, but do not slice them.
-    // The filtering will now happen on the full dataset in the client component.
     return combined.sort((a, b) => {
         const dateA = a.date?.toMillis() ?? 0;
         const dateB = b.date?.toMillis() ?? 0;
@@ -73,6 +68,7 @@ export default function DashboardPage() {
         transactions={transactions} 
         budgets={budgets ?? []} 
         contracts={contracts ?? []}
+        expenses={expenses ?? []}
         isLoading={isLoading}
       />
     </AppLayout>

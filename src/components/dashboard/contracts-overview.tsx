@@ -1,13 +1,13 @@
 
 'use client';
-import type { Contract } from '@/lib/types';
+import type { Contract, ExpenseTransaction } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, CalendarClock, CheckCircle2, FileText, Forward, XCircle, CalendarOff, AlertCircleIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
-import { addMonths, addYears, format, differenceInDays, isAfter, isBefore, startOfDay, isToday } from 'date-fns';
+import { addMonths, addYears, format, differenceInDays, isAfter, isBefore, startOfDay, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const formatCurrency = (value?: number) => {
@@ -43,11 +43,9 @@ const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
 
     let dueDateInCycle = new Date(today.getFullYear(), today.getMonth(), paymentDueDate);
     
-    // Adjust for contracts created after the due day in the current month
     if (isAfter(today, dueDateInCycle) && isAfter(today, createdAt.toDate())) {
       dueDateInCycle = frequencyFunctionMap[paymentFrequency](dueDateInCycle, 1);
     } else if (isBefore(today, createdAt.toDate())) {
-      // Find first due date after creation
       let firstDueDate = new Date(createdAt.toDate());
       firstDueDate.setDate(paymentDueDate);
        while(isBefore(firstDueDate, createdAt.toDate())) {
@@ -56,10 +54,9 @@ const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
       dueDateInCycle = firstDueDate;
     }
 
-    // Ensure we are not calculating a due date for a cycle that hasn't started yet
     while (isBefore(dueDateInCycle, today)) {
         const nextPossibleDueDate = frequencyFunctionMap[paymentFrequency](dueDateInCycle, 1);
-        if (isAfter(nextPossibleDueDate, dueDateInCycle)) { // Ensure date is increasing
+        if (isAfter(nextPossibleDueDate, dueDateInCycle)) {
             dueDateInCycle = nextPossibleDueDate;
         } else {
             break;
@@ -89,22 +86,33 @@ const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
     };
 };
 
-export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
+export function ContractsOverview({ contracts, expenses }: { contracts: Contract[], expenses: ExpenseTransaction[] }) {
   
   const activeContracts = useMemo(() => contracts.filter(c => c.status === 'active' || c.status === undefined), [contracts]);
 
   const paymentPendencies = useMemo(() => {
-    return activeContracts.map(contract => ({
-        ...contract,
-        paymentStatus: getPaymentStatus(contract)
-    }))
-    .filter((p): p is typeof p & { paymentStatus: PaymentStatus } => p.paymentStatus !== null)
-    .sort((a, b) => {
-        if (a.paymentStatus.status === 'Vencido' && b.paymentStatus.status !== 'Vencido') return -1;
-        if (a.paymentStatus.status !== 'Vencido' && b.paymentStatus.status === 'Vencido') return 1;
-        return a.paymentStatus.dueDate.getTime() - b.paymentStatus.dueDate.getTime();
-    });
-  }, [activeContracts]);
+    return activeContracts.map(contract => {
+        const paymentStatus = getPaymentStatus(contract);
+        if (!paymentStatus) return null;
+
+        // Check if paid
+        const cycleStart = startOfMonth(paymentStatus.dueDate);
+        const cycleEnd = endOfMonth(paymentStatus.dueDate);
+        const isPaid = expenses.some(expense => 
+            expense.description === contract.name &&
+            isWithinInterval(expense.date.toDate(), { start: cycleStart, end: cycleEnd })
+        );
+
+        if (isPaid) return null;
+
+        return {
+            ...contract,
+            paymentStatus
+        }
+    })
+    .filter((p): p is typeof p & { paymentStatus: PaymentStatus } => p !== null)
+    .sort((a, b) => a.paymentStatus.dueDate.getTime() - b.paymentStatus.dueDate.getTime());
+  }, [activeContracts, expenses]);
 
   const contractsWithExpiration = useMemo(() => {
     const today = new Date();

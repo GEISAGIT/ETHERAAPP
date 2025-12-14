@@ -3,7 +3,7 @@
 import type { Transaction, ExpenseTransaction } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Timestamp } from 'firebase/firestore';
-import { MoreHorizontal, Edit, Trash2, Info } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, Info, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -17,6 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import Link from 'next/link';
 
 
 const formatDate = (timestamp?: Timestamp) => {
@@ -32,11 +33,21 @@ const formatDate = (timestamp?: Timestamp) => {
 }
 
 const DescriptionCell = ({ transaction }: { transaction: Transaction }) => {
+    const isExpense = transaction.type === 'expense';
+    const receiptUrl = isExpense ? (transaction as ExpenseTransaction).receiptUrl : undefined;
+
     return (
         <div className="flex items-center gap-2">
             <span className="max-w-[200px] truncate" title={transaction.description}>
                 {transaction.description}
             </span>
+             {receiptUrl && (
+                <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
+                    <Link href={receiptUrl} target="_blank" rel="noopener noreferrer">
+                        <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Link>
+                </Button>
+            )}
             <Popover>
                 <PopoverTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-6 w-6">

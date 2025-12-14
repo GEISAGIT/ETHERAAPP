@@ -22,7 +22,7 @@ import { TransactionsSummary } from './transactions-summary';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RecurringTransactions } from './recurring-transactions';
 
-export function TransactionsClient({ data, contracts, isLoading }: { data: Transaction[], contracts: Contract[], isLoading: boolean }) {
+export function TransactionsClient({ data, contracts, expenses, isLoading }: { data: Transaction[], contracts: Contract[], expenses: ExpenseTransaction[], isLoading: boolean }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -232,7 +232,10 @@ export function TransactionsClient({ data, contracts, isLoading }: { data: Trans
             <TabsTrigger value="manual">Lançamentos Manuais</TabsTrigger>
           </TabsList>
           <TabsContent value="recurring" className="space-y-4">
-            <RecurringTransactions contracts={contracts.filter(c => c.status === 'active')} />
+            <RecurringTransactions 
+                contracts={contracts.filter(c => c.status === 'active')} 
+                expenses={expenses}
+            />
           </TabsContent>
           <TabsContent value="manual" className="space-y-4">
             <TransactionsSummary transactions={filteredData} />

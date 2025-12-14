@@ -1,9 +1,9 @@
 'use client';
-import type { Contract } from '@/lib/types';
+import type { Contract, ExpenseTransaction } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { addMonths, addYears, format, isAfter, startOfDay, isBefore, differenceInDays } from 'date-fns';
+import { addMonths, addYears, format, isAfter, startOfDay, isBefore, differenceInDays, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useMemo } from 'react';
 import { PayRecurringTransactionDialog } from './pay-recurring-transaction-dialog';
@@ -86,19 +86,34 @@ const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
 };
 
 
-export function RecurringTransactions({ contracts }: { contracts: Contract[] }) {
+export function RecurringTransactions({ contracts, expenses }: { contracts: Contract[], expenses: ExpenseTransaction[] }) {
     const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<{contract: Contract, dueDate: Date} | null>(null);
 
     const upcomingPayments = useMemo(() => {
         return contracts
-            .map(contract => ({
-                ...contract,
-                paymentStatus: getPaymentStatus(contract)
-            }))
-            .filter((payment): payment is typeof payment & { paymentStatus: PaymentStatus } => payment.paymentStatus !== null)
+            .map(contract => {
+                const paymentStatus = getPaymentStatus(contract);
+                if (!paymentStatus) return null;
+
+                // Check if already paid in the current cycle
+                const cycleStart = startOfMonth(paymentStatus.dueDate);
+                const cycleEnd = endOfMonth(paymentStatus.dueDate);
+                const isPaid = expenses.some(expense => 
+                    expense.description === contract.name &&
+                    isWithinInterval(expense.date.toDate(), { start: cycleStart, end: cycleEnd })
+                );
+
+                if (isPaid) return null;
+
+                return {
+                    ...contract,
+                    paymentStatus
+                }
+            })
+            .filter((payment): payment is typeof payment & { paymentStatus: PaymentStatus } => payment !== null)
             .sort((a, b) => a.paymentStatus.dueDate.getTime() - b.paymentStatus.dueDate.getTime());
-    }, [contracts]);
+    }, [contracts, expenses]);
 
 
     const handlePayClick = (contract: Contract, dueDate: Date) => {
@@ -151,14 +166,14 @@ export function RecurringTransactions({ contracts }: { contracts: Contract[] }) 
                 <CardHeader>
                     <CardTitle>Próximos Vencimentos</CardTitle>
                     <CardDescription>
-                        Estas são as suas próximas contas recorrentes baseadas nos seus contratos ativos.
+                        Estas são as suas próximas contas recorrentes baseadas nos seus contratos ativos. Contas já pagas no ciclo atual não são exibidas.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {upcomingPayments.length === 0 ? (
                         <div className="flex h-40 items-center justify-center text-center">
                             <p className="text-muted-foreground">
-                                Nenhum contrato ativo com vencimentos futuros encontrado.
+                                Nenhuma pendência de pagamento encontrada.
                             </p>
                         </div>
                     ) : (

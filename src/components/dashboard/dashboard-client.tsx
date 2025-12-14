@@ -19,7 +19,7 @@ import type { DateRange } from 'react-day-picker';
 import { ContractsOverview } from './contracts-overview';
 
 
-export function DashboardClient({ transactions, budgets, contracts, isLoading }: { transactions: Transaction[], budgets: Budget[], contracts: Contract[], isLoading: boolean }) {
+export function DashboardClient({ transactions, budgets, contracts, expenses, isLoading }: { transactions: Transaction[], budgets: Budget[], contracts: Contract[], expenses: ExpenseTransaction[], isLoading: boolean }) {
   const [filterDate, setFilterDate] = useState<DateRange | undefined>(undefined);
 
   const filteredTransactions = useMemo(() => {
@@ -139,7 +139,7 @@ export function DashboardClient({ transactions, budgets, contracts, isLoading }:
       </div>
       <div className="grid grid-cols-1 gap-8">
         <DrilldownExpenseChart expenses={filteredExpenses} />
-        <ContractsOverview contracts={contracts} />
+        <ContractsOverview contracts={contracts} expenses={expenses} />
       </div>
     </div>
   );

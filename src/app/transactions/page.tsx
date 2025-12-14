@@ -3,7 +3,7 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { TransactionsClient } from '@/components/transactions/transactions-client';
 import { useCollection, useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import type { Transaction, Contract } from '@/lib/types';
+import type { Transaction, Contract, ExpenseTransaction } from '@/lib/types';
 import { useMemo } from 'react';
 import { collection, query } from 'firebase/firestore';
 
@@ -28,7 +28,7 @@ export default function TransactionsPage() {
   }, [firestore, user]);
 
   const { data: incomesData, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
-  const { data: expensesData, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(expensesQuery);
+  const { data: expensesData, isLoading: expensesLoading } = useCollection<ExpenseTransaction>(expensesQuery);
   const { data: contractsData, isLoading: contractsLoading } = useCollection<Contract>(contractsQuery);
   
   const data = useMemo(() => {
@@ -50,6 +50,7 @@ export default function TransactionsPage() {
       <TransactionsClient 
         data={data ?? []} 
         contracts={contractsData ?? []}
+        expenses={expensesData ?? []}
         isLoading={isLoading} 
       />
     </AppLayout>
