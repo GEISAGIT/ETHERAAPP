@@ -3,9 +3,9 @@ import type { Contract } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { addMonths, addYears, format, isAfter } from 'date-fns';
+import { addMonths, addYears, format, isAfter, startOfDay, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { PayRecurringTransactionDialog } from './pay-recurring-transaction-dialog';
 
 const formatCurrency = (value?: number) => {
@@ -25,25 +25,38 @@ const frequencyFunctionMap = {
 };
 
 const getNextDueDate = (contract: Contract): Date | null => {
-    const today = new Date();
+    const today = startOfDay(new Date());
     const { paymentFrequency, paymentDueDate, createdAt, expirationDate } = contract;
 
     if (!paymentDueDate) return null;
 
-    let nextDate = new Date(createdAt.toDate());
-    nextDate.setDate(paymentDueDate);
+    // Start with the due date in the current month
+    let nextDueDate = new Date(today.getFullYear(), today.getMonth(), paymentDueDate);
+
+    // If today is already past this month's due date, move to the next payment cycle
+    if (isAfter(today, nextDueDate)) {
+        nextDueDate = frequencyFunctionMap[paymentFrequency](nextDueDate, 1);
+    }
     
-    // Move to the first due date that is after or on today
-    while (isAfter(today, nextDate)) {
-        nextDate = frequencyFunctionMap[paymentFrequency](nextDate, 1);
+    // Ensure the first due date isn't before the contract started
+    if (isBefore(nextDueDate, createdAt.toDate())) {
+        nextDueDate = new Date(createdAt.toDate());
+        nextDueDate.setDate(paymentDueDate);
+        while(isBefore(nextDueDate, createdAt.toDate())) {
+             nextDueDate = frequencyFunctionMap[paymentFrequency](nextDueDate, 1);
+        }
+         // After finding the first due date after creation, make sure it's also after today
+        while (isBefore(nextDueDate, today)) {
+            nextDueDate = frequencyFunctionMap[paymentFrequency](nextDueDate, 1);
+        }
     }
     
     // Check if the calculated next date is past the contract's expiration date
-    if (expirationDate && isAfter(nextDate, expirationDate.toDate())) {
+    if (expirationDate && isAfter(nextDueDate, expirationDate.toDate())) {
         return null;
     }
 
-    return nextDate;
+    return nextDueDate;
 };
 
 
@@ -51,12 +64,16 @@ export function RecurringTransactions({ contracts }: { contracts: Contract[] }) 
     const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<{contract: Contract, dueDate: Date} | null>(null);
 
-    const upcomingPayments = contracts.map(contract => ({
-        ...contract,
-        nextDueDate: getNextDueDate(contract)
-    }))
-    .filter(payment => payment.nextDueDate !== null)
-    .sort((a, b) => a.nextDueDate!.getTime() - b.nextDueDate!.getTime());
+    const upcomingPayments = useMemo(() => {
+        return contracts
+            .map(contract => ({
+                ...contract,
+                nextDueDate: getNextDueDate(contract)
+            }))
+            .filter((payment): payment is typeof payment & { nextDueDate: Date } => payment.nextDueDate !== null)
+            .sort((a, b) => a.nextDueDate.getTime() - b.nextDueDate.getTime());
+    }, [contracts]);
+
 
     const handlePayClick = (contract: Contract, dueDate: Date) => {
         setSelectedPayment({ contract, dueDate });
