@@ -1,5 +1,5 @@
 'use client';
-import type { Transaction, UserProfile, ExpenseTransaction } from '@/lib/types';
+import type { Transaction, UserProfile, ExpenseTransaction, Contract } from '@/lib/types';
 import { columns } from '@/app/transactions/columns';
 import { DataTable } from '../data-table/data-table';
 import { AddTransactionDialog } from './add-transaction-dialog';
@@ -19,8 +19,10 @@ import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { TooltipProvider } from '../ui/tooltip';
 import { TransactionsSummary } from './transactions-summary';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { RecurringTransactions } from './recurring-transactions';
 
-export function TransactionsClient({ data, isLoading }: { data: Transaction[], isLoading: boolean }) {
+export function TransactionsClient({ data, contracts, isLoading }: { data: Transaction[], contracts: Contract[], isLoading: boolean }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -184,44 +186,9 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
                     <Skeleton className="h-10 w-44" />
                 </div>
             </header>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <Skeleton className="h-28" />
-                <Skeleton className="h-28" />
-                <Skeleton className="h-28" />
-            </div>
+            <Skeleton className="h-10 w-full" />
             <div className="space-y-4">
-                <div className="rounded-md border">
-                    <div className="w-full">
-                        <div className="border-b">
-                            <div className="flex h-12 items-center px-4">
-                                <Skeleton className="h-5 w-1/5" />
-                                <Skeleton className="h-5 w-1/5 ml-4" />
-                                <Skeleton className="h-5 w-1/5 ml-4" />
-                                <Skeleton className="h-5 w-1/5 ml-4" />
-                                <Skeleton className="h-5 w-1/5 ml-4" />
-                            </div>
-                        </div>
-                        <div>
-                            {[...Array(10)].map((_, i) => (
-                                <div key={i} className="flex h-14 items-center px-4 border-b">
-                                    <Skeleton className="h-5 w-1/fiv" />
-                                    <Skeleton className="h-5 w-2/5 ml-4" />
-                                    <Skeleton className="h-5 w-1/5 ml-4" />
-                                    <Skeleton className="h-5 w-1/5 ml-4" />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-                <div className="flex items-center justify-between px-2">
-                    <Skeleton className="h-8 w-24" />
-                    <div className="flex items-center space-x-2">
-                        <Skeleton className="h-8 w-8" />
-                        <Skeleton className="h-8 w-8" />
-                        <Skeleton className="h-8 w-8" />
-                        <Skeleton className="h-8 w-8" />
-                    </div>
-                </div>
+                <Skeleton className="h-[400px] w-full" />
             </div>
         </div>
     )
@@ -259,24 +226,34 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
             </div>
         </header>
 
-        <TransactionsSummary transactions={filteredData} />
-        
-         <DataTableToolbar
-            searchTerm={searchTerm}
-            onSearchTermChange={setSearchTerm}
-            filterType={filterType}
-            onFilterTypeChange={setFilterType}
-            filterCostType={filterCostType}
-            onFilterCostTypeChange={setFilterCostType}
-            filterCategory={filterCategory}
-            onFilterCategoryChange={setFilterCategory}
-            allCategories={allCategories}
-            filterDate={filterDate}
-            onFilterDateChange={setFilterDate}
-            sortOrder={sortOrder}
-            onSortOrderChange={setSortOrder}
-        />
-        <DataTable columns={dynamicColumns} data={filteredData} />
+        <Tabs defaultValue="recurring" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="recurring">Transações Recorrentes</TabsTrigger>
+            <TabsTrigger value="manual">Lançamentos Manuais</TabsTrigger>
+          </TabsList>
+          <TabsContent value="recurring" className="space-y-4">
+            <RecurringTransactions contracts={contracts} />
+          </TabsContent>
+          <TabsContent value="manual" className="space-y-4">
+            <TransactionsSummary transactions={filteredData} />
+            <DataTableToolbar
+                searchTerm={searchTerm}
+                onSearchTermChange={setSearchTerm}
+                filterType={filterType}
+                onFilterTypeChange={setFilterType}
+                filterCostType={filterCostType}
+                onFilterCostTypeChange={setFilterCostType}
+                filterCategory={filterCategory}
+                onFilterCategoryChange={setFilterCategory}
+                allCategories={allCategories}
+                filterDate={filterDate}
+                onFilterDateChange={setFilterDate}
+                sortOrder={sortOrder}
+                onSortOrderChange={setSortOrder}
+            />
+            <DataTable columns={dynamicColumns} data={filteredData} />
+          </TabsContent>
+        </Tabs>
       </div>
     </TooltipProvider>
   );
