@@ -115,7 +115,7 @@ export function PayRecurringTransactionDialog({ open, onOpenChange, payment }: P
     
     const expensesCollection = collection(firestore, 'expenses');
     
-    const expenseData = {
+    const expenseData: Record<string, any> = {
         userId: user.uid,
         createdByName: user.displayName || 'Usuário',
         date: Timestamp.fromDate(values.paymentDate),
@@ -126,11 +126,14 @@ export function PayRecurringTransactionDialog({ open, onOpenChange, payment }: P
         fullCategoryPath: payment.contract.fullCategoryPath,
         category: payment.contract.fullCategoryPath?.category || 'N/A', // Legacy
         notes: `Pagamento recorrente. Vencimento original: ${format(payment.dueDate, 'dd/MM/yyyy')}`,
-        receiptUrl: receiptUrl,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         updatedBy: user.uid,
     };
+
+    if (receiptUrl) {
+      expenseData.receiptUrl = receiptUrl;
+    }
 
     addDocumentNonBlocking(expensesCollection, expenseData);
     

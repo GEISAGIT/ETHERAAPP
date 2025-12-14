@@ -226,7 +226,9 @@ export function AddTransactionDialog() {
       }
       transactionData.costType = values.costType;
       transactionData.category = values.category; // Legacy category
-      transactionData.receiptUrl = receiptUrl;
+      if (receiptUrl) {
+        transactionData.receiptUrl = receiptUrl;
+      }
       transactionData.fullCategoryPath = {
         group: values.group,
         category: values.category,
@@ -549,7 +551,7 @@ export function AddTransactionDialog() {
                               >
                                 <CommandInput placeholder="Pesquisar descrição..." />
                                 <CommandList>
-                                  <CommandEmpty>Nenhuma descrição encontrada.</CommandEmpty>
+                                  <CommandEmpty>Nenhuma classificação encontrada.</CommandEmpty>
                                   <CommandGroup>
                                     {expenseClassificationOptions.map((option) => (
                                       <CommandItem
