@@ -1,3 +1,4 @@
+
 'use client';
 import type { Contract } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, CalendarClock, CheckCircle2, FileText, Forward, XCircle, CalendarOff, AlertCircleIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
-import { addMonths, addYears, format, differenceInDays, isAfter, isBefore, startOfMonth, endOfMonth, startOfDay } from 'date-fns';
+import { addMonths, addYears, format, differenceInDays, isAfter, isBefore, startOfMonth, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const formatCurrency = (value?: number) => {
@@ -32,6 +33,8 @@ type PaymentStatus = {
 };
 
 const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
+    if (contract.status !== 'active') return null;
+
     const today = startOfDay(new Date());
     const { paymentFrequency, paymentDueDate, createdAt, expirationDate } = contract;
 
@@ -82,8 +85,10 @@ const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
 
 export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
   
+  const activeContracts = useMemo(() => contracts.filter(c => c.status === 'active'), [contracts]);
+
   const paymentPendencies = useMemo(() => {
-    return contracts.map(contract => ({
+    return activeContracts.map(contract => ({
         ...contract,
         paymentStatus: getPaymentStatus(contract)
     }))
@@ -93,18 +98,18 @@ export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
         if (a.paymentStatus!.status !== 'Vencido' && b.paymentStatus!.status === 'Vencido') return 1;
         return a.paymentStatus!.dueDate.getTime() - b.paymentStatus!.dueDate.getTime();
     });
-  }, [contracts]);
+  }, [activeContracts]);
 
   const contractsWithExpiration = useMemo(() => {
     const today = new Date();
-    return contracts
+    return activeContracts
       .filter(contract => contract.expirationDate)
       .map(contract => {
         const daysRemaining = differenceInDays(contract.expirationDate!.toDate(), today);
         return { ...contract, daysRemaining };
       })
       .sort((a, b) => a.daysRemaining - b.daysRemaining);
-  }, [contracts]);
+  }, [activeContracts]);
 
   const overdueCount = paymentPendencies.filter(p => p.paymentStatus?.status === 'Vencido').length;
 
@@ -119,7 +124,7 @@ export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
             </div>
             <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-muted-foreground" />
-                <span className="text-xl font-bold">{contracts.length}</span>
+                <span className="text-xl font-bold">{activeContracts.length}</span>
                 <span className="text-sm text-muted-foreground">Contratos Ativos</span>
             </div>
         </div>
@@ -230,13 +235,17 @@ export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
                                     {isExpired && (
                                         <div className="mt-2 flex items-center gap-2 text-sm font-semibold text-red-600">
                                             <XCircle className="h-4 w-4" />
-                                            <span>Contrato Vencido</span>
+                                            <span>Contrato Expirado</span>
                                         </div>
                                     )}
                                 </div>
                                 <div className="flex items-center gap-2 self-start sm:self-center">
-                                    <Button variant="outline" size="sm" disabled>Renovar</Button>
-                                    <Button variant="ghost" size="sm" disabled>Cancelar</Button>
+                                    <Button variant="outline" size="sm" asChild>
+                                        <Link href="/settings/contracts">Renovar</Link>
+                                    </Button>
+                                    <Button variant="ghost" size="sm" asChild>
+                                        <Link href="/settings/contracts">Cancelar</Link>
+                                    </Button>
                                 </div>
                             </div>
                         )

@@ -105,6 +105,8 @@ export type Role = {
 
 export type MenuItemKey = keyof Omit<Permissions, 'accessControl'> | 'accessControl';
 
+export type ContractStatus = 'active' | 'cancelled' | 'expired';
+
 export type Contract = {
   id: string;
   userId: string;
@@ -112,6 +114,7 @@ export type Contract = {
   description?: string;
   type: 'fixed' | 'variable';
   amount?: number;
+  status: ContractStatus;
   paymentFrequency: 'monthly' | 'bimonthly' | 'quarterly' | 'semiannually' | 'annually';
   paymentDueDate?: number;
   expirationDate?: Timestamp;

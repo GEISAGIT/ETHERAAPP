@@ -13,7 +13,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, CalendarIcon, ChevronsUpDown, Check } from 'lucide-react';
+import { Loader2, CalendarIcon, ChevronsUpDown, Check, FileWarning } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -37,12 +37,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
-import { format } from 'date-fns';
+import { format, isFuture } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { updateDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, Timestamp, serverTimestamp, query, doc } from 'firebase/firestore';
-import type { Contract, ExpenseCategoryGroup } from '@/lib/types';
+import type { Contract, ExpenseCategoryGroup, ContractStatus } from '@/lib/types';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -59,6 +59,7 @@ const formSchema = z.object({
   expenseDescription: z.string().min(1, 'A classificação é obrigatória.'),
   group: z.string().optional(),
   category: z.string().optional(),
+  status: z.enum(['active', 'cancelled', 'expired']),
 }).refine(data => {
     if (data.type === 'fixed') {
         return data.amount !== undefined && data.amount > 0;
@@ -93,6 +94,8 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
   const contractType = useWatch({ control: form.control, name: 'type' });
   const selectedGroup = useWatch({ control: form.control, name: "group" });
   const selectedCategory = useWatch({ control: form.control, name: "category" });
+  const newExpirationDate = useWatch({ control: form.control, name: 'expirationDate' });
+
 
   useEffect(() => {
     if (contract && open) {
@@ -107,6 +110,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
         expenseDescription: contract.fullCategoryPath?.description || '',
         group: contract.fullCategoryPath?.group || '',
         category: contract.fullCategoryPath?.category || '',
+        status: contract.status || 'active',
       });
       setManualEntry(false);
     }
@@ -159,17 +163,18 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
     form.trigger('expenseDescription');
     setComboboxOpen(false);
   }
+
+  const handleUpdate = (data: Partial<Contract>) => {
+    if (!user || !firestore || !contract) return;
+    
+    const contractDocRef = doc(firestore, 'contracts', contract.id);
+    updateDocumentNonBlocking(contractDocRef, {
+        ...data,
+        updatedAt: serverTimestamp()
+    });
+  }
   
   const onSubmit = (values: FormValues) => {
-    if (!user || !firestore || !contract) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: 'Não foi possível atualizar o contrato. Tente novamente.',
-      });
-      return;
-    }
-
      if (!values.group || !values.category || !values.expenseDescription) {
         toast({
           variant: 'destructive',
@@ -179,9 +184,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
         return;
       }
     
-    const contractDocRef = doc(firestore, 'contracts', contract.id);
-
-    const contractData: Partial<Contract> & { updatedAt: any } = {
+    const contractData: Partial<Contract> = {
       name: values.name,
       description: values.description,
       type: values.type,
@@ -192,22 +195,21 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
         category: values.category,
         description: values.expenseDescription,
       },
-      updatedAt: serverTimestamp(),
     };
 
     if (values.type === 'fixed' && values.amount) {
       contractData.amount = values.amount;
     } else {
-      delete contractData.amount;
+      contractData.amount = undefined;
     }
 
     if (values.expirationDate) {
         contractData.expirationDate = Timestamp.fromDate(values.expirationDate);
     } else {
-        delete (contractData as any).expirationDate;
+        contractData.expirationDate = undefined;
     }
 
-    updateDocumentNonBlocking(contractDocRef, contractData);
+    handleUpdate(contractData);
     
     toast({
       title: 'Contrato Atualizado',
@@ -215,6 +217,29 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
     });
     onOpenChange(false);
   };
+  
+  const handleCancelContract = () => {
+    handleUpdate({ status: 'cancelled' });
+    toast({
+        title: 'Contrato Cancelado',
+        description: 'O contrato foi marcado como cancelado e não gerará novas pendências.'
+    });
+    onOpenChange(false);
+  }
+  
+  const handleRenewContract = () => {
+     if (!newExpirationDate || !isFuture(newExpirationDate)) {
+        toast({
+            variant: 'destructive',
+            title: 'Data de Renovação Inválida',
+            description: 'Por favor, selecione uma data de vencimento futura para renovar.',
+        });
+        return;
+    }
+    form.setValue('status', 'active');
+    form.handleSubmit(onSubmit)();
+  }
+
 
   return (
     <>
@@ -223,7 +248,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
           <DialogHeader>
             <DialogTitle className="font-headline">Editar Contrato</DialogTitle>
             <DialogDescription>
-              Atualize os detalhes do contrato ou cobrança recorrente.
+              Atualize os detalhes, renove ou cancele o contrato.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -236,7 +261,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                   <FormItem>
                     <FormLabel>Nome do Contrato</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Aluguel do Consultório" {...field} />
+                      <Input placeholder="Ex: Aluguel do Consultório" {...field} disabled={contract?.status === 'cancelled'} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -250,7 +275,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                   <FormItem>
                     <FormLabel>Descrição (Opcional)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Detalhes sobre o contrato..." {...field} />
+                      <Textarea placeholder="Detalhes sobre o contrato..." {...field} disabled={contract?.status === 'cancelled'}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -266,6 +291,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                           id="manual-entry-switch-edit"
                           checked={manualEntry}
                           onCheckedChange={setManualEntry}
+                          disabled={contract?.status === 'cancelled'}
                         />
                       </div>
                   </div>
@@ -278,7 +304,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Grupo</FormLabel>
-                              <Select onValueChange={(value) => { field.onChange(value); form.resetField('category'); form.resetField('expenseDescription'); }} value={field.value}>
+                              <Select onValueChange={(value) => { field.onChange(value); form.resetField('category'); form.resetField('expenseDescription'); }} value={field.value} disabled={contract?.status === 'cancelled'}>
                                 <FormControl>
                                   <SelectTrigger><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
                                 </FormControl>
@@ -296,7 +322,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Categoria</FormLabel>
-                              <Select onValueChange={(value) => { field.onChange(value); form.resetField('expenseDescription'); }} value={field.value} disabled={!selectedGroup}>
+                              <Select onValueChange={(value) => { field.onChange(value); form.resetField('expenseDescription'); }} value={field.value} disabled={!selectedGroup || contract?.status === 'cancelled'}>
                                 <FormControl>
                                   <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
                                 </FormControl>
@@ -314,7 +340,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                           render={({ field }) => (
                              <FormItem>
                               <FormLabel>Descrição</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCategory}>
+                              <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCategory || contract?.status === 'cancelled'}>
                                 <FormControl>
                                   <SelectTrigger><SelectValue placeholder="Selecione a descrição final" /></SelectTrigger>
                                 </FormControl>
@@ -344,6 +370,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                                     "w-full justify-between",
                                     !field.value && "text-muted-foreground"
                                   )}
+                                  disabled={contract?.status === 'cancelled'}
                                 >
                                   {field.value
                                     ? field.value
@@ -402,7 +429,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Tipo</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={contract?.status === 'cancelled'}>
                           <FormControl>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                           </FormControl>
@@ -422,7 +449,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                       <FormItem className={contractType === 'variable' ? 'hidden' : ''}>
                         <FormLabel>Valor (R$)</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="1500,00" {...field} />
+                          <Input type="number" placeholder="1500,00" {...field} disabled={contract?.status === 'cancelled'}/>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -437,7 +464,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Frequência</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={contract?.status === 'cancelled'}>
                           <FormControl>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                           </FormControl>
@@ -460,7 +487,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                       <FormItem>
                         <FormLabel>Dia do Vencimento</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="Ex: 5" min="1" max="31" {...field} />
+                          <Input type="number" placeholder="Ex: 5" min="1" max="31" {...field} disabled={contract?.status === 'cancelled'} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -483,6 +510,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                                 "w-full pl-3 text-left font-normal",
                                 !field.value && "text-muted-foreground"
                               )}
+                              disabled={contract?.status === 'cancelled'}
                             >
                               {field.value ? (
                                 format(field.value, "PPP", { locale: ptBR })
@@ -510,15 +538,39 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                     </FormItem>
                     )}
                   />
+                
+                {contract?.status === 'expired' && (
+                    <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-amber-800 dark:bg-amber-950/50 dark:border-amber-800 dark:text-amber-300">
+                        <div className='flex items-start gap-2'>
+                           <FileWarning className="h-5 w-5 mt-0.5"/>
+                            <div>
+                                <h4 className='font-semibold'>Este contrato expirou.</h4>
+                                <p className='text-xs'>Para reativá-lo, defina uma nova data de vencimento futura e clique em "Salvar e Renovar".</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
               
-              <DialogFooter className="pt-4">
-                <DialogClose asChild>
-                  <Button type="button" variant="ghost">Cancelar</Button>
-                </DialogClose>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
+              <DialogFooter className="pt-4 sm:justify-between gap-2">
+                 <Button type="button" variant="destructive" onClick={handleCancelContract} disabled={form.formState.isSubmitting || contract?.status === 'cancelled'}>
                   {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Salvar Alterações
+                  Cancelar Contrato
                 </Button>
+                <div className='flex gap-2'>
+                  <DialogClose asChild>
+                    <Button type="button" variant="ghost">Fechar</Button>
+                  </DialogClose>
+                  {contract?.status === 'expired' ? (
+                     <Button type="button" onClick={handleRenewContract} disabled={form.formState.isSubmitting || !newExpirationDate || !isFuture(newExpirationDate)}>
+                        Salvar e Renovar
+                    </Button>
+                  ) : (
+                     <Button type="submit" disabled={form.formState.isSubmitting || contract?.status === 'cancelled'}>
+                        {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Salvar Alterações
+                    </Button>
+                  )}
+                </div>
               </DialogFooter>
             </form>
           </Form>

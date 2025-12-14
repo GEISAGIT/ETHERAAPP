@@ -1,22 +1,23 @@
 
 
 'use client';
-import type { Contract } from '@/lib/types';
+import type { Contract, ContractStatus } from '@/lib/types';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Tag, FileText, Repeat, FolderTree, CalendarClock, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, Calendar, Tag, FileText, Repeat, FolderTree, CalendarClock, MoreVertical, Edit, Trash2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { AddContractDialog } from './add-contract-dialog';
 import { EditContractDialog } from './edit-contract-dialog';
 import { DeleteContractAlert } from './delete-contract-alert';
 import { Badge } from '../ui/badge';
-import { format } from 'date-fns';
+import { format, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { useFirestore, deleteDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 
 const formatCurrency = (value?: number) => {
@@ -33,6 +34,12 @@ const frequencyMap = {
   quarterly: 'Trimestral',
   semiannually: 'Semestral',
   annually: 'Anual',
+};
+
+const statusConfig: Record<ContractStatus, { text: string; icon: React.ElementType, className: string }> = {
+    active: { text: "Ativo", icon: CheckCircle2, className: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700' },
+    cancelled: { text: "Cancelado", icon: XCircle, className: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700' },
+    expired: { text: "Expirado", icon: AlertTriangle, className: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700' }
 };
 
 
@@ -78,6 +85,15 @@ export function ContractsClient({
     setIsDeleteDialogOpen(false);
     setSelectedContract(null);
   };
+
+  const processedContracts = contracts.map(contract => {
+    const isExpired = contract.expirationDate ? isAfter(new Date(), contract.expirationDate.toDate()) : false;
+    let status: ContractStatus = contract.status;
+    if (status === 'active' && isExpired) {
+        status = 'expired';
+    }
+    return { ...contract, status };
+  });
 
 
   if (isLoading) {
@@ -140,15 +156,21 @@ export function ContractsClient({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {contracts.map(contract => (
+            {processedContracts.map(contract => {
+              const StatusIcon = statusConfig[contract.status].icon;
+              return (
               <Card key={contract.id} className="flex flex-col">
                 <CardHeader>
                   <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="font-headline flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-primary" />
-                        {contract.name}
-                      </CardTitle>
+                    <div className="flex-1 space-y-2">
+                        <Badge className={cn("pointer-events-none", statusConfig[contract.status].className)}>
+                            <StatusIcon className="mr-1 h-3.5 w-3.5" />
+                            {statusConfig[contract.status].text}
+                        </Badge>
+                        <CardTitle className="font-headline flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-primary" />
+                            {contract.name}
+                        </CardTitle>
                       <CardDescription className="mt-1">
                         {contract.description || 'Sem descrição.'}
                       </CardDescription>
@@ -162,7 +184,7 @@ export function ContractsClient({
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleEditClick(contract)}>
                             <Edit className="mr-2 h-4 w-4" />
-                            Editar
+                            Editar / Renovar
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDeleteClick(contract)} className="text-red-500 focus:text-red-500">
                             <Trash2 className="mr-2 h-4 w-4" />
@@ -201,7 +223,7 @@ export function ContractsClient({
                     <span className="text-muted-foreground">Vigência:</span>
                     <span className="font-medium text-foreground">
                         {contract.expirationDate 
-                            ? `Encerra em ${format(contract.expirationDate.toDate(), 'dd/MM/yyyy', { locale: ptBR })}`
+                            ? `${format(contract.expirationDate.toDate(), 'dd/MM/yyyy', { locale: ptBR })}`
                             : 'Indeterminada'
                         }
                     </span>
@@ -221,10 +243,9 @@ export function ContractsClient({
                   )}
                 </CardContent>
                 <CardFooter>
-                    {/* Actions can go here later */}
                 </CardFooter>
               </Card>
-            ))}
+            )})}
           </div>
         )}
       </div>

@@ -42,7 +42,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, Timestamp, serverTimestamp, query } from 'firebase/firestore';
-import type { Contract, ExpenseCategoryGroup } from '@/lib/types';
+import type { Contract, ExpenseCategoryGroup, ContractStatus } from '@/lib/types';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -192,6 +192,7 @@ export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps
       name: values.name,
       description: values.description,
       type: values.type,
+      status: 'active',
       paymentFrequency: values.paymentFrequency,
       paymentDueDate: values.paymentDueDate,
       fullCategoryPath: {
@@ -530,5 +531,3 @@ export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps
     </>
   );
 }
-
-    
