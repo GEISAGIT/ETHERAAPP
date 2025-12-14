@@ -88,7 +88,7 @@ export function ContractsClient({
 
   const processedContracts = contracts.map(contract => {
     const isExpired = contract.expirationDate ? isAfter(new Date(), contract.expirationDate.toDate()) : false;
-    let status: ContractStatus = contract.status;
+    let status: ContractStatus = contract.status || 'active'; // Fallback to 'active'
     if (status === 'active' && isExpired) {
         status = 'expired';
     }
