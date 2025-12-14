@@ -49,11 +49,13 @@ export default function DashboardPage() {
     
     const combined = [...allIncomes, ...allExpenses];
     
+    // Sort all transactions by date, but do not slice them.
+    // The filtering will now happen on the full dataset in the client component.
     return combined.sort((a, b) => {
         const dateA = a.date?.toMillis() ?? 0;
         const dateB = b.date?.toMillis() ?? 0;
         return dateB - dateA;
-    }).slice(0, 50); // Apply limit after sorting
+    });
   }, [incomes, expenses]);
 
   const isLoading = incomesLoading || expensesLoading || budgetsLoading || profileLoading;
