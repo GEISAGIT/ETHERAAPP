@@ -2,7 +2,7 @@
 import type { Transaction } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingDown, TrendingUp, Banknote } from 'lucide-react';
-import { subMonths, startOfMonth, endOfMonth, isWithinInterval, startOfToday, endOfToday } from 'date-fns';
+import { subMonths, startOfMonth, endOfMonth, isWithinInterval, endOfToday } from 'date-fns';
 import type { StatsPeriod } from './dashboard-client';
 import { useMemo } from 'react';
 

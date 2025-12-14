@@ -9,7 +9,7 @@ import { Skeleton } from '../ui/skeleton';
 import { useState, useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DrilldownExpenseChart } from './drilldown-expense-chart';
-import { subMonths, startOfMonth, endOfMonth, isWithinInterval, startOfToday, endOfToday } from 'date-fns';
+import { subMonths, startOfMonth, endOfMonth, isWithinInterval, endOfToday } from 'date-fns';
 
 export type StatsPeriod = 'allTime' | 'thisMonth' | 'lastMonth';
 
