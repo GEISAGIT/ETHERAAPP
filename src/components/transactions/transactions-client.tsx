@@ -18,6 +18,7 @@ import Papa from 'papaparse';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { TooltipProvider } from '../ui/tooltip';
+import { TransactionsSummary } from './transactions-summary';
 
 export function TransactionsClient({ data, isLoading }: { data: Transaction[], isLoading: boolean }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -59,14 +60,9 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
       filtered = filtered.filter(item => item.type === filterType);
     }
     
-    // Only apply cost type filter if it's not 'all' and we are looking at expenses
-    if (filterCostType !== 'all') {
+    if (filterType === 'expense' && filterCostType !== 'all') {
         filtered = filtered.filter(item => {
-            // If item is not an expense, it doesn't have costType, so it shouldn't be filtered out by this logic.
-            if (item.type !== 'expense') {
-                return true;
-            }
-            // If it is an expense, check if it matches the filter.
+            if (item.type !== 'expense') return false;
             return (item as ExpenseTransaction).costType === filterCostType;
         });
     }
@@ -187,6 +183,11 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
                     <Skeleton className="h-10 w-44" />
                 </div>
             </header>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <Skeleton className="h-28" />
+                <Skeleton className="h-28" />
+                <Skeleton className="h-28" />
+            </div>
             <div className="space-y-4">
                 <div className="rounded-md border">
                     <div className="w-full">
@@ -256,6 +257,9 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
               <AddTransactionDialog />
             </div>
         </header>
+
+        <TransactionsSummary transactions={filteredData} />
+        
          <DataTableToolbar
             searchTerm={searchTerm}
             onSearchTermChange={setSearchTerm}
