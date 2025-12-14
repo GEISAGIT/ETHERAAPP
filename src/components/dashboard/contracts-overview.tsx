@@ -33,7 +33,7 @@ type PaymentStatus = {
 };
 
 const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
-    if (contract.status !== 'active') return null;
+    if (contract.status !== 'active' && contract.status) return null;
 
     const today = startOfDay(new Date());
     const { paymentFrequency, paymentDueDate, createdAt, expirationDate } = contract;
@@ -85,7 +85,7 @@ const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
 
 export function ContractsOverview({ contracts }: { contracts: Contract[] }) {
   
-  const activeContracts = useMemo(() => contracts.filter(c => c.status === 'active'), [contracts]);
+  const activeContracts = useMemo(() => contracts.filter(c => c.status === 'active' || c.status === undefined), [contracts]);
 
   const paymentPendencies = useMemo(() => {
     return activeContracts.map(contract => ({
