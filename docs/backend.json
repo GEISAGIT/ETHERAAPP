@@ -375,6 +375,15 @@
           "description": "The date when the contract expires.",
           "format": "date"
         },
+        "fullCategoryPath": {
+            "type": "object",
+            "description": "Hierarchical classification for the expense associated with the contract.",
+            "properties": {
+                "group": { "type": "string" },
+                "category": { "type": "string" },
+                "description": { "type": "string" }
+            }
+        },
         "createdAt": {
           "type": "string",
           "description": "Timestamp indicating when the contract was created.",

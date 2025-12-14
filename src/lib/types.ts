@@ -116,6 +116,11 @@ export type Contract = {
   expirationDate?: Timestamp;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  fullCategoryPath?: {
+    group: string;
+    category: string;
+    description: string;
+  }
 };
 
     

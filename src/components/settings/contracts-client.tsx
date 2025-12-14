@@ -1,9 +1,10 @@
+
 'use client';
 import type { Contract } from '@/lib/types';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Tag, FileText, Repeat } from 'lucide-react';
+import { PlusCircle, Calendar, Tag, FileText, Repeat, FolderTree } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { AddContractDialog } from './add-contract-dialog';
 import { Badge } from '../ui/badge';
@@ -121,6 +122,19 @@ export function ContractsClient({
                       </span>
                     </div>
                   )}
+                  {contract.fullCategoryPath && (
+                     <div className="flex items-start gap-2 pt-2 border-t border-dashed">
+                      <FolderTree className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-foreground">
+                          {contract.fullCategoryPath.description}
+                        </span>
+                         <span className="text-xs text-muted-foreground">
+                          {contract.fullCategoryPath.group} / {contract.fullCategoryPath.category}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
                 <CardFooter>
                     {/* Actions can go here later */}
@@ -133,3 +147,5 @@ export function ContractsClient({
     </>
   );
 }
+
+    

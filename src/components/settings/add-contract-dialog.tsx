@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, CalendarIcon } from 'lucide-react';
+import { Loader2, CalendarIcon, ChevronsUpDown, Check } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -39,9 +39,12 @@ import { Calendar } from '../ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { addDocumentNonBlocking, useFirestore, useUser } from '@/firebase';
-import { collection, Timestamp, serverTimestamp } from 'firebase/firestore';
-import type { Contract } from '@/lib/types';
+import { addDocumentNonBlocking, useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, Timestamp, serverTimestamp, query } from 'firebase/firestore';
+import type { Contract, ExpenseCategoryGroup } from '@/lib/types';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
+import { Label } from '../ui/label';
+import { Switch } from '../ui/switch';
 
 
 const formSchema = z.object({
@@ -51,6 +54,9 @@ const formSchema = z.object({
   amount: z.coerce.number().optional(),
   paymentFrequency: z.enum(['monthly', 'bimonthly', 'quarterly', 'semiannually', 'annually']),
   expirationDate: z.date().optional(),
+  expenseDescription: z.string().min(1, 'A classificação é obrigatória.'),
+  group: z.string().optional(),
+  category: z.string().optional(),
 }).refine(data => {
     if (data.type === 'fixed') {
         return data.amount !== undefined && data.amount > 0;
@@ -71,6 +77,8 @@ interface AddContractDialogProps {
 
 export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps) {
   const [isDatePickerOpen, setDatePickerOpen] = useState(false);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
+  const [manualEntry, setManualEntry] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -82,10 +90,13 @@ export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps
       description: '',
       type: 'fixed',
       paymentFrequency: 'monthly',
+      expenseDescription: '',
     },
   });
 
   const contractType = useWatch({ control: form.control, name: 'type' });
+  const selectedGroup = useWatch({ control: form.control, name: "group" });
+  const selectedCategory = useWatch({ control: form.control, name: "category" });
 
   useEffect(() => {
     if (!open) {
@@ -95,10 +106,62 @@ export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps
         type: 'fixed',
         paymentFrequency: 'monthly',
         amount: undefined,
-        expirationDate: undefined
+        expirationDate: undefined,
+        expenseDescription: '',
+        group: '',
+        category: '',
       });
+       setManualEntry(false);
     }
   }, [open, form]);
+
+  const expenseCategoryGroupsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'expenseCategoryGroups'));
+  }, [firestore, user]);
+
+  const { data: expenseCategoryGroups } = useCollection<ExpenseCategoryGroup>(expenseCategoryGroupsQuery);
+  
+  const expenseClassificationOptions = useMemo(() => {
+    if (!expenseCategoryGroups) return [];
+    return expenseCategoryGroups.flatMap(group =>
+      group.categories.flatMap(category =>
+        category.subCategories.map(subCategory => ({
+          label: subCategory.name,
+          value: subCategory.name,
+          group: group.name,
+          category: category.name
+        }))
+      )
+    ).filter((value, index, self) => self.findIndex(t => t.label === value.label) === index)
+     .sort((a, b) => a.label.localeCompare(b.label));
+  }, [expenseCategoryGroups]);
+
+  const groupOptions = useMemo(() => expenseCategoryGroups?.map(g => g.name) ?? [], [expenseCategoryGroups]);
+  
+  const categoryOptions = useMemo(() => {
+    if (!selectedGroup) return [];
+    const group = expenseCategoryGroups?.find(g => g.name === selectedGroup);
+    return group?.categories.map(c => c.name) ?? [];
+  }, [selectedGroup, expenseCategoryGroups]);
+
+  const descriptionOptions = useMemo(() => {
+    if (!selectedGroup || !selectedCategory) return [];
+    const group = expenseCategoryGroups?.find(g => g.name === selectedGroup);
+    const category = group?.categories.find(c => c.name === selectedCategory);
+    return category?.subCategories.map(sc => sc.name) ?? [];
+  }, [selectedGroup, selectedCategory, expenseCategoryGroups]);
+
+  const handleExpenseSelection = (currentValue: string) => {
+    const selected = expenseClassificationOptions.find(opt => opt.value === currentValue);
+    if (selected) {
+        form.setValue('group', selected.group);
+        form.setValue('category', selected.category);
+        form.setValue('expenseDescription', selected.value);
+    }
+    form.trigger('expenseDescription');
+    setComboboxOpen(false);
+  }
   
   const onSubmit = (values: FormValues) => {
     if (!user || !firestore) {
@@ -109,6 +172,15 @@ export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps
       });
       return;
     }
+
+     if (!values.group || !values.category || !values.expenseDescription) {
+        toast({
+          variant: 'destructive',
+          title: 'Classificação Incompleta',
+          description: 'Por favor, selecione ou preencha a classificação de despesa completa.',
+        });
+        return;
+      }
     
     const contractsCollection = collection(firestore, 'contracts');
 
@@ -118,6 +190,11 @@ export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps
       description: values.description,
       type: values.type,
       paymentFrequency: values.paymentFrequency,
+      fullCategoryPath: {
+        group: values.group,
+        category: values.category,
+        description: values.expenseDescription,
+      },
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -178,6 +255,144 @@ export function AddContractDialog({ open, onOpenChange }: AddContractDialogProps
                   </FormItem>
                 )}
               />
+
+              <div className="space-y-4 rounded-md border p-4">
+                  <div className="flex items-center justify-between">
+                     <h4 className="font-medium text-sm">Classificação da Despesa</h4>
+                      <div className="flex items-center space-x-2">
+                        <Label htmlFor="manual-entry-switch" className="text-sm font-normal">Entrada Manual</Label>
+                        <Switch
+                          id="manual-entry-switch"
+                          checked={manualEntry}
+                          onCheckedChange={setManualEntry}
+                        />
+                      </div>
+                  </div>
+                  
+                  {manualEntry ? (
+                    <div className="space-y-4">
+                       <FormField
+                          control={form.control}
+                          name="group"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Grupo</FormLabel>
+                              <Select onValueChange={(value) => { field.onChange(value); form.resetField('category'); form.resetField('expenseDescription'); }} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {groupOptions.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="category"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Categoria</FormLabel>
+                              <Select onValueChange={(value) => { field.onChange(value); form.resetField('expenseDescription'); }} value={field.value} disabled={!selectedGroup}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {categoryOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="expenseDescription"
+                          render={({ field }) => (
+                             <FormItem>
+                              <FormLabel>Descrição</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCategory}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Selecione a descrição final" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {descriptionOptions.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                    </div>
+                  ) : (
+                    <FormField
+                      control={form.control}
+                      name="expenseDescription"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Classificação da Despesa</FormLabel>
+                          <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className={cn(
+                                    "w-full justify-between",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value
+                                    ? field.value
+                                    : "Selecione uma classificação"}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                              <Command
+                                filter={(value, search) => {
+                                  const option = expenseClassificationOptions.find(opt => opt.value === value);
+                                  if (option) {
+                                    if (option.label.toLowerCase().includes(search.toLowerCase())) return 1;
+                                  }
+                                  return 0;
+                                }}
+                              >
+                                <CommandInput placeholder="Pesquisar descrição..." />
+                                <CommandList>
+                                  <CommandEmpty>Nenhuma descrição encontrada.</CommandEmpty>
+                                  <CommandGroup>
+                                    {expenseClassificationOptions.map((option) => (
+                                      <CommandItem
+                                        value={option.value}
+                                        key={option.value}
+                                        onSelect={handleExpenseSelection}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            field.value === option.value
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                        {option.label}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
 
               <div className="grid grid-cols-2 gap-4">
                  <FormField
