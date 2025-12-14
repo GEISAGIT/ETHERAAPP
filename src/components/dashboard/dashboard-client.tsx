@@ -4,36 +4,41 @@ import { StatsCards } from './stats-cards';
 import { OverviewChart } from './overview-chart';
 import { RecentTransactions } from './recent-transactions';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, CalendarIcon } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { useState, useMemo } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DrilldownExpenseChart } from './drilldown-expense-chart';
-import { subMonths, startOfMonth, endOfMonth, isWithinInterval, endOfToday } from 'date-fns';
+import { isWithinInterval } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Calendar } from '@/components/ui/calendar';
+import type { DateRange } from 'react-day-picker';
 
-export type StatsPeriod = 'allTime' | 'thisMonth' | 'lastMonth';
 
 export function DashboardClient({ transactions, budgets, isLoading }: { transactions: Transaction[], budgets: Budget[], isLoading: boolean }) {
-  const [period, setPeriod] = useState<StatsPeriod>('allTime');
+  const [filterDate, setFilterDate] = useState<DateRange | undefined>(undefined);
+
+  const filteredTransactions = useMemo(() => {
+    if (!filterDate?.from) {
+        return transactions;
+    }
+    
+    // Set 'to' to be the end of the selected day if it's not set
+    const toDate = filterDate.to || new Date(filterDate.from.getFullYear(), filterDate.from.getMonth(), filterDate.from.getDate(), 23, 59, 59);
+
+    return transactions.filter(t => {
+      const transactionDate = t.date.toDate();
+      return isWithinInterval(transactionDate, { start: filterDate.from!, end: toDate });
+    });
+  }, [transactions, filterDate]);
+
 
   const filteredExpenses = useMemo(() => {
-    let filteredTransactions = transactions;
-
-    if (period === 'thisMonth') {
-        const now = new Date();
-        const start = startOfMonth(now);
-        const end = endOfToday();
-        filteredTransactions = transactions.filter(t => isWithinInterval(t.date.toDate(), { start, end }));
-    } else if (period === 'lastMonth') {
-        const now = new Date();
-        const lastMonth = subMonths(now, 1);
-        const start = startOfMonth(lastMonth);
-        const end = endOfMonth(lastMonth);
-        filteredTransactions = transactions.filter(t => isWithinInterval(t.date.toDate(), { start, end }));
-    }
-
     return filteredTransactions.filter(t => t.type === 'expense') as ExpenseTransaction[];
-  }, [transactions, period]);
+  }, [filteredTransactions]);
 
 
   if (isLoading) {
@@ -73,16 +78,43 @@ export function DashboardClient({ transactions, budgets, isLoading }: { transact
             Bem-vindo de volta! Aqui está um resumo das finanças da sua clínica.
           </p>
         </div>
-        <Select value={period} onValueChange={(value: StatsPeriod) => setPeriod(value)}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Selecione o período" />
-            </SelectTrigger>
-            <SelectContent>
-                <SelectItem value="allTime">Todo o Período</SelectItem>
-                <SelectItem value="thisMonth">Este Mês</SelectItem>
-                <SelectItem value="lastMonth">Último Mês</SelectItem>
-            </SelectContent>
-        </Select>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              id="date"
+              variant={"outline"}
+              className={cn(
+                "w-full justify-start text-left font-normal sm:w-auto",
+                !filterDate && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {filterDate?.from ? (
+                filterDate.to ? (
+                  <>
+                    {format(filterDate.from, "LLL dd, y", { locale: ptBR })} -{" "}
+                    {format(filterDate.to, "LLL dd, y", { locale: ptBR })}
+                  </>
+                ) : (
+                  format(filterDate.from, "LLL dd, y", { locale: ptBR })
+                )
+              ) : (
+                <span>Todo o Período</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              initialFocus
+              mode="range"
+              defaultMonth={filterDate?.from}
+              selected={filterDate}
+              onSelect={setFilterDate}
+              numberOfMonths={2}
+              locale={ptBR}
+            />
+          </PopoverContent>
+        </Popover>
       </header>
 
       {overspentBudgets.length > 0 && (
@@ -96,7 +128,7 @@ export function DashboardClient({ transactions, budgets, isLoading }: { transact
         </Alert>
       )}
 
-      <StatsCards transactions={transactions} period={period} />
+      <StatsCards transactions={filteredTransactions} />
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <OverviewChart transactions={transactions} />

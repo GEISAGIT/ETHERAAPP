@@ -2,16 +2,13 @@
 import type { Transaction } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingDown, TrendingUp, Banknote } from 'lucide-react';
-import { subMonths, startOfMonth, endOfMonth, isWithinInterval, endOfToday } from 'date-fns';
-import type { StatsPeriod } from './dashboard-client';
 import { useMemo } from 'react';
 
 type StatsCardsProps = {
   transactions: Transaction[];
-  period: StatsPeriod;
 };
 
-export function StatsCards({ transactions, period }: StatsCardsProps) {
+export function StatsCards({ transactions }: StatsCardsProps) {
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -20,38 +17,20 @@ export function StatsCards({ transactions, period }: StatsCardsProps) {
     }).format(value);
   };
   
-  const { totalIncome, totalExpenses, description } = useMemo(() => {
-    const now = new Date();
-    let descriptionText = 'Desde o início';
-    let filteredTransactions = transactions;
-
-    if (period === 'thisMonth') {
-        const start = startOfMonth(now);
-        const end = endOfToday(); // Use end of today to include all of today's transactions
-        filteredTransactions = transactions.filter(t => isWithinInterval(t.date.toDate(), { start, end }));
-        descriptionText = 'Este Mês';
-    } else if (period === 'lastMonth') {
-        const lastMonth = subMonths(now, 1);
-        const start = startOfMonth(lastMonth);
-        const end = endOfMonth(lastMonth);
-        filteredTransactions = transactions.filter(t => isWithinInterval(t.date.toDate(), { start, end }));
-        descriptionText = 'Último Mês';
-    }
-    
-    const income = filteredTransactions
+  const { totalIncome, totalExpenses } = useMemo(() => {
+    const income = transactions
         .filter(t => t.type === 'income')
         .reduce((acc, t) => acc + t.amount, 0);
 
-    const expenses = filteredTransactions
+    const expenses = transactions
         .filter(t => t.type === 'expense')
         .reduce((acc, t) => acc + t.amount, 0);
         
     return {
         totalIncome: income,
         totalExpenses: expenses,
-        description: descriptionText
     };
-  }, [transactions, period]);
+  }, [transactions]);
 
   const netProfit = totalIncome - totalExpenses;
 
@@ -89,7 +68,7 @@ export function StatsCards({ transactions, period }: StatsCardsProps) {
               {formatCurrency(stat.value)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {description}
+              Exibindo {transactions.length} transações
             </p>
           </CardContent>
         </Card>
