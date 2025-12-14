@@ -25,7 +25,7 @@ const frequencyFunctionMap = {
 };
 
 const getNextDueDate = (contract: Contract): Date | null => {
-    if (contract.status !== 'active') return null;
+    if (contract.status !== 'active' && contract.status) return null;
 
     const today = startOfDay(new Date());
     const { paymentFrequency, paymentDueDate, createdAt, expirationDate } = contract;
@@ -34,28 +34,23 @@ const getNextDueDate = (contract: Contract): Date | null => {
 
     let dueDateInCurrentCycle = new Date(today.getFullYear(), today.getMonth(), paymentDueDate);
 
-    // If today is after this month's due date, the next cycle is next month
     if (isAfter(today, dueDateInCurrentCycle)) {
         dueDateInCurrentCycle = addMonths(dueDateInCurrentCycle, 1);
     }
     
-    // Check if the contract was created after the cycle start. 
-    // This handles contracts created mid-cycle.
     const cycleStartDate = startOfMonth(dueDateInCurrentCycle);
     if(isAfter(cycleStartDate, createdAt.toDate())) {
         let firstDueDate = new Date(createdAt.toDate());
         firstDueDate.setDate(paymentDueDate);
-        // Find the very first due date after creation
         while(isBefore(firstDueDate, createdAt.toDate())) {
             firstDueDate = frequencyFunctionMap[paymentFrequency](firstDueDate, 1);
         }
         dueDateInCurrentCycle = firstDueDate;
     }
 
-    // Ensure we are always looking at a future or present due date
+
     while (isBefore(dueDateInCurrentCycle, today)) {
         const nextPossibleDueDate = frequencyFunctionMap[paymentFrequency](dueDateInCurrentCycle, 1);
-         // Safety break for logic errors
          if (isAfter(nextPossibleDueDate, dueDateInCurrentCycle)) {
             dueDateInCurrentCycle = nextPossibleDueDate;
         } else {
@@ -63,7 +58,6 @@ const getNextDueDate = (contract: Contract): Date | null => {
         }
     }
 
-    // Finally, check if the calculated next date is past the contract's expiration date.
     if (expirationDate && isAfter(dueDateInCurrentCycle, expirationDate.toDate())) {
         return null;
     }
