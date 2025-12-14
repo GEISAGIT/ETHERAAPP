@@ -60,9 +60,10 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
       filtered = filtered.filter(item => item.type === filterType);
     }
     
-    if (filterType === 'expense' && filterCostType !== 'all') {
+    if (filterCostType !== 'all') {
         filtered = filtered.filter(item => {
-            if (item.type !== 'expense') return false;
+            // This filter only applies to expenses.
+            if (item.type !== 'expense') return false; 
             return (item as ExpenseTransaction).costType === filterCostType;
         });
     }
