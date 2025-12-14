@@ -5,12 +5,19 @@ import type { Contract } from '@/lib/types';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Tag, FileText, Repeat, FolderTree, CalendarClock } from 'lucide-react';
+import { PlusCircle, Calendar, Tag, FileText, Repeat, FolderTree, CalendarClock, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { AddContractDialog } from './add-contract-dialog';
+import { EditContractDialog } from './edit-contract-dialog';
+import { DeleteContractAlert } from './delete-contract-alert';
 import { Badge } from '../ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
+import { useFirestore, deleteDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+
 
 const formatCurrency = (value?: number) => {
   if (value === undefined) return 'N/A';
@@ -37,6 +44,41 @@ export function ContractsClient({
     isLoading: boolean
 }) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const handleEditClick = (contract: Contract) => {
+    setSelectedContract(contract);
+    setIsEditDialogOpen(true);
+  }
+
+  const handleDeleteClick = (contract: Contract) => {
+    setSelectedContract(contract);
+    setIsDeleteDialogOpen(true);
+  }
+
+  const handleConfirmDelete = () => {
+    if (!firestore || !selectedContract) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao excluir',
+        description: 'Não foi possível excluir o contrato. Tente novamente.'
+      });
+      return;
+    }
+    const contractRef = doc(firestore, 'contracts', selectedContract.id);
+    deleteDocumentNonBlocking(contractRef);
+    toast({
+      title: 'Contrato Excluído',
+      description: 'O contrato foi removido com sucesso.'
+    });
+    setIsDeleteDialogOpen(false);
+    setSelectedContract(null);
+  };
+
 
   if (isLoading) {
     return (
@@ -62,6 +104,16 @@ export function ContractsClient({
       <AddContractDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
+      />
+      <EditContractDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        contract={selectedContract}
+      />
+       <DeleteContractAlert
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
       />
       <div className="space-y-8">
         <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -91,13 +143,34 @@ export function ContractsClient({
             {contracts.map(contract => (
               <Card key={contract.id} className="flex flex-col">
                 <CardHeader>
-                  <CardTitle className="font-headline flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    {contract.name}
-                  </CardTitle>
-                  <CardDescription>
-                    {contract.description || 'Sem descrição.'}
-                  </CardDescription>
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <CardTitle className="font-headline flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-primary" />
+                        {contract.name}
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        {contract.description || 'Sem descrição.'}
+                      </CardDescription>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 -mt-2 -mr-2">
+                            <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEditClick(contract)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDeleteClick(contract)} className="text-red-500 focus:text-red-500">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </CardHeader>
                 <CardContent className="flex-grow space-y-3 text-sm">
                    <div className="flex items-center gap-2">
@@ -157,5 +230,3 @@ export function ContractsClient({
     </>
   );
 }
-
-    
