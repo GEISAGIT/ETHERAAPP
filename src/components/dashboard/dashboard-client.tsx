@@ -137,7 +137,7 @@ export function DashboardClient({ transactions, budgets, contracts, isLoading }:
         <OverviewChart transactions={transactions} />
         <RecentTransactions transactions={transactions} />
       </div>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8">
         <DrilldownExpenseChart expenses={filteredExpenses} />
         <ContractsOverview contracts={contracts} />
       </div>
