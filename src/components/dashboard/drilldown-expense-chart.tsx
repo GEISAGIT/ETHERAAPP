@@ -211,8 +211,9 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
                         </Pie>
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: 'hsl(var(--background))',
-                            borderColor: 'hsl(var(--border))',
+                            background: 'hsla(var(--primary) / 0.2)',
+                            borderColor: 'hsl(var(--primary))',
+                            color: 'hsl(var(--primary-foreground))',
                           }}
                           formatter={(value: number) => formatCurrency(value)}
                         />
