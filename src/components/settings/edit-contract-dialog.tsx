@@ -197,10 +197,11 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
       },
     };
 
-    if (values.type === 'fixed' && values.amount) {
-      contractData.amount = values.amount;
+    if (values.type === 'fixed') {
+        contractData.amount = values.amount;
     } else {
-      contractData.amount = undefined;
+        // Explicitly set amount to undefined if not fixed, so it can be handled below
+        contractData.amount = undefined;
     }
 
     if (values.expirationDate) {
@@ -209,7 +210,16 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
         contractData.expirationDate = undefined;
     }
 
-    handleUpdate(contractData);
+    // Clean up undefined fields before sending to Firestore
+    const cleanedContractData = Object.entries(contractData).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+            (acc as any)[key] = value;
+        }
+        return acc;
+    }, {} as Partial<Contract>);
+
+
+    handleUpdate(cleanedContractData);
     
     toast({
       title: 'Contrato Atualizado',
