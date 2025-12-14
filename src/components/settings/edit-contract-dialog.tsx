@@ -195,16 +195,16 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
       updatedAt: serverTimestamp(),
     };
 
-    if (values.type === 'fixed') {
-        contractData.amount = values.amount;
+    if (values.type === 'fixed' && values.amount) {
+      contractData.amount = values.amount;
     } else {
-        contractData.amount = undefined; // Ensure amount is removed if type is variable
+      delete contractData.amount;
     }
 
     if (values.expirationDate) {
         contractData.expirationDate = Timestamp.fromDate(values.expirationDate);
     } else {
-        contractData.expirationDate = undefined; // Ensure date is removed if empty
+        delete (contractData as any).expirationDate;
     }
 
     updateDocumentNonBlocking(contractDocRef, contractData);
