@@ -1,6 +1,6 @@
 'use client';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowRight, Wallet, ReceiptText } from 'lucide-react';
+import { ArrowRight, Wallet, ReceiptText, FileText } from 'lucide-react';
 import Link from 'next/link';
 
 const settingOptions = [
@@ -16,6 +16,12 @@ const settingOptions = [
     href: '/settings/income',
     icon: ReceiptText,
   },
+  {
+    title: 'Contratos',
+    description: 'Gerencie seus contratos e cobranças recorrentes.',
+    href: '/settings/contracts',
+    icon: FileText,
+  },
 ];
 
 export function SettingsClient() {
@@ -29,7 +35,7 @@ export function SettingsClient() {
           Escolha qual área do sistema você deseja configurar.
         </p>
       </header>
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {settingOptions.map((option) => (
           <Link href={option.href} key={option.href} className="group">
             <Card className="flex h-full flex-col justify-between transition-all group-hover:border-primary group-hover:shadow-lg">
