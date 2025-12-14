@@ -1,5 +1,5 @@
 'use client';
-import type { Transaction, Budget, ExpenseTransaction } from '@/lib/types';
+import type { Transaction, Budget, ExpenseTransaction, Contract } from '@/lib/types';
 import { StatsCards } from './stats-cards';
 import { OverviewChart } from './overview-chart';
 import { RecentTransactions } from './recent-transactions';
@@ -16,9 +16,10 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
+import { ContractsOverview } from './contracts-overview';
 
 
-export function DashboardClient({ transactions, budgets, isLoading }: { transactions: Transaction[], budgets: Budget[], isLoading: boolean }) {
+export function DashboardClient({ transactions, budgets, contracts, isLoading }: { transactions: Transaction[], budgets: Budget[], contracts: Contract[], isLoading: boolean }) {
   const [filterDate, setFilterDate] = useState<DateRange | undefined>(undefined);
 
   const filteredTransactions = useMemo(() => {
@@ -60,7 +61,10 @@ export function DashboardClient({ transactions, budgets, isLoading }: { transact
                 <Skeleton className="lg:col-span-2 h-[422px]" />
                 <Skeleton className="h-[422px]" />
             </div>
-            <Skeleton className="h-[450px]" />
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                <Skeleton className="h-[450px]" />
+                <Skeleton className="h-[450px]" />
+            </div>
         </div>
     )
   }
@@ -129,13 +133,14 @@ export function DashboardClient({ transactions, budgets, isLoading }: { transact
       )}
 
       <StatsCards transactions={filteredTransactions} />
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <OverviewChart transactions={transactions} />
-        </div>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <OverviewChart transactions={transactions} />
         <RecentTransactions transactions={transactions} />
       </div>
-      <DrilldownExpenseChart expenses={filteredExpenses} />
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <DrilldownExpenseChart expenses={filteredExpenses} />
+        <ContractsOverview contracts={contracts} />
+      </div>
     </div>
   );
 }

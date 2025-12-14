@@ -2,7 +2,7 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import { useFirestore, useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import type { Budget, Transaction, UserProfile } from '@/lib/types';
+import type { Budget, Transaction, UserProfile, Contract } from '@/lib/types';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useMemo } from 'react';
 
@@ -38,10 +38,17 @@ export default function DashboardPage() {
       : query(collection(firestore, 'expenses'), where('userId', '==', user.uid));
   }, [firestore, user, userProfile]);
 
+  const contractsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    // For now, let's assume users can only see their own contracts on the dashboard
+    return query(collection(firestore, 'contracts'), where('userId', '==', user.uid));
+  }, [firestore, user]);
+
 
   const { data: incomes, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
   const { data: expenses, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(expensesQuery);
   const { data: budgets, isLoading: budgetsLoading } = useCollection<Budget>(budgetsQuery);
+  const { data: contracts, isLoading: contractsLoading } = useCollection<Contract>(contractsQuery);
 
   const transactions = useMemo(() => {
     const allIncomes = incomes?.map(item => ({ ...item, type: 'income' as const })) ?? [];
@@ -58,13 +65,14 @@ export default function DashboardPage() {
     });
   }, [incomes, expenses]);
 
-  const isLoading = incomesLoading || expensesLoading || budgetsLoading || profileLoading;
+  const isLoading = incomesLoading || expensesLoading || budgetsLoading || profileLoading || contractsLoading;
 
   return (
     <AppLayout>
       <DashboardClient 
         transactions={transactions} 
         budgets={budgets ?? []} 
+        contracts={contracts ?? []}
         isLoading={isLoading}
       />
     </AppLayout>

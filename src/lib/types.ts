@@ -123,5 +123,3 @@ export type Contract = {
     description: string;
   }
 };
-
-    

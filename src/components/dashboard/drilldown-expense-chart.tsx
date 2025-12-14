@@ -1,6 +1,6 @@
 'use client';
 import type { ExpenseTransaction } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, Sector } from 'recharts';
 import { useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../ui/table';
@@ -144,33 +144,35 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
     <Card>
       <CardHeader>
           <CardTitle className="font-headline">{currentTitle}</CardTitle>
-          <Breadcrumb>
-              <BreadcrumbList>
-                  <BreadcrumbItem>
-                      <BreadcrumbLink onClick={() => handleBreadcrumbClick('root')} className="cursor-pointer">Todos os Grupos</BreadcrumbLink>
-                  </BreadcrumbItem>
-                  {selectedGroup && (
-                      <>
-                          <BreadcrumbSeparator />
-                          <BreadcrumbItem>
-                              {selectedCategory ? (
-                                  <BreadcrumbLink onClick={() => handleBreadcrumbClick('group')} className="cursor-pointer">{selectedGroup}</BreadcrumbLink>
-                              ) : (
-                                  <span>{selectedGroup}</span>
-                              )}
-                          </BreadcrumbItem>
-                      </>
-                  )}
-                  {selectedCategory && (
-                      <>
-                          <BreadcrumbSeparator />
-                          <BreadcrumbItem>
-                              <span>{selectedCategory}</span>
-                          </BreadcrumbItem>
-                      </>
-                  )}
-              </BreadcrumbList>
-          </Breadcrumb>
+          <CardDescription>
+            <Breadcrumb>
+                <BreadcrumbList>
+                    <BreadcrumbItem>
+                        <BreadcrumbLink onClick={() => handleBreadcrumbClick('root')} className="cursor-pointer">Todos os Grupos</BreadcrumbLink>
+                    </BreadcrumbItem>
+                    {selectedGroup && (
+                        <>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                                {selectedCategory ? (
+                                    <BreadcrumbLink onClick={() => handleBreadcrumbClick('group')} className="cursor-pointer">{selectedGroup}</BreadcrumbLink>
+                                ) : (
+                                    <span>{selectedGroup}</span>
+                                )}
+                            </BreadcrumbItem>
+                        </>
+                    )}
+                    {selectedCategory && (
+                        <>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                                <span>{selectedCategory}</span>
+                            </BreadcrumbItem>
+                        </>
+                    )}
+                </BreadcrumbList>
+            </Breadcrumb>
+          </CardDescription>
       </CardHeader>
       <CardContent>
           {chartData.length === 0 ? (
@@ -209,12 +211,9 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
                         </Pie>
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: 'hsl(var(--chart-2))',
-                            borderColor: 'hsl(var(--chart-1))',
-                            color: 'white',
+                            backgroundColor: 'hsl(var(--background))',
+                            borderColor: 'hsl(var(--border))',
                           }}
-                          itemStyle={{ color: 'white' }}
-                          labelStyle={{ color: 'white', fontWeight: 'bold' }}
                           formatter={(value: number) => formatCurrency(value)}
                         />
                          <Legend 
@@ -223,7 +222,7 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
                            verticalAlign="bottom"
                            wrapperStyle={{ paddingTop: 20, lineHeight: '24px' }}
                            formatter={(value, entry) => {
-                             return <span style={{ color: entry.color }} className="text-muted-foreground">{value}</span>
+                             return <span className="text-muted-foreground">{value}</span>
                            }}
                          />
                       </PieChart>
