@@ -45,6 +45,7 @@ export function DataTableToolbar({
 }: DataTableToolbarProps) {
 
   const isFiltered = searchTerm !== '' || filterType !== 'all' || filterCategory !== 'all' || filterDate !== undefined || filterCostType !== 'all';
+  const isCostTypeFilterDisabled = filterType === 'income';
 
   const clearFilters = () => {
     onSearchTermChange('');
@@ -74,18 +75,20 @@ export function DataTableToolbar({
                     <SelectItem value="expense">Despesa</SelectItem>
                 </SelectContent>
             </Select>
-            {filterType === 'expense' && (
-              <Select value={filterCostType} onValueChange={onFilterCostTypeChange}>
-                <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Tipo de Custo" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">Todos os Custos</SelectItem>
-                    <SelectItem value="fixed">Fixo</SelectItem>
-                    <SelectItem value="variable">Variável</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
+            <Select 
+              value={isCostTypeFilterDisabled ? 'all' : filterCostType} 
+              onValueChange={onFilterCostTypeChange}
+              disabled={isCostTypeFilterDisabled}
+            >
+              <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Tipo de Custo" />
+              </SelectTrigger>
+              <SelectContent>
+                  <SelectItem value="all">Todos os Custos</SelectItem>
+                  <SelectItem value="fixed">Fixo</SelectItem>
+                  <SelectItem value="variable">Variável</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={filterCategory} onValueChange={onFilterCategoryChange}>
                 <SelectTrigger className="w-full">
                     <SelectValue placeholder="Categoria" />
