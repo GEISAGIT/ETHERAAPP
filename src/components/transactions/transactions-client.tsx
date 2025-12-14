@@ -1,5 +1,5 @@
 'use client';
-import type { Transaction, UserProfile } from '@/lib/types';
+import type { Transaction, UserProfile, ExpenseTransaction } from '@/lib/types';
 import { columns } from '@/app/transactions/columns';
 import { DataTable } from '../data-table/data-table';
 import { AddTransactionDialog } from './add-transaction-dialog';
@@ -29,6 +29,7 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+  const [filterCostType, setFilterCostType] = useState<'all' | 'fixed' | 'variable'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterDate, setFilterDate] = useState<DateRange | undefined>(undefined);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
@@ -56,6 +57,15 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
     
     if (filterType !== 'all') {
       filtered = filtered.filter(item => item.type === filterType);
+    }
+
+    if (filterCostType !== 'all' && filterType === 'expense') {
+        filtered = filtered.filter(item => {
+            if (item.type === 'expense') {
+                return (item as ExpenseTransaction).costType === filterCostType;
+            }
+            return true;
+        });
     }
 
     if (filterCategory !== 'all') {
@@ -86,7 +96,7 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
     });
 
     return filtered;
-  }, [data, searchTerm, filterType, filterCategory, filterDate, sortOrder]);
+  }, [data, searchTerm, filterType, filterCostType, filterCategory, filterDate, sortOrder]);
 
 
   const handleEdit = (transaction: Transaction) => {
@@ -140,7 +150,7 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
       Valor: t.amount,
       Tipo: t.type === 'income' ? 'Receita' : 'Despesa',
       Categoria: t.category,
-      'Tipo de Custo': t.type === 'expense' ? (t.costType === 'fixed' ? 'Fixo' : 'Variável') : 'N/A',
+      'Tipo de Custo': t.type === 'expense' ? (t as ExpenseTransaction).costType === 'fixed' ? 'Fixo' : 'Variável' : 'N/A',
       Observação: t.notes || '',
     }));
 
@@ -248,6 +258,8 @@ export function TransactionsClient({ data, isLoading }: { data: Transaction[], i
             onSearchTermChange={setSearchTerm}
             filterType={filterType}
             onFilterTypeChange={setFilterType}
+            filterCostType={filterCostType}
+            onFilterCostTypeChange={setFilterCostType}
             filterCategory={filterCategory}
             onFilterCategoryChange={setFilterCategory}
             allCategories={allCategories}

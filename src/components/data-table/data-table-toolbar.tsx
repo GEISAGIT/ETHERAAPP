@@ -17,6 +17,8 @@ interface DataTableToolbarProps {
   onSearchTermChange: (value: string) => void;
   filterType: 'all' | 'income' | 'expense';
   onFilterTypeChange: (value: 'all' | 'income' | 'expense') => void;
+  filterCostType: 'all' | 'fixed' | 'variable';
+  onFilterCostTypeChange: (value: 'all' | 'fixed' | 'variable') => void;
   filterCategory: string;
   onFilterCategoryChange: (value: string) => void;
   allCategories: string[];
@@ -31,6 +33,8 @@ export function DataTableToolbar({
   onSearchTermChange,
   filterType,
   onFilterTypeChange,
+  filterCostType,
+  onFilterCostTypeChange,
   filterCategory,
   onFilterCategoryChange,
   allCategories,
@@ -40,13 +44,14 @@ export function DataTableToolbar({
   onSortOrderChange
 }: DataTableToolbarProps) {
 
-  const isFiltered = searchTerm !== '' || filterType !== 'all' || filterCategory !== 'all' || filterDate !== undefined;
+  const isFiltered = searchTerm !== '' || filterType !== 'all' || filterCategory !== 'all' || filterDate !== undefined || filterCostType !== 'all';
 
   const clearFilters = () => {
     onSearchTermChange('');
     onFilterTypeChange('all');
     onFilterCategoryChange('all');
     onFilterDateChange(undefined);
+    onFilterCostTypeChange('all');
   }
 
   return (
@@ -69,6 +74,18 @@ export function DataTableToolbar({
                     <SelectItem value="expense">Despesa</SelectItem>
                 </SelectContent>
             </Select>
+            {filterType === 'expense' && (
+              <Select value={filterCostType} onValueChange={onFilterCostTypeChange}>
+                <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Tipo de Custo" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Todos os Custos</SelectItem>
+                    <SelectItem value="fixed">Fixo</SelectItem>
+                    <SelectItem value="variable">Variável</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <Select value={filterCategory} onValueChange={onFilterCategoryChange}>
                 <SelectTrigger className="w-full">
                     <SelectValue placeholder="Categoria" />
