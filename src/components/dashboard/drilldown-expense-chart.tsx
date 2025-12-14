@@ -209,10 +209,12 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
                         </Pie>
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: 'hsla(var(--primary), 0.1)',
-                            borderColor: 'hsl(var(--primary))',
-                            color: 'white'
+                            backgroundColor: 'hsl(var(--chart-2))',
+                            borderColor: 'hsl(var(--chart-1))',
+                            color: 'white',
                           }}
+                          itemStyle={{ color: 'white' }}
+                          labelStyle={{ color: 'white', fontWeight: 'bold' }}
                           formatter={(value: number) => formatCurrency(value)}
                         />
                          <Legend 
@@ -221,7 +223,6 @@ export function DrilldownExpenseChart({ expenses }: { expenses: ExpenseTransacti
                            verticalAlign="bottom"
                            wrapperStyle={{ paddingTop: 20, lineHeight: '24px' }}
                            formatter={(value, entry) => {
-                             const color = COLORS[entry.color as any % COLORS.length];
                              return <span style={{ color: entry.color }} className="text-muted-foreground">{value}</span>
                            }}
                          />
