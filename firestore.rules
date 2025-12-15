@@ -64,8 +64,10 @@ service cloud.firestore {
     }
 
     match /budgets/{budgetId} {
-      allow read, write: if isOriginalCreator() || isAdmin();
-      allow list: if isAdmin();
+      allow read: if isExistingDocOwner(budgetId, 'budgets') || isAdmin();
+      allow list: if isAdmin(); // Admin can list all for reports
+      allow create: if isOriginalCreator();
+      allow write: if isExistingDocOwner(budgetId, 'budgets') || isAdmin();
     }
 
     match /incomeCategories/{categoryId} {
@@ -87,5 +89,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
