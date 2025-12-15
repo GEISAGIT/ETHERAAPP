@@ -122,7 +122,7 @@ export function PayRecurringTransactionDialog({ open, onOpenChange, payment }: P
         amount: values.amount,
         description: payment.contract.name,
         type: 'expense' as const,
-        costType: payment.contract.type,
+        costType: 'fixed',
         fullCategoryPath: payment.contract.fullCategoryPath,
         category: payment.contract.fullCategoryPath?.category || 'N/A', // Legacy
         notes: `Pagamento recorrente. Vencimento original: ${format(payment.dueDate, 'dd/MM/yyyy')}`,
