@@ -29,6 +29,8 @@ export function LoginForm() {
     if (!firestore) return null;
     const userDocRef = doc(firestore, 'users', user.uid);
     const isAdmin = user.email === 'grupodallax@gmail.com';
+    const defaultPhotoUrl = 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media&token=c68144ba-c10e-4921-8fe7-eb791d34eebe';
+
 
     try {
       const docSnap = await getDoc(userDocRef);
@@ -39,10 +41,15 @@ export function LoginForm() {
         const initialStatus = isAdmin ? 'active' : 'pending';
         const initialRole = isAdmin ? 'admin' : 'user';
 
+        if (isNewUser) {
+           await updateProfile(user, { photoURL: defaultPhotoUrl });
+        }
+
         const newUserProfile: UserProfile = {
           uid: user.uid,
           displayName: user.displayName || name || 'Usuário',
           email: user.email!,
+          photoURL: user.photoURL || defaultPhotoUrl,
           role: initialRole,
           status: initialStatus,
           createdAt: serverTimestamp() as any,

@@ -91,6 +91,7 @@ export type UserProfile = {
     uid: string;
     displayName: string;
     email: string;
+    photoURL?: string;
     role: 'admin' | 'user';
     status: UserStatus;
     createdAt: Timestamp;
