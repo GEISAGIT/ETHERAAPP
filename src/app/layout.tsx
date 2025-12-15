@@ -7,9 +7,6 @@ import { ThemeProvider } from '@/components/layout/theme-provider';
 export const metadata: Metadata = {
   title: 'Ethera',
   description: 'Saúde e longevidade',
-  icons: {
-    icon: 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/assets%2Ffavicon-ethera.png?alt=media&token=8a5f3c5e-85da-49e3-8a8c-f2452b48348a',
-  },
 };
 
 export default function RootLayout({
