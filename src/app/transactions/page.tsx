@@ -2,30 +2,43 @@
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { TransactionsClient } from '@/components/transactions/transactions-client';
-import { useCollection, useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import type { Transaction, Contract, ExpenseTransaction } from '@/lib/types';
+import { useCollection, useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
+import type { Transaction, Contract, ExpenseTransaction, UserProfile } from '@/lib/types';
 import { useMemo } from 'react';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, doc, where } from 'firebase/firestore';
 
 
 export default function TransactionsPage() {
   const { user } = useUser();
   const firestore = useFirestore();
 
-  const incomesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'incomes'));
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
+
+  const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userDocRef);
+
+  const incomesQuery = useMemoFirebase(() => {
+    if (!firestore || !user || !userProfile) return null;
+    return userProfile.role === 'admin'
+      ? query(collection(firestore, 'incomes'))
+      : query(collection(firestore, 'incomes'), where('userId', '==', user.uid));
+  }, [firestore, user, userProfile]);
 
   const expensesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'expenses'));
-  }, [firestore, user]);
+    if (!firestore || !user || !userProfile) return null;
+    return userProfile.role === 'admin'
+      ? query(collection(firestore, 'expenses'))
+      : query(collection(firestore, 'expenses'), where('userId', '==', user.uid));
+  }, [firestore, user, userProfile]);
 
   const contractsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'contracts'));
-  }, [firestore, user]);
+    if (!firestore || !user || !userProfile) return null;
+    return userProfile.role === 'admin'
+      ? query(collection(firestore, 'contracts'))
+      : query(collection(firestore, 'contracts'), where('userId', '==', user.uid));
+  }, [firestore, user, userProfile]);
 
   const { data: incomesData, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
   const { data: expensesData, isLoading: expensesLoading } = useCollection<ExpenseTransaction>(expensesQuery);
@@ -43,7 +56,7 @@ export default function TransactionsPage() {
     return combined;
   }, [incomesData, expensesData, user]);
 
-  const isLoading = incomesLoading || expensesLoading || contractsLoading;
+  const isLoading = incomesLoading || expensesLoading || contractsLoading || profileLoading;
 
   return (
     <AppLayout>

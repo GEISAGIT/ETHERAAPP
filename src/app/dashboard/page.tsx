@@ -37,9 +37,11 @@ export default function DashboardPage() {
   }, [firestore, user, userProfile]);
 
   const contractsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, 'contracts'), where('userId', '==', user.uid));
-  }, [firestore, user]);
+    if (!firestore || !user || !userProfile) return null;
+    return userProfile.role === 'admin'
+      ? query(collection(firestore, 'contracts'))
+      : query(collection(firestore, 'contracts'), where('userId', '==', user.uid));
+  }, [firestore, user, userProfile]);
 
 
   const { data: incomes, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
