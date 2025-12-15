@@ -64,10 +64,11 @@ service cloud.firestore {
     }
 
     match /budgets/{budgetId} {
-      allow read: if isExistingDocOwner(budgetId, 'budgets') || isAdmin();
-      allow list: if isAdmin(); // Admin can list all for reports
+      allow get: if isExistingDocOwner(budgetId, 'budgets') || isAdmin();
+      allow list: if isAdmin() || (isSignedIn() && request.query.where.userId == request.auth.uid);
       allow create: if isOriginalCreator();
-      allow write: if isExistingDocOwner(budgetId, 'budgets') || isAdmin();
+      allow update: if isExistingDocOwner(budgetId, 'budgets') || isAdmin();
+      allow delete: if isExistingDocOwner(budgetId, 'budgets') || isAdmin();
     }
 
     match /incomeCategories/{categoryId} {
