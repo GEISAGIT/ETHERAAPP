@@ -64,7 +64,8 @@ service cloud.firestore {
     }
 
     match /budgets/{budgetId} {
-      allow read: if resource.data.userId == request.auth.uid || isAdmin();
+      allow get: if resource.data.userId == request.auth.uid || isAdmin();
+      allow list: if request.auth.uid == request.query.where.userId || isAdmin();
       allow create: if isOriginalCreator();
       allow update: if isExistingDocOwner(budgetId, 'budgets') || isAdmin();
       allow delete: if isExistingDocOwner(budgetId, 'budgets') || isAdmin();
