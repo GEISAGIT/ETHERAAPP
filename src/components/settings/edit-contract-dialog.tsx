@@ -80,7 +80,6 @@ interface EditContractDialogProps {
 }
 
 export function EditContractDialog({ open, onOpenChange, contract }: EditContractDialogProps) {
-  const [isDatePickerOpen, setDatePickerOpen] = useState(false);
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [manualEntry, setManualEntry] = useState(false);
   const { toast } = useToast();
@@ -511,7 +510,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                     render={({ field }) => (
                       <FormItem className="flex flex-col pt-2">
                       <FormLabel>Vencimento do Contrato (Opcional)</FormLabel>
-                      <Popover open={isDatePickerOpen} onOpenChange={setDatePickerOpen}>
+                      <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button
@@ -535,10 +534,7 @@ export function EditContractDialog({ open, onOpenChange, contract }: EditContrac
                           <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={(date) => {
-                              if (date) field.onChange(date);
-                              setDatePickerOpen(false);
-                            }}
+                            onSelect={field.onChange}
                             initialFocus
                             locale={ptBR}
                           />
