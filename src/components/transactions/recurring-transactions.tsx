@@ -33,40 +33,37 @@ type PaymentStatus = {
 };
 
 const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
-    if (contract.status !== 'active') return null;
+    if (contract.status !== 'active' || !contract.paymentDueDate) return null;
 
     const today = startOfDay(new Date());
     const { paymentFrequency, paymentDueDate, createdAt, expirationDate } = contract;
 
-    if (!paymentDueDate) return null;
-
-    let dueDateInCycle = new Date(today.getFullYear(), today.getMonth(), paymentDueDate);
+    // 1. Find the first valid due date of the contract
+    let relevantDueDate = new Date(createdAt.toDate().getFullYear(), createdAt.toDate().getMonth(), paymentDueDate);
+    if (isBefore(relevantDueDate, createdAt.toDate())) {
+        relevantDueDate = frequencyFunctionMap[paymentFrequency](relevantDueDate, 1);
+    }
     
-    if (isAfter(today, dueDateInCycle) && isAfter(today, createdAt.toDate())) {
-      dueDateInCycle = frequencyFunctionMap[paymentFrequency](dueDateInCycle, 1);
-    } else if (isBefore(today, createdAt.toDate())) {
-      let firstDueDate = new Date(createdAt.toDate());
-      firstDueDate.setDate(paymentDueDate);
-       while(isBefore(firstDueDate, createdAt.toDate())) {
-          firstDueDate = frequencyFunctionMap[paymentFrequency](firstDueDate, 1);
-      }
-      dueDateInCycle = firstDueDate;
+    // If the first due date is already past the expiration, no payments are possible.
+    if (expirationDate && isAfter(relevantDueDate, expirationDate.toDate())) {
+      return null;
     }
 
-    while (isBefore(dueDateInCycle, today)) {
-        const nextPossibleDueDate = frequencyFunctionMap[paymentFrequency](dueDateInCycle, 1);
-        if (isAfter(nextPossibleDueDate, dueDateInCycle)) { 
-            dueDateInCycle = nextPossibleDueDate;
-        } else {
+    // 2. Advance cycles until we find the one that is either upcoming or the most recent past one.
+    while (true) {
+        const nextDueDate = frequencyFunctionMap[paymentFrequency](relevantDueDate, 1);
+        if (isAfter(nextDueDate, today)) {
+            // We've found the window. `relevantDueDate` is the most recent past (or current) due date.
             break;
         }
+        // Stop if we would go past expiration
+        if (expirationDate && isAfter(nextDueDate, expirationDate.toDate())) {
+            break;
+        }
+        relevantDueDate = nextDueDate;
     }
     
-    if (expirationDate && isAfter(dueDateInCycle, expirationDate.toDate())) {
-        return null;
-    }
-
-    const daysRemaining = differenceInDays(dueDateInCycle, today);
+    const daysRemaining = differenceInDays(relevantDueDate, today);
 
     let status: 'Vencido' | 'Vence hoje' | 'Vence em breve' | 'Em dia' = 'Em dia';
     if (daysRemaining < 0) {
@@ -80,7 +77,7 @@ const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
     return {
         status,
         daysRemaining,
-        dueDate: dueDateInCycle,
+        dueDate: relevantDueDate,
         isDue: true,
     };
 };
