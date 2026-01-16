@@ -32,84 +32,77 @@ type PaymentStatus = {
     isDue: boolean;
 };
 
-const getPaymentStatus = (contract: Contract): PaymentStatus | null => {
-    if (contract.status !== 'active' || !contract.paymentDueDate) return null;
-
-    const today = startOfDay(new Date());
-    const { paymentFrequency, paymentDueDate, createdAt, expirationDate } = contract;
-
-    // 1. Find the first valid due date of the contract
-    let relevantDueDate = new Date(createdAt.toDate().getFullYear(), createdAt.toDate().getMonth(), paymentDueDate);
-    if (isBefore(relevantDueDate, createdAt.toDate())) {
-        relevantDueDate = frequencyFunctionMap[paymentFrequency](relevantDueDate, 1);
-    }
-    
-    // If the first due date is already past the expiration, no payments are possible.
-    if (expirationDate && isAfter(relevantDueDate, expirationDate.toDate())) {
-      return null;
-    }
-
-    // 2. Advance cycles until we find the one that is either upcoming or the most recent past one.
-    while (true) {
-        const nextDueDate = frequencyFunctionMap[paymentFrequency](relevantDueDate, 1);
-        if (isAfter(nextDueDate, today)) {
-            // We've found the window. `relevantDueDate` is the most recent past (or current) due date.
-            break;
-        }
-        // Stop if we would go past expiration
-        if (expirationDate && isAfter(nextDueDate, expirationDate.toDate())) {
-            break;
-        }
-        relevantDueDate = nextDueDate;
-    }
-    
-    const daysRemaining = differenceInDays(relevantDueDate, today);
-
-    let status: 'Vencido' | 'Vence hoje' | 'Vence em breve' | 'Em dia' = 'Em dia';
-    if (daysRemaining < 0) {
-        status = 'Vencido';
-    } else if (daysRemaining === 0) {
-        status = 'Vence hoje';
-    } else if (daysRemaining <= 10) {
-        status = 'Vence em breve';
-    }
-
-    return {
-        status,
-        daysRemaining,
-        dueDate: relevantDueDate,
-        isDue: true,
-    };
-};
-
-
 export function RecurringTransactions({ contracts, expenses }: { contracts: Contract[], expenses: ExpenseTransaction[] }) {
     const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<{contract: Contract, dueDate: Date} | null>(null);
 
     const upcomingPayments = useMemo(() => {
-        return contracts
-            .map(contract => {
-                const paymentStatus = getPaymentStatus(contract);
-                if (!paymentStatus) return null;
+        const pendencies: (Contract & { paymentStatus: PaymentStatus })[] = [];
+        const today = startOfDay(new Date());
 
-                // Check if already paid in the current cycle
-                const cycleStart = startOfMonth(paymentStatus.dueDate);
-                const cycleEnd = endOfMonth(paymentStatus.dueDate);
+        contracts.forEach(contract => {
+            if (contract.status !== 'active' || !contract.paymentDueDate) return;
+
+            const { paymentFrequency, paymentDueDate, createdAt, expirationDate } = contract;
+            let searchDate = createdAt.toDate();
+
+            while (true) {
+                // Calculate potential due date for the current cycle
+                let currentDueDate = new Date(searchDate.getFullYear(), searchDate.getMonth(), paymentDueDate);
+
+                // If the calculated due date is before the start of the cycle (e.g. contract started mid-month), advance to the first real due date
+                if (isBefore(currentDueDate, searchDate)) {
+                    currentDueDate = frequencyFunctionMap[paymentFrequency](currentDueDate, 1);
+                }
+
+                // Stop if we're past expiration
+                if (expirationDate && isAfter(currentDueDate, expirationDate.toDate())) {
+                    break; // No more payments for this contract
+                }
+                
+                // Stop if we are looking too far into the future (e.g. more than 1 year ahead) to avoid performance issues.
+                if(differenceInDays(currentDueDate, today) > 365 * 2) {
+                    break;
+                }
+
+                const cycleStart = startOfMonth(currentDueDate);
+                const cycleEnd = endOfMonth(currentDueDate);
                 const isPaid = expenses.some(expense => 
                     expense.description === contract.name &&
                     isWithinInterval(expense.date.toDate(), { start: cycleStart, end: cycleEnd })
                 );
 
-                if (isPaid) return null;
+                if (!isPaid) {
+                    // We found the first unpaid bill. This is our pendency.
+                    const daysRemaining = differenceInDays(currentDueDate, today);
+                    let status: 'Vencido' | 'Vence hoje' | 'Vence em breve' | 'Em dia' = 'Em dia';
 
-                return {
-                    ...contract,
-                    paymentStatus
+                    if (daysRemaining < 0) {
+                        status = 'Vencido';
+                    } else if (daysRemaining === 0) {
+                        status = 'Vence hoje';
+                    } else if (daysRemaining <= 10) {
+                        status = 'Vence em breve';
+                    }
+                    
+                    pendencies.push({
+                        ...contract,
+                        paymentStatus: {
+                            status,
+                            daysRemaining,
+                            dueDate: currentDueDate,
+                            isDue: true,
+                        }
+                    });
+                    break; // Found the first one, stop searching for this contract
                 }
-            })
-            .filter((payment): payment is typeof payment & { paymentStatus: PaymentStatus } => payment !== null)
-            .sort((a, b) => a.paymentStatus.dueDate.getTime() - b.paymentStatus.dueDate.getTime());
+
+                // If paid, advance to the next cycle
+                searchDate = frequencyFunctionMap[paymentFrequency](currentDueDate, 1);
+            }
+        });
+
+        return pendencies.sort((a, b) => a.paymentStatus.dueDate.getTime() - b.paymentStatus.dueDate.getTime());
     }, [contracts, expenses]);
 
 
