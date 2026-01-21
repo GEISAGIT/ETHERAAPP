@@ -16,8 +16,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Checks if the user's document in the 'users' collection has the role 'admin'.
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Checks if the user's document exists and has the role 'admin'.
+      // This is safer than accessing .data directly, which errors if the doc doesn't exist.
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isOriginalCreator() {
@@ -26,7 +28,9 @@ service cloud.firestore {
     }
     
     function isExistingDocOwner(docId, collectionName) {
-      return isSignedIn() && get(/databases/$(database)/documents/$(collectionName)/$(docId)).data.userId == request.auth.uid;
+      // Checks if the document exists before trying to access its data.
+      return isSignedIn() && exists(/databases/$(database)/documents/$(collectionName)/$(docId)) &&
+             get(/databases/$(database)/documents/$(collectionName)/$(docId)).data.userId == request.auth.uid;
     }
 
 
