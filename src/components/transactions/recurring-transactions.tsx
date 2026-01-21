@@ -1,5 +1,5 @@
 'use client';
-import type { Contract, ExpenseTransaction } from '@/lib/types';
+import type { Contract, ExpenseTransaction, UserProfile } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,7 +7,8 @@ import { addMonths, addYears, format, isAfter, startOfDay, isBefore, differenceI
 import { ptBR } from 'date-fns/locale';
 import { useState, useMemo } from 'react';
 import { PayRecurringTransactionDialog } from './pay-recurring-transaction-dialog';
-import { AlertCircleIcon, CheckCircle2, XCircle } from 'lucide-react';
+import { AlertCircleIcon, CheckCircle2, MoreHorizontal, Trash2, XCircle } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 
 const formatCurrency = (value?: number) => {
     if (value === undefined) return 'Variável';
@@ -32,9 +33,15 @@ type PaymentStatus = {
     isDue: boolean;
 };
 
-export function RecurringTransactions({ contracts, expenses }: { contracts: Contract[], expenses: ExpenseTransaction[] }) {
+export function RecurringTransactions({ contracts, expenses, userProfile, onDeleteContract }: { 
+  contracts: Contract[], 
+  expenses: ExpenseTransaction[],
+  userProfile: UserProfile | null | undefined,
+  onDeleteContract: (contract: Contract) => void,
+}) {
     const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<{contract: Contract, dueDate: Date} | null>(null);
+    const isAdmin = userProfile?.role === 'admin';
 
     const upcomingPayments = useMemo(() => {
         const pendencies: (Contract & { paymentStatus: PaymentStatus })[] = [];
@@ -183,11 +190,30 @@ export function RecurringTransactions({ contracts, expenses }: { contracts: Cont
                                                 Vence em: {payment.paymentStatus ? format(payment.paymentStatus.dueDate, 'dd/MM/yyyy', { locale: ptBR }) : 'N/A'}
                                             </p>
                                         </div>
-                                    <div className="flex items-center justify-between sm:justify-start gap-4">
+                                    <div className="flex items-center justify-between sm:justify-start gap-2">
                                         {getStatusComponent(payment.paymentStatus)}
                                         <Button size="sm" onClick={() => handlePayClick(payment, payment.paymentStatus.dueDate)}>
                                             Pagar
                                         </Button>
+                                        {isAdmin && (
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                        <span className="sr-only">Abrir menu</span>
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem
+                                                        onClick={() => onDeleteContract(payment)}
+                                                        className="text-red-500 focus:text-red-500"
+                                                    >
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Excluir Contrato
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        )}
                                     </div>
                                     </div>
                                 </div>

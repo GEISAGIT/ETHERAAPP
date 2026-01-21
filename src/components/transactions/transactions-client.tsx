@@ -21,11 +21,15 @@ import { TooltipProvider } from '../ui/tooltip';
 import { TransactionsSummary } from './transactions-summary';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RecurringTransactions } from './recurring-transactions';
+import { DeleteContractAlert } from '../settings/delete-contract-alert';
 
 export function TransactionsClient({ data, contracts, expenses, isLoading }: { data: Transaction[], contracts: Contract[], expenses: ExpenseTransaction[], isLoading: boolean }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [isDeleteContractAlertOpen, setIsDeleteContractAlertOpen] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -137,6 +141,34 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
     setIsDeleteAlertOpen(false);
     setSelectedTransaction(null);
   }
+
+  const handleDeleteContract = (contract: Contract) => {
+    setSelectedContract(contract);
+    setIsDeleteContractAlertOpen(true);
+  };
+
+  const handleConfirmDeleteContract = () => {
+    if (!firestore || !user || !selectedContract) {
+        toast({
+            variant: 'destructive',
+            title: 'Erro',
+            description: 'Não foi possível excluir o contrato. Tente novamente.',
+        });
+        return;
+    }
+
+    const docRef = doc(firestore, 'contracts', selectedContract.id);
+    deleteDocumentNonBlocking(docRef);
+
+    toast({
+        title: 'Contrato Excluído',
+        description: 'O contrato foi removido com sucesso.',
+    });
+    
+    setIsDeleteContractAlertOpen(false);
+    setSelectedContract(null);
+  };
+
   
   const handleExport = () => {
     if (filteredData.length === 0) {
@@ -207,6 +239,11 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
         onOpenChange={setIsDeleteAlertOpen}
         onConfirm={handleConfirmDelete}
       />
+      <DeleteContractAlert
+        open={isDeleteContractAlertOpen}
+        onOpenChange={setIsDeleteContractAlertOpen}
+        onConfirm={handleConfirmDeleteContract}
+      />
       <div className="space-y-8">
         <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
@@ -238,6 +275,8 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
             <RecurringTransactions 
                 contracts={contracts.filter(c => c.status === 'active')} 
                 expenses={expenses}
+                userProfile={userProfile}
+                onDeleteContract={handleDeleteContract}
             />
           </TabsContent>
           <TabsContent value="manual" className="space-y-4">
