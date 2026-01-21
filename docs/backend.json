@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "User": {
@@ -72,17 +71,63 @@
         },
         "permissions": {
           "type": "object",
-          "description": "A map of feature names to boolean flags indicating access.",
+          "description": "A map of feature names to granular permission actions.",
           "properties": {
-            "dashboard": { "type": "boolean" },
-            "transactions": { "type": "boolean" },
-            "budgets": { "type": "boolean" },
-            "reports": { "type": "boolean" },
-            "upload": { "type": "boolean" },
-            "profile": { "type": "boolean" },
-            "settings": { "type": "boolean" },
-            "userManagement": { "type": "boolean" },
-            "accessControl": { "type": "boolean" }
+            "dashboard": {
+              "type": "object",
+              "properties": { "view": { "type": "boolean" } }
+            },
+            "transactions": {
+              "type": "object",
+              "properties": {
+                "view": { "type": "boolean" },
+                "create": { "type": "boolean" },
+                "edit": { "type": "boolean" },
+                "delete": { "type": "boolean" }
+              }
+            },
+            "budgets": {
+              "type": "object",
+              "properties": {
+                "view": { "type": "boolean" },
+                "create": { "type": "boolean" },
+                "edit": { "type": "boolean" },
+                "delete": { "type": "boolean" }
+              }
+            },
+            "reports": {
+              "type": "object",
+              "properties": { "view": { "type": "boolean" } }
+            },
+            "upload": {
+              "type": "object",
+              "properties": {
+                "view": { "type": "boolean" },
+                "create": { "type": "boolean" },
+                "edit": { "type": "boolean" },
+                "delete": { "type": "boolean" }
+              }
+            },
+            "userManagement": {
+              "type": "object",
+              "properties": {
+                "view": { "type": "boolean" },
+                "create": { "type": "boolean" },
+                "edit": { "type": "boolean" },
+                "delete": { "type": "boolean" }
+              }
+            },
+            "profile": {
+              "type": "object",
+              "properties": {
+                "view": { "type": "boolean" },
+                "edit": { "type": "boolean" }
+              }
+            },
+            "settings": {
+              "type": "object",
+              "properties": { "view": { "type": "boolean" } }
+            }
           }
         }
       },

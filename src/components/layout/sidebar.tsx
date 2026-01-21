@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -14,7 +13,7 @@ import Link from 'next/link';
 import { useUser } from '@/firebase';
 import { useDoc, useMemoFirebase } from '@/firebase';
 import { doc, getFirestore } from 'firebase/firestore';
-import type { MenuItemKey, UserProfile } from '@/lib/types';
+import type { MenuItemKey, UserProfile, Permissions } from '@/lib/types';
 import { useMemo } from 'react';
 
 const allMenuItems = [
@@ -44,32 +43,24 @@ export function AppSidebar() {
   const role = userProfile?.role;
   
   const menuItems = useMemo(() => {
-    // Admin always sees everything
     if (role === 'admin') {
       return allMenuItems;
     }
     
-    // For regular users, filter based on their individual permissions
     if (userProfile?.permissions) {
       return allMenuItems.filter(item => {
-        // Admin-only items are never shown to non-admins
-        if (item.adminOnly) return false;
+        if (item.adminOnly && role !== 'admin') return false;
 
-        const hasPermission = (key: string): key is keyof typeof userProfile.permissions => {
-            return key in userProfile.permissions;
+        const pagePermissions = userProfile.permissions[item.key as keyof Permissions];
+        
+        if (pagePermissions && 'view' in pagePermissions) {
+          return pagePermissions.view;
         }
 
-        // Show item if permission is explicitly true
-        if (hasPermission(item.key)) {
-            return userProfile.permissions[item.key];
-        }
-
-        // Fallback for items that might not be in the permissions object yet
-        return item.key === 'profile' || item.key === 'dashboard';
+        return false;
       });
     }
 
-    // Fallback for when userProfile is loading or doesn't have permissions set
     return allMenuItems.filter(item => item.key === 'profile' || item.key === 'dashboard');
     
   }, [role, userProfile]);

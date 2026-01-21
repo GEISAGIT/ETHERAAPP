@@ -1,6 +1,6 @@
 'use client';
 
-import type { Transaction, ExpenseTransaction } from '@/lib/types';
+import type { Transaction, ExpenseTransaction, Permissions } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Timestamp } from 'firebase/firestore';
 import { MoreHorizontal, Edit, Trash2, Info, Paperclip } from 'lucide-react';
@@ -73,10 +73,10 @@ const DescriptionCell = ({ transaction }: { transaction: Transaction }) => {
 interface ColumnsProps {
     onEdit: (transaction: Transaction) => void;
     onDelete: (transaction: Transaction) => void;
-    userRole: 'admin' | 'user' | undefined;
+    permissions: Permissions | undefined;
 }
 
-export const columns = ({ onEdit, onDelete, userRole }: ColumnsProps) => [
+export const columns = ({ onEdit, onDelete, permissions }: ColumnsProps) => [
   {
     accessorKey: 'date',
     header: 'Data',
@@ -175,11 +175,14 @@ export const columns = ({ onEdit, onDelete, userRole }: ColumnsProps) => [
   {
     id: 'actions',
     cell: ({ row }: { row: { original: Transaction } }) => {
-      if (userRole !== 'admin') {
-        return null; // Don't render the actions menu for non-admins
+      const transaction = row.original;
+      const canEdit = permissions?.transactions.edit ?? false;
+      const canDelete = permissions?.transactions.delete ?? false;
+
+      if (!canEdit && !canDelete) {
+        return null;
       }
       
-      const transaction = row.original;
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -190,14 +193,14 @@ export const columns = ({ onEdit, onDelete, userRole }: ColumnsProps) => [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Ações</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => onEdit(transaction)}>
+            {canEdit && <DropdownMenuItem onClick={() => onEdit(transaction)}>
               <Edit className="mr-2 h-4 w-4" />
               Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDelete(transaction)} className="text-red-500 focus:text-red-500">
+            </DropdownMenuItem>}
+            {canDelete && <DropdownMenuItem onClick={() => onDelete(transaction)} className="text-red-500 focus:text-red-500">
               <Trash2 className="mr-2 h-4 w-4" />
               Excluir
-            </DropdownMenuItem>
+            </DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
       );

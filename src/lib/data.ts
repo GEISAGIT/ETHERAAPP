@@ -45,26 +45,27 @@ export const defaultIncomeCategories = [
 
 export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
   admin: {
-    dashboard: true,
-    transactions: true,
-    budgets: true,
-    reports: true,
-    upload: true,
-    userManagement: true,
-    profile: true,
-    settings: true,
+    dashboard: { view: true },
+    transactions: { view: true, create: true, edit: true, delete: true },
+    budgets: { view: true, create: true, edit: true, delete: true },
+    reports: { view: true },
+    upload: { view: true, create: true, edit: true, delete: true },
+    userManagement: { view: true, create: true, edit: true, delete: true },
+    profile: { view: true, edit: true },
+    settings: { view: true },
   },
   user: {
-    dashboard: true,
-    transactions: true,
-    budgets: true,
-    reports: true,
-    upload: true,
-    userManagement: false,
-    profile: true,
-    settings: true,
+    dashboard: { view: true },
+    transactions: { view: true, create: true, edit: true, delete: true },
+    budgets: { view: true, create: true, edit: true, delete: true },
+    reports: { view: true },
+    upload: { view: true, create: true, edit: true, delete: true },
+    userManagement: { view: false, create: false, edit: false, delete: false },
+    profile: { view: true, edit: true },
+    settings: { view: true },
   },
 };
+
 
 export const defaultExpenseCategoryGroups: Omit<ExpenseCategoryGroup, 'id'>[] = [
     {

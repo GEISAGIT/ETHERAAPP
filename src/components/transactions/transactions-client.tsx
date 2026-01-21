@@ -43,6 +43,7 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
   }, [firestore, user]);
 
   const { data: userProfile } = useDoc<UserProfile>(userDocRef);
+  const permissions = userProfile?.permissions;
 
   const allCategories = useMemo(() => {
     const categories = data.map(item => item.category);
@@ -170,7 +171,7 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
   const dynamicColumns = columns({ 
     onEdit: handleEdit, 
     onDelete: handleDelete, 
-    userRole: userProfile?.role 
+    permissions: permissions
   });
 
   if (isLoading) {
@@ -217,12 +218,14 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleExport}>
+              {permissions?.transactions.view && <Button variant="outline" onClick={handleExport}>
                 <Download className="mr-2 h-4 w-4" />
                 Exportar
-              </Button>
-              <ImportTransactionsDialog />
-              <AddTransactionDialog />
+              </Button>}
+              {permissions?.transactions.create && <>
+                <ImportTransactionsDialog />
+                <AddTransactionDialog />
+              </>}
             </div>
         </header>
 

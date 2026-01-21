@@ -1,4 +1,3 @@
-
 import { Timestamp } from 'firebase/firestore';
 
 export type IncomeTransaction = {
@@ -74,16 +73,33 @@ export interface ExpenseCategoryGroup {
 
 export type Category = string;
 
-export type Permissions = {
-  dashboard: boolean;
-  transactions: boolean;
-  budgets: boolean;
-  reports: boolean;
-  upload: boolean;
-  profile: boolean;
-  settings: boolean;
-  userManagement: boolean;
+export type CrudActions = {
+  view: boolean;
+  create: boolean;
+  edit: boolean;
+  delete: boolean;
 };
+
+export type ViewEditActions = {
+    view: boolean;
+    edit: boolean;
+}
+
+export type ViewOnlyActions = {
+    view: boolean;
+}
+
+export type Permissions = {
+  dashboard: ViewOnlyActions;
+  transactions: CrudActions;
+  budgets: CrudActions;
+  reports: ViewOnlyActions;
+  upload: CrudActions;
+  userManagement: CrudActions;
+  profile: ViewEditActions;
+  settings: ViewOnlyActions;
+};
+
 
 export type UserStatus = 'pending' | 'active' | 'rejected';
 
@@ -103,10 +119,10 @@ export type UserManagement = Omit<UserProfile, 'permissions'>;
 
 export type Role = {
   id: 'admin' | 'user';
-  permissions: Omit<Permissions, 'accessControl'> & { accessControl?: boolean };
+  permissions: Permissions;
 };
 
-export type MenuItemKey = keyof Omit<Permissions, 'accessControl'> | 'accessControl';
+export type MenuItemKey = keyof Permissions;
 
 export type ContractStatus = 'active' | 'cancelled' | 'expired';
 

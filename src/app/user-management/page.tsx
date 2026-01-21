@@ -4,7 +4,7 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { UserManagementClient } from '@/components/user-management/user-management-client';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
-import type { UserManagement } from '@/lib/types';
+import type { UserManagement, UserProfile } from '@/lib/types';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,11 +18,11 @@ export default function UserManagementPage() {
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
 
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc<{role?: string}>(userDocRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
   const usersQuery = useMemoFirebase(() => {
-    // Only fetch users if the current user is an admin
-    if (userProfile?.role !== 'admin') return null;
+    // Only fetch users if the current user has permission
+    if (!userProfile?.permissions?.userManagement?.view) return null;
     return query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
   }, [firestore, userProfile]);
 
@@ -52,7 +52,7 @@ export default function UserManagementPage() {
                         <div>
                             {[...Array(5)].map((_, i) => (
                                 <div key={i} className="flex h-14 items-center px-4 border-b">
-                                    <Skeleton className="h-5 w-1/5" />
+                                    <Skeleton className="h-5 w-1/fiv" />
                                     <Skeleton className="h-5 w-2/5 ml-4" />
                                     <Skeleton className="h-5 w-1/5 ml-4" />
                                     <Skeleton className="h-5 w-1/5 ml-4" />
@@ -67,8 +67,8 @@ export default function UserManagementPage() {
     );
   }
 
-  // If a non-admin somehow gets here, they won't see any users.
-  if (userProfile?.role !== 'admin') {
+  // If user doesn't have permission to view, show an empty state.
+  if (!userProfile?.permissions?.userManagement?.view) {
      return (
       <AppLayout>
         <div className="flex h-full w-full items-center justify-center">
@@ -78,7 +78,7 @@ export default function UserManagementPage() {
     );
   }
 
-  // User is confirmed admin, show the main component.
+  // User is confirmed to have permission, show the main component.
   return (
     <AppLayout>
       <UserManagementClient data={users ?? []} />
