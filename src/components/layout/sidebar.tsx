@@ -40,30 +40,32 @@ export function AppSidebar() {
   }, [firestore, user]);
 
   const { data: userProfile } = useDoc<UserProfile>(userDocRef);
-  const role = userProfile?.role;
   
   const menuItems = useMemo(() => {
-    if (role === 'admin') {
-      return allMenuItems;
-    }
-    
-    if (userProfile?.permissions) {
-      return allMenuItems.filter(item => {
-        if (item.adminOnly && role !== 'admin') return false;
+    const isAdmin = userProfile?.role === 'admin';
 
-        const pagePermissions = userProfile.permissions[item.key as keyof Permissions];
+    // If profile hasn't loaded, return a minimal safe set.
+    if (!userProfile) {
+        return allMenuItems.filter(item => !item.adminOnly && (item.key === 'profile' || item.key === 'dashboard'));
+    }
+
+    // Now we know userProfile exists.
+    return allMenuItems.filter(item => {
+        // Admin sees all.
+        if (isAdmin) return true;
+        
+        // For non-admins:
+        if (item.adminOnly) return false;
+
+        const pagePermissions = userProfile.permissions?.[item.key as keyof Permissions];
         
         if (pagePermissions && 'view' in pagePermissions) {
           return pagePermissions.view;
         }
 
         return false;
-      });
-    }
-
-    return allMenuItems.filter(item => item.key === 'profile' || item.key === 'dashboard');
-    
-  }, [role, userProfile]);
+    });
+  }, [userProfile]);
 
   const isActive = (href: string) => {
     if (href === '/settings') {

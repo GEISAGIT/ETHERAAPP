@@ -19,12 +19,13 @@ export default function UserManagementPage() {
   }, [firestore, user]);
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
+  const isAdmin = userProfile?.role === 'admin';
 
   const usersQuery = useMemoFirebase(() => {
-    // Only fetch users if the current user has permission
-    if (!userProfile?.permissions?.userManagement?.view) return null;
+    // Allow if admin OR has specific permission
+    if (!isAdmin && !userProfile?.permissions?.userManagement?.view) return null;
     return query(collection(firestore, 'users'), orderBy('createdAt', 'desc'));
-  }, [firestore, userProfile]);
+  }, [firestore, userProfile, isAdmin]);
 
   const { data: users, isLoading: usersLoading } = useCollection<UserManagement>(usersQuery);
 
@@ -68,7 +69,7 @@ export default function UserManagementPage() {
   }
 
   // If user doesn't have permission to view, show an empty state.
-  if (!userProfile?.permissions?.userManagement?.view) {
+  if (!isAdmin && !userProfile?.permissions?.userManagement?.view) {
      return (
       <AppLayout>
         <div className="flex h-full w-full items-center justify-center">
