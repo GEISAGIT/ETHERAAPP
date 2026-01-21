@@ -1,24 +1,37 @@
 'use client';
 import { AppLayout } from '@/components/layout/app-layout';
 import { ReportsClient } from '@/components/reports/reports-client';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import type { Transaction } from '@/lib/types';
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
+import type { Transaction, UserProfile } from '@/lib/types';
 import { useMemo } from 'react';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, doc, where } from 'firebase/firestore';
 
 export default function ReportsPage() {
   const { user } = useUser();
   const firestore = useFirestore();
 
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userDocRef);
+
   const incomesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'incomes'));
-  }, [firestore]);
+    if (!firestore || !user || !userProfile) return null;
+    const canViewAll = userProfile.role === 'admin' || userProfile.permissions?.reports?.view;
+    return canViewAll
+      ? query(collection(firestore, 'incomes'))
+      : query(collection(firestore, 'incomes'), where('userId', '==', user.uid));
+  }, [firestore, user, userProfile]);
 
   const expensesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'expenses'));
-  }, [firestore]);
+    if (!firestore || !user || !userProfile) return null;
+    const canViewAll = userProfile.role === 'admin' || userProfile.permissions?.reports?.view;
+    return canViewAll
+      ? query(collection(firestore, 'expenses'))
+      : query(collection(firestore, 'expenses'), where('userId', '==', user.uid));
+  }, [firestore, user, userProfile]);
 
   const { data: incomesData, isLoading: incomesLoading } = useCollection<Omit<Transaction, 'type'>>(incomesQuery);
   const { data: expensesData, isLoading: expensesLoading } = useCollection<Omit<Transaction, 'type'>>(expensesQuery);
@@ -33,7 +46,7 @@ export default function ReportsPage() {
     return combined;
   }, [incomesData, expensesData, user]);
 
-  const isLoading = incomesLoading || expensesLoading;
+  const isLoading = incomesLoading || expensesLoading || profileLoading;
 
   return (
     <AppLayout>

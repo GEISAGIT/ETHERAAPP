@@ -24,21 +24,24 @@ export default function DashboardPage() {
   
   const incomesQuery = useMemoFirebase(() => {
     if (!firestore || !user || !userProfile) return null;
-    return userProfile.role === 'admin'
+    const canViewAll = userProfile.role === 'admin' || userProfile.permissions?.transactions?.view;
+    return canViewAll
       ? query(collection(firestore, 'incomes'))
       : query(collection(firestore, 'incomes'), where('userId', '==', user.uid));
   }, [firestore, user, userProfile]);
 
   const expensesQuery = useMemoFirebase(() => {
     if (!firestore || !user || !userProfile) return null;
-    return userProfile.role === 'admin'
+    const canViewAll = userProfile.role === 'admin' || userProfile.permissions?.transactions?.view;
+    return canViewAll
       ? query(collection(firestore, 'expenses'))
       : query(collection(firestore, 'expenses'), where('userId', '==', user.uid));
   }, [firestore, user, userProfile]);
 
   const contractsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !userProfile) return null;
-    return userProfile.role === 'admin'
+    const canViewAll = userProfile.role === 'admin' || userProfile.permissions?.transactions?.view;
+    return canViewAll
       ? query(collection(firestore, 'contracts'))
       : query(collection(firestore, 'contracts'), where('userId', '==', user.uid));
   }, [firestore, user, userProfile]);
