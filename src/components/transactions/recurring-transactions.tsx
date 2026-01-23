@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { addMonths, addYears, format, isAfter, startOfDay, isBefore, differenceInDays, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { PayRecurringTransactionDialog } from './pay-recurring-transaction-dialog';
 import { AlertCircleIcon, CheckCircle2, MoreHorizontal, Trash2, XCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
@@ -41,9 +41,17 @@ export function RecurringTransactions({ contracts, expenses, userProfile, onDele
 }) {
     const [isPayDialogOpen, setIsPayDialogOpen] = useState(false);
     const [selectedPayment, setSelectedPayment] = useState<{contract: Contract, dueDate: Date} | null>(null);
+    const [upcomingPayments, setUpcomingPayments] = useState<(Contract & { paymentStatus: PaymentStatus })[]>([]);
+    const [isClient, setIsClient] = useState(false);
     const isAdmin = userProfile?.role === 'admin';
 
-    const upcomingPayments = useMemo(() => {
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isClient) return;
+        
         const pendencies: (Contract & { paymentStatus: PaymentStatus })[] = [];
         const today = startOfDay(new Date());
 
@@ -54,20 +62,16 @@ export function RecurringTransactions({ contracts, expenses, userProfile, onDele
             let searchDate = createdAt.toDate();
 
             while (true) {
-                // Calculate potential due date for the current cycle
                 let currentDueDate = new Date(searchDate.getFullYear(), searchDate.getMonth(), paymentDueDate);
 
-                // If the calculated due date is before the start of the cycle (e.g. contract started mid-month), advance to the first real due date
                 if (isBefore(currentDueDate, searchDate)) {
                     currentDueDate = frequencyFunctionMap[paymentFrequency](currentDueDate, 1);
                 }
 
-                // Stop if we're past expiration
                 if (expirationDate && isAfter(currentDueDate, expirationDate.toDate())) {
-                    break; // No more payments for this contract
+                    break;
                 }
                 
-                // Stop if we are looking too far into the future (e.g. more than 1 year ahead) to avoid performance issues.
                 if(differenceInDays(currentDueDate, today) > 365 * 2) {
                     break;
                 }
@@ -80,7 +84,6 @@ export function RecurringTransactions({ contracts, expenses, userProfile, onDele
                 );
 
                 if (!isPaid) {
-                    // We found the first unpaid bill. This is our pendency.
                     const daysRemaining = differenceInDays(currentDueDate, today);
                     let status: 'Vencido' | 'Vence hoje' | 'Vence em breve' | 'Em dia' = 'Em dia';
 
@@ -101,16 +104,15 @@ export function RecurringTransactions({ contracts, expenses, userProfile, onDele
                             isDue: true,
                         }
                     });
-                    break; // Found the first one, stop searching for this contract
+                    break;
                 }
 
-                // If paid, advance to the next cycle
                 searchDate = frequencyFunctionMap[paymentFrequency](currentDueDate, 1);
             }
         });
 
-        return pendencies.sort((a, b) => a.paymentStatus.dueDate.getTime() - b.paymentStatus.dueDate.getTime());
-    }, [contracts, expenses]);
+        setUpcomingPayments(pendencies.sort((a, b) => a.paymentStatus.dueDate.getTime() - b.paymentStatus.dueDate.getTime()));
+    }, [contracts, expenses, isClient]);
 
 
     const handlePayClick = (contract: Contract, dueDate: Date) => {

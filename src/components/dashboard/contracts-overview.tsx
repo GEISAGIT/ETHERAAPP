@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, CalendarClock, CheckCircle2, FileText, Forward, XCircle, CalendarOff, AlertCircleIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { addMonths, addYears, format, differenceInDays, isAfter, isBefore, startOfDay, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -33,88 +33,97 @@ type PaymentStatus = {
 };
 
 export function ContractsOverview({ contracts, expenses }: { contracts: Contract[], expenses: ExpenseTransaction[] }) {
-  
+  const [paymentPendencies, setPaymentPendencies] = useState<(Contract & { paymentStatus: PaymentStatus })[]>([]);
+  const [contractsWithExpiration, setContractsWithExpiration] = useState<(Contract & { daysRemaining: number })[]>([]);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const activeContracts = useMemo(() => contracts.filter(c => c.status === 'active' || c.status === undefined), [contracts]);
 
-  const paymentPendencies = useMemo(() => {
-    const pendencies: (Contract & { paymentStatus: PaymentStatus })[] = [];
-    const today = startOfDay(new Date());
+  useEffect(() => {
+    if (!isClient) return;
 
-    activeContracts.forEach(contract => {
-        if (!contract.paymentDueDate) return;
+    const calculatedPendencies = (() => {
+        const pendencies: (Contract & { paymentStatus: PaymentStatus })[] = [];
+        const today = startOfDay(new Date());
 
-        const { paymentFrequency, paymentDueDate, createdAt, expirationDate } = contract;
-        let searchDate = createdAt.toDate();
+        activeContracts.forEach(contract => {
+            if (!contract.paymentDueDate) return;
 
-        while (true) {
-            // Calculate potential due date for the current cycle
-            let currentDueDate = new Date(searchDate.getFullYear(), searchDate.getMonth(), paymentDueDate);
+            const { paymentFrequency, paymentDueDate, createdAt, expirationDate } = contract;
+            let searchDate = createdAt.toDate();
 
-            // If the calculated due date is before the start of the cycle (e.g. contract started mid-month), advance to the first real due date
-            if (isBefore(currentDueDate, searchDate)) {
-                currentDueDate = frequencyFunctionMap[paymentFrequency](currentDueDate, 1);
-            }
+            while (true) {
+                let currentDueDate = new Date(searchDate.getFullYear(), searchDate.getMonth(), paymentDueDate);
 
-            // Stop if we're past expiration
-            if (expirationDate && isAfter(currentDueDate, expirationDate.toDate())) {
-                break; // No more payments for this contract
-            }
-            
-            // Stop if we are looking too far into the future (e.g. more than 1 year ahead) to avoid performance issues.
-            if(differenceInDays(currentDueDate, today) > 365 * 2) {
-                break;
-            }
+                if (isBefore(currentDueDate, searchDate)) {
+                    currentDueDate = frequencyFunctionMap[paymentFrequency](currentDueDate, 1);
+                }
 
-            const cycleStart = startOfMonth(currentDueDate);
-            const cycleEnd = endOfMonth(currentDueDate);
-            const isPaid = expenses.some(expense => 
-                expense.description === contract.name &&
-                isWithinInterval(expense.date.toDate(), { start: cycleStart, end: cycleEnd })
-            );
-
-            if (!isPaid) {
-                // We found the first unpaid bill. This is our pendency.
-                const daysRemaining = differenceInDays(currentDueDate, today);
-                let status: 'Vencido' | 'Vence hoje' | 'Vence em breve' | 'Em dia' = 'Em dia';
-
-                if (daysRemaining < 0) {
-                    status = 'Vencido';
-                } else if (daysRemaining === 0) {
-                    status = 'Vence hoje';
-                } else if (daysRemaining <= 10) {
-                    status = 'Vence em breve';
+                if (expirationDate && isAfter(currentDueDate, expirationDate.toDate())) {
+                    break;
                 }
                 
-                pendencies.push({
-                    ...contract,
-                    paymentStatus: {
-                        status,
-                        daysRemaining,
-                        dueDate: currentDueDate,
-                        isDue: true,
+                if(differenceInDays(currentDueDate, today) > 365 * 2) {
+                    break;
+                }
+
+                const cycleStart = startOfMonth(currentDueDate);
+                const cycleEnd = endOfMonth(currentDueDate);
+                const isPaid = expenses.some(expense => 
+                    expense.description === contract.name &&
+                    isWithinInterval(expense.date.toDate(), { start: cycleStart, end: cycleEnd })
+                );
+
+                if (!isPaid) {
+                    const daysRemaining = differenceInDays(currentDueDate, today);
+                    let status: 'Vencido' | 'Vence hoje' | 'Vence em breve' | 'Em dia' = 'Em dia';
+
+                    if (daysRemaining < 0) {
+                        status = 'Vencido';
+                    } else if (daysRemaining === 0) {
+                        status = 'Vence hoje';
+                    } else if (daysRemaining <= 10) {
+                        status = 'Vence em breve';
                     }
-                });
-                break; // Found the first one, stop searching for this contract
+                    
+                    pendencies.push({
+                        ...contract,
+                        paymentStatus: {
+                            status,
+                            daysRemaining,
+                            dueDate: currentDueDate,
+                            isDue: true,
+                        }
+                    });
+                    break; 
+                }
+
+                searchDate = frequencyFunctionMap[paymentFrequency](currentDueDate, 1);
             }
+        });
 
-            // If paid, advance to the next cycle
-            searchDate = frequencyFunctionMap[paymentFrequency](currentDueDate, 1);
-        }
-    });
+        return pendencies.sort((a, b) => a.paymentStatus.dueDate.getTime() - b.paymentStatus.dueDate.getTime());
+    })();
+    setPaymentPendencies(calculatedPendencies);
 
-    return pendencies.sort((a, b) => a.paymentStatus.dueDate.getTime() - b.paymentStatus.dueDate.getTime());
-  }, [activeContracts, expenses]);
+    const calculatedExpirations = (() => {
+        const today = new Date();
+        return activeContracts
+          .filter(contract => contract.expirationDate)
+          .map(contract => {
+            const daysRemaining = differenceInDays(contract.expirationDate!.toDate(), today);
+            return { ...contract, daysRemaining };
+          })
+          .sort((a, b) => a.daysRemaining - b.daysRemaining);
+    })();
+    setContractsWithExpiration(calculatedExpirations);
 
-  const contractsWithExpiration = useMemo(() => {
-    const today = new Date();
-    return activeContracts
-      .filter(contract => contract.expirationDate)
-      .map(contract => {
-        const daysRemaining = differenceInDays(contract.expirationDate!.toDate(), today);
-        return { ...contract, daysRemaining };
-      })
-      .sort((a, b) => a.daysRemaining - b.daysRemaining);
-  }, [activeContracts]);
+  }, [activeContracts, expenses, isClient]);
+
 
   const overdueCount = paymentPendencies.filter(p => p.paymentStatus?.status === 'Vencido').length;
 
