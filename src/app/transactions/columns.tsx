@@ -1,6 +1,6 @@
 'use client';
 
-import type { Transaction, ExpenseTransaction, Permissions } from '@/lib/types';
+import type { Transaction, ExpenseTransaction, UserProfile } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Timestamp } from 'firebase/firestore';
 import { MoreHorizontal, Edit, Trash2, Info, Paperclip } from 'lucide-react';
@@ -73,10 +73,10 @@ const DescriptionCell = ({ transaction }: { transaction: Transaction }) => {
 interface ColumnsProps {
     onEdit: (transaction: Transaction) => void;
     onDelete: (transaction: Transaction) => void;
-    permissions: Permissions | undefined;
+    userProfile: UserProfile | null | undefined;
 }
 
-export const columns = ({ onEdit, onDelete, permissions }: ColumnsProps) => [
+export const columns = ({ onEdit, onDelete, userProfile }: ColumnsProps) => [
   {
     accessorKey: 'date',
     header: 'Data',
@@ -176,8 +176,9 @@ export const columns = ({ onEdit, onDelete, permissions }: ColumnsProps) => [
     id: 'actions',
     cell: ({ row }: { row: { original: Transaction } }) => {
       const transaction = row.original;
-      const canEdit = permissions?.transactions.edit ?? false;
-      const canDelete = permissions?.transactions.delete ?? false;
+      const isAdmin = userProfile?.role === 'admin';
+      const canEdit = isAdmin || userProfile?.permissions?.transactions.edit ?? false;
+      const canDelete = isAdmin || userProfile?.permissions?.transactions.delete ?? false;
 
       if (!canEdit && !canDelete) {
         return null;
