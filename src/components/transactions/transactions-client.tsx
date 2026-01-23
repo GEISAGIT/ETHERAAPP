@@ -271,8 +271,8 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
           </TabsContent>
           <TabsContent value="manual" className="space-y-4">
             <TransactionsSummary transactions={filteredData} />
-            <div className="flex flex-col gap-4">
-                <div className="flex flex-col sm:flex-row items-center justify-end gap-2">
+            <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row justify-end gap-2">
                     {permissions?.transactions.view && <Button variant="outline" onClick={handleExport} className="w-full sm:w-auto">
                         <Download className="mr-2 h-4 w-4" />
                         Exportar
