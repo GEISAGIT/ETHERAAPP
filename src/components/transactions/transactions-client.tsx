@@ -254,16 +254,6 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
                 Acompanhe todas as suas receitas e despesas.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {permissions?.transactions.view && <Button variant="outline" onClick={handleExport}>
-                <Download className="mr-2 h-4 w-4" />
-                Exportar
-              </Button>}
-              {permissions?.transactions.create && <>
-                <ImportTransactionsDialog />
-                <AddTransactionDialog />
-              </>}
-            </div>
         </header>
 
         <Tabs defaultValue="recurring" className="space-y-4">
@@ -281,21 +271,33 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
           </TabsContent>
           <TabsContent value="manual" className="space-y-4">
             <TransactionsSummary transactions={filteredData} />
-            <DataTableToolbar
-                searchTerm={searchTerm}
-                onSearchTermChange={setSearchTerm}
-                filterType={filterType}
-                onFilterTypeChange={setFilterType}
-                filterCostType={filterCostType}
-                onFilterCostTypeChange={setFilterCostType}
-                filterCategory={filterCategory}
-                onFilterCategoryChange={setFilterCategory}
-                allCategories={allCategories}
-                filterDate={filterDate}
-                onFilterDateChange={setFilterDate}
-                sortOrder={sortOrder}
-                onSortOrderChange={setSortOrder}
-            />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <DataTableToolbar
+                    searchTerm={searchTerm}
+                    onSearchTermChange={setSearchTerm}
+                    filterType={filterType}
+                    onFilterTypeChange={setFilterType}
+                    filterCostType={filterCostType}
+                    onFilterCostTypeChange={setFilterCostType}
+                    filterCategory={filterCategory}
+                    onFilterCategoryChange={setFilterCategory}
+                    allCategories={allCategories}
+                    filterDate={filterDate}
+                    onFilterDateChange={setFilterDate}
+                    sortOrder={sortOrder}
+                    onSortOrderChange={setSortOrder}
+                />
+                 <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                    {permissions?.transactions.view && <Button variant="outline" onClick={handleExport} className="w-full sm:w-auto">
+                        <Download className="mr-2 h-4 w-4" />
+                        Exportar
+                    </Button>}
+                    {permissions?.transactions.create && <>
+                        <ImportTransactionsDialog />
+                        <AddTransactionDialog />
+                    </>}
+                </div>
+            </div>
             <DataTable columns={dynamicColumns} data={filteredData} />
           </TabsContent>
         </Tabs>
