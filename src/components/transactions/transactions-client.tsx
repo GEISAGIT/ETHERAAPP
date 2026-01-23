@@ -8,7 +8,7 @@ import { ImportTransactionsDialog } from './import-transactions-dialog';
 import { useState, useMemo } from 'react';
 import { EditTransactionDialog } from './edit-transaction-dialog';
 import { DeleteTransactionAlert } from './delete-transaction-alert';
-import { useFirestore, useUser, deleteDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, deleteDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { DataTableToolbar } from '../data-table/data-table-toolbar';
@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RecurringTransactions } from './recurring-transactions';
 import { DeleteContractAlert } from '../settings/delete-contract-alert';
 
-export function TransactionsClient({ data, contracts, expenses, isLoading }: { data: Transaction[], contracts: Contract[], expenses: ExpenseTransaction[], isLoading: boolean }) {
+export function TransactionsClient({ data, contracts, expenses, userProfile, isLoading }: { data: Transaction[], contracts: Contract[], expenses: ExpenseTransaction[], userProfile: UserProfile | null | undefined, isLoading: boolean }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -41,13 +41,6 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
   const [filterDate, setFilterDate] = useState<DateRange | undefined>(undefined);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
-  const userDocRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
-
-  const { data: userProfile } = useDoc<UserProfile>(userDocRef);
-  
   const isAdmin = userProfile?.role === 'admin';
   const canView = !!(isAdmin || userProfile?.permissions?.transactions.view);
   const canCreate = !!(isAdmin || userProfile?.permissions?.transactions.create);
@@ -274,8 +267,7 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
           </TabsContent>
           <TabsContent value="manual" className="space-y-4">
             <TransactionsSummary transactions={filteredData} />
-            <div className="space-y-4">
-               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="flex-1 min-w-0">
                     <DataTableToolbar
                         searchTerm={searchTerm}
@@ -303,7 +295,6 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
                         <AddTransactionDialog />
                     </>}
                 </div>
-              </div>
             </div>
             <DataTable columns={dynamicColumns} data={filteredData} />
           </TabsContent>

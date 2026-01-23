@@ -67,6 +67,7 @@ export default function TransactionsPage() {
         data={data ?? []} 
         contracts={contractsData ?? []}
         expenses={expensesData ?? []}
+        userProfile={userProfile}
         isLoading={isLoading} 
       />
     </AppLayout>
