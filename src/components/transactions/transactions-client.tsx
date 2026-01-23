@@ -250,6 +250,16 @@ export function TransactionsClient({ data, contracts, expenses, userProfile, isL
                 Acompanhe todas as suas receitas e despesas.
               </p>
             </div>
+            <div className="flex items-center gap-2 justify-end">
+                {canView && <Button variant="outline" onClick={handleExport}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Exportar
+                </Button>}
+                {canCreate && <>
+                    <ImportTransactionsDialog />
+                    <AddTransactionDialog />
+                </>}
+            </div>
         </header>
 
         <Tabs defaultValue="recurring" className="space-y-4">
@@ -267,35 +277,21 @@ export function TransactionsClient({ data, contracts, expenses, userProfile, isL
           </TabsContent>
           <TabsContent value="manual" className="space-y-4">
             <TransactionsSummary transactions={filteredData} />
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                    <DataTableToolbar
-                        searchTerm={searchTerm}
-                        onSearchTermChange={setSearchTerm}
-                        filterType={filterType}
-                        onFilterTypeChange={setFilterType}
-                        filterCostType={filterCostType}
-                        onFilterCostTypeChange={setFilterCostType}
-                        filterCategory={filterCategory}
-                        onFilterCategoryChange={setFilterCategory}
-                        allCategories={allCategories}
-                        filterDate={filterDate}
-                        onFilterDateChange={setFilterDate}
-                        sortOrder={sortOrder}
-                        onSortOrderChange={setSortOrder}
-                    />
-                </div>
-                <div className="flex items-center gap-2 justify-end">
-                    {canView && <Button variant="outline" onClick={handleExport}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Exportar
-                    </Button>}
-                    {canCreate && <>
-                        <ImportTransactionsDialog />
-                        <AddTransactionDialog />
-                    </>}
-                </div>
-            </div>
+             <DataTableToolbar
+                searchTerm={searchTerm}
+                onSearchTermChange={setSearchTerm}
+                filterType={filterType}
+                onFilterTypeChange={setFilterType}
+                filterCostType={filterCostType}
+                onFilterCostTypeChange={setFilterCostType}
+                filterCategory={filterCategory}
+                onFilterCategoryChange={setFilterCategory}
+                allCategories={allCategories}
+                filterDate={filterDate}
+                onFilterDateChange={setFilterDate}
+                sortOrder={sortOrder}
+                onSortOrderChange={setSortOrder}
+            />
             <DataTable columns={dynamicColumns} data={filteredData} />
           </TabsContent>
         </Tabs>
