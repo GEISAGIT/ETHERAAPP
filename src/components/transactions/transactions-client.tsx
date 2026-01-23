@@ -271,7 +271,17 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
           </TabsContent>
           <TabsContent value="manual" className="space-y-4">
             <TransactionsSummary transactions={filteredData} />
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row items-center justify-end gap-2">
+                    {permissions?.transactions.view && <Button variant="outline" onClick={handleExport} className="w-full sm:w-auto">
+                        <Download className="mr-2 h-4 w-4" />
+                        Exportar
+                    </Button>}
+                    {permissions?.transactions.create && <>
+                        <ImportTransactionsDialog />
+                        <AddTransactionDialog />
+                    </>}
+                </div>
                 <DataTableToolbar
                     searchTerm={searchTerm}
                     onSearchTermChange={setSearchTerm}
@@ -287,16 +297,6 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
                     sortOrder={sortOrder}
                     onSortOrderChange={setSortOrder}
                 />
-                 <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-                    {permissions?.transactions.view && <Button variant="outline" onClick={handleExport} className="w-full sm:w-auto">
-                        <Download className="mr-2 h-4 w-4" />
-                        Exportar
-                    </Button>}
-                    {permissions?.transactions.create && <>
-                        <ImportTransactionsDialog />
-                        <AddTransactionDialog />
-                    </>}
-                </div>
             </div>
             <DataTable columns={dynamicColumns} data={filteredData} />
           </TabsContent>
