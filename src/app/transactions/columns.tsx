@@ -177,8 +177,8 @@ export const columns = ({ onEdit, onDelete, userProfile }: ColumnsProps) => [
     cell: ({ row }: { row: { original: Transaction } }) => {
       const transaction = row.original;
       const isAdmin = userProfile?.role === 'admin';
-      const canEdit = isAdmin || userProfile?.permissions?.transactions.edit ?? false;
-      const canDelete = isAdmin || userProfile?.permissions?.transactions.delete ?? false;
+      const canEdit = !!(isAdmin || userProfile?.permissions?.transactions.edit);
+      const canDelete = !!(isAdmin || userProfile?.permissions?.transactions.delete);
 
       if (!canEdit && !canDelete) {
         return null;

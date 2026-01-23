@@ -49,11 +49,8 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
   const { data: userProfile } = useDoc<UserProfile>(userDocRef);
   
   const isAdmin = userProfile?.role === 'admin';
-  const can = {
-    view: isAdmin || userProfile?.permissions?.transactions.view,
-    create: isAdmin || userProfile?.permissions?.transactions.create,
-  };
-
+  const canView = !!(isAdmin || userProfile?.permissions?.transactions.view);
+  const canCreate = !!(isAdmin || userProfile?.permissions?.transactions.create);
 
   const allCategories = useMemo(() => {
     const categories = data.map(item => item.category);
@@ -278,30 +275,30 @@ export function TransactionsClient({ data, contracts, expenses, isLoading }: { d
           <TabsContent value="manual" className="space-y-4">
             <TransactionsSummary transactions={filteredData} />
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-                <div className="flex-1">
-                  <DataTableToolbar
-                      searchTerm={searchTerm}
-                      onSearchTermChange={setSearchTerm}
-                      filterType={filterType}
-                      onFilterTypeChange={setFilterType}
-                      filterCostType={filterCostType}
-                      onFilterCostTypeChange={setFilterCostType}
-                      filterCategory={filterCategory}
-                      onFilterCategoryChange={setFilterCategory}
-                      allCategories={allCategories}
-                      filterDate={filterDate}
-                      onFilterDateChange={setFilterDate}
-                      sortOrder={sortOrder}
-                      onSortOrderChange={setSortOrder}
-                  />
+               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                    <DataTableToolbar
+                        searchTerm={searchTerm}
+                        onSearchTermChange={setSearchTerm}
+                        filterType={filterType}
+                        onFilterTypeChange={setFilterType}
+                        filterCostType={filterCostType}
+                        onFilterCostTypeChange={setFilterCostType}
+                        filterCategory={filterCategory}
+                        onFilterCategoryChange={setFilterCategory}
+                        allCategories={allCategories}
+                        filterDate={filterDate}
+                        onFilterDateChange={setFilterDate}
+                        sortOrder={sortOrder}
+                        onSortOrderChange={setSortOrder}
+                    />
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    {can.view && <Button variant="outline" onClick={handleExport} className="w-full sm:w-auto">
+                <div className="flex items-center gap-2 justify-end">
+                    {canView && <Button variant="outline" onClick={handleExport}>
                         <Download className="mr-2 h-4 w-4" />
                         Exportar
                     </Button>}
-                    {can.create && <>
+                    {canCreate && <>
                         <ImportTransactionsDialog />
                         <AddTransactionDialog />
                     </>}
