@@ -95,6 +95,7 @@ export type Permissions = {
   budgets: CrudActions;
   reports: ViewOnlyActions;
   upload: CrudActions;
+  apiBank: ViewOnlyActions;
   userManagement: CrudActions;
   profile: ViewEditActions;
   settings: ViewOnlyActions;

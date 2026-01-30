@@ -26,6 +26,7 @@ const allPermissionsConfig: {
   { key: 'budgets', label: 'Orçamentos', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'reports', label: 'Relatórios', actions: ['view'] },
   { key: 'upload', label: 'Upload de Arquivos', actions: ['view', 'create', 'edit', 'delete'] },
+  { key: 'apiBank', label: 'API BANK (BETA)', actions: ['view'] },
   { key: 'userManagement', label: 'Gerenciar Usuários', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'profile', label: 'Perfil', actions: ['view', 'edit'] },
   { key: 'settings', label: 'Configurações', actions: ['view'] },

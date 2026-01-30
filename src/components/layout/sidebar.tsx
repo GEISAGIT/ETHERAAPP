@@ -8,7 +8,7 @@ import {
   SidebarMenuButton,
   SidebarHeader,
 } from '@/components/ui/sidebar';
-import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings, User, Upload, Users } from 'lucide-react';
+import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings, User, Upload, Users, Banknote } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
 import { useDoc, useMemoFirebase } from '@/firebase';
@@ -22,6 +22,7 @@ const allMenuItems = [
   { key: 'budgets' as MenuItemKey, href: '/budgets', label: 'Orçamentos', icon: PiggyBank },
   { key: 'reports' as MenuItemKey, href: '/reports', label: 'Relatórios', icon: BarChart3 },
   { key: 'upload' as MenuItemKey, href: '/upload', label: 'Upload', icon: Upload },
+  { key: 'apiBank' as MenuItemKey, href: '/api-bank', label: 'API BANK (BETA)', icon: Banknote },
   { key: 'userManagement' as MenuItemKey, href: '/user-management', label: 'Gerenciar Usuários', icon: Users, adminOnly: true },
   { key: 'profile' as MenuItemKey, href: '/profile', label: 'Perfil', icon: User },
   { key: 'settings' as MenuItemKey, href: '/settings', label: 'Configurações', icon: Settings },
