@@ -72,10 +72,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     userError: null,
   });
 
+  const areServicesAvailable = !!(firebaseApp && firestore && auth && storage);
+
   // Effect to subscribe to Firebase auth state changes
   useEffect(() => {
     if (!auth) { // If no Auth service instance, cannot determine user state
-      setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
+      setUserAuthState({ user: null, isUserLoading: false, userError: null });
       return;
     }
 
@@ -96,18 +98,33 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   // Memoize the context value
   const contextValue = useMemo((): FirebaseContextState => {
-    const servicesAvailable = !!(firebaseApp && firestore && auth && storage);
     return {
-      areServicesAvailable: servicesAvailable,
-      firebaseApp: servicesAvailable ? firebaseApp : null,
-      firestore: servicesAvailable ? firestore : null,
-      auth: servicesAvailable ? auth : null,
-      storage: servicesAvailable ? storage : null,
+      areServicesAvailable: areServicesAvailable,
+      firebaseApp: areServicesAvailable ? firebaseApp : null,
+      firestore: areServicesAvailable ? firestore : null,
+      auth: areServicesAvailable ? auth : null,
+      storage: areServicesAvailable ? storage : null,
       user: userAuthState.user,
       isUserLoading: userAuthState.isUserLoading,
       userError: userAuthState.userError,
     };
-  }, [firebaseApp, firestore, auth, storage, userAuthState]);
+  }, [areServicesAvailable, firebaseApp, firestore, auth, storage, userAuthState]);
+
+  if (!areServicesAvailable) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background text-foreground">
+        <div className="max-w-lg rounded-lg border border-destructive bg-card p-8 text-center shadow-2xl">
+          <h1 className="text-2xl font-bold text-destructive">Firebase Not Configured</h1>
+          <p className="mt-2 text-card-foreground">
+            The application cannot connect to Firebase.
+          </p>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Please make sure you have a valid <code>.env.local</code> file in the root of your project with your Firebase project configuration. You can copy the structure from <code>.env.example</code>.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <FirebaseContext.Provider value={contextValue}>
