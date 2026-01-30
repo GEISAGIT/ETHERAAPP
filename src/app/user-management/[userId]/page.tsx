@@ -113,7 +113,7 @@ function UserAccessControlPage() {
     }, 500);
   };
 
-  const pageLoading = isUserLoading || isTargetUserLoading || !permissions;
+  const pageLoading = isUserLoading || isTargetUserLoading;
 
   if (pageLoading) {
     return (
