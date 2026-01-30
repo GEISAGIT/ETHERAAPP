@@ -80,7 +80,6 @@ export function DashboardClient({ transactions, budgets, contracts, expenses, is
             <h1 className="font-headline text-3xl font-bold tracking-tight">
               Painel
             </h1>
-            <Badge variant="outline" className="border-yellow-500 text-yellow-500">Ambiente de Teste</Badge>
           </div>
           <p className="text-muted-foreground">
             Bem-vindo de volta! Aqui está um resumo das finanças da sua clínica.
