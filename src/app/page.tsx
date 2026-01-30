@@ -1,21 +1,20 @@
 'use client';
 
-import { useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useDoc, useMemoFirebase, useAuth, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
-import { doc, getFirestore } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
-import { signOut, getAuth } from 'firebase/auth';
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
-  const firestore = getFirestore();
-  const auth = getAuth();
+  const firestore = useFirestore();
+  const auth = useAuth();
 
   const userDocRef = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
 

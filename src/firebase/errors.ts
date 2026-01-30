@@ -1,5 +1,5 @@
 'use client';
-import { getAuth, type User } from 'firebase/auth';
+import { getAuth, getApp, getApps, type User } from 'firebase/auth';
 
 type SecurityRuleContext = {
   path: string;
@@ -77,15 +77,19 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
 function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
   try {
-    // Safely attempt to get the current user.
-    const firebaseAuth = getAuth();
-    const currentUser = firebaseAuth.currentUser;
-    if (currentUser) {
-      authObject = buildAuthObject(currentUser);
+    // Safely attempt to get the current user, only if an app is initialized.
+    if (getApps().length > 0) {
+        const firebaseApp = getApp();
+        const firebaseAuth = getAuth(firebaseApp);
+        const currentUser = firebaseAuth.currentUser;
+        if (currentUser) {
+          authObject = buildAuthObject(currentUser);
+        }
     }
-  } catch {
-    // This will catch errors if the Firebase app is not yet initialized.
+  } catch(e) {
+    // This will catch errors if the Firebase app is not yet initialized or something else goes wrong.
     // In this case, we'll proceed without auth information.
+    console.warn("Could not retrieve auth object for error reporting:", e);
   }
 
   return {

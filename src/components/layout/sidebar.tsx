@@ -10,9 +10,9 @@ import {
 } from '@/components/ui/sidebar';
 import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings, User, Upload, Users } from 'lucide-react';
 import Link from 'next/link';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase';
 import { useDoc, useMemoFirebase } from '@/firebase';
-import { doc, getFirestore } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import type { MenuItemKey, UserProfile, Permissions } from '@/lib/types';
 import { useMemo } from 'react';
 
@@ -32,10 +32,10 @@ export function AppSidebar() {
   const pathname = usePathname();
   const logoUrl = 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media&token=c68144ba-c10e-4921-8fe7-eb791d34eebe';
   const { user } = useUser();
-  const firestore = getFirestore();
+  const firestore = useFirestore();
 
   const userDocRef = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
 
