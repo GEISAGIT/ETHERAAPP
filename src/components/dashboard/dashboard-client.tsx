@@ -17,6 +17,7 @@ import { ptBR } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 import { ContractsOverview } from './contracts-overview';
+import { Badge } from '@/components/ui/badge';
 
 
 export function DashboardClient({ transactions, budgets, contracts, expenses, isLoading }: { transactions: Transaction[], budgets: Budget[], contracts: Contract[], expenses: ExpenseTransaction[], isLoading: boolean }) {
@@ -75,9 +76,12 @@ export function DashboardClient({ transactions, budgets, contracts, expenses, is
     <div className="flex flex-col gap-8">
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div>
-          <h1 className="font-headline text-3xl font-bold tracking-tight">
-            Painel
-          </h1>
+          <div className="flex items-center gap-4">
+            <h1 className="font-headline text-3xl font-bold tracking-tight">
+              Painel
+            </h1>
+            <Badge variant="outline" className="border-yellow-500 text-yellow-500">Ambiente de Teste</Badge>
+          </div>
           <p className="text-muted-foreground">
             Bem-vindo de volta! Aqui está um resumo das finanças da sua clínica.
           </p>
