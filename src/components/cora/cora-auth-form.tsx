@@ -2,10 +2,11 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CORA_CLIENT_ID } from '@/lib/constants';
 
 export function CoraAuthForm() {
   const handleLogin = () => {
-    const clientId = 'app-5PvHrdVlMh7NZiLrcgvKbO';
+    const clientId = CORA_CLIENT_ID;
     const scopes = 'invoice account payment';
     
     // Hardcoded redirect URI for production testing

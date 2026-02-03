@@ -2,9 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { CORA_CLIENT_ID } from '@/lib/constants';
 
 export async function exchangeCodeForToken(code: string, redirectUri: string) {
-  const clientId = 'app-5PvHrdVlMh7NZiLrcgvKbO';
+  const clientId = CORA_CLIENT_ID;
   const clientSecret = process.env.CORA_CLIENT_SECRET;
 
   if (!clientSecret) {
