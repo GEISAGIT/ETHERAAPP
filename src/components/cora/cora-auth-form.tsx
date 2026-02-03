@@ -5,13 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 export function CoraAuthForm() {
   const handleLogin = () => {
-    // This makes the URL generation dynamic, working on localhost, preview URLs,
-    // and the final production domain without code changes.
     const clientId = 'app-5PvHrdVlMh7NZiLrcgvKbO';
     const scopes = 'invoice account payment';
     
-    // Dynamically create the redirect URI based on the current window's origin
-    const redirectUri = `${window.location.origin}/api-bank/callback`;
+    // Hardcoded redirect URI for production testing
+    const redirectUri = 'http://etheraapp.com/api-bank/callback';
     
     const authUrl = `https://api.stage.cora.com.br/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scopes=${scopes}`;
     

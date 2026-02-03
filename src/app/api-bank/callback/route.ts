@@ -9,13 +9,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/api-bank?error=authorization_failed', request.url));
   }
 
-  // The redirect_uri must match exactly what was sent in the initial authorization request.
-  // We use the request's origin to ensure it works on localhost, preview URLs, and the final domain.
-  const redirectUri = `${request.nextUrl.origin}/api-bank/callback`;
+  // Hardcoded redirect URI to match what's configured in Cora for the production app
+  const redirectUri = 'http://etheraapp.com/api-bank/callback';
 
   try {
     const tokenData = await exchangeCodeForToken(code, redirectUri);
-    // On success, redirect to the bank page with a success message
+    // On success, redirect the user's browser back to the bank page within the current app origin
     return NextResponse.redirect(new URL('/api-bank?success=true', request.url));
 
   } catch (error: any) {
