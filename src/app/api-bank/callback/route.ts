@@ -1,4 +1,3 @@
-'use client';
 import { exchangeCodeForToken } from '@/app/api-bank/actions';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -8,7 +7,7 @@ export async function GET(request: NextRequest) {
 
   const getOrigin = () => {
     const proto = request.headers.get('x-forwarded-proto') || 'http';
-    const host = request.headers.get('host');
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
     if (!host) {
       // Fallback for local development if host header is not present
       return request.nextUrl.origin;
