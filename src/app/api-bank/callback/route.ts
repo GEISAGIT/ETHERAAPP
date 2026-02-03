@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -6,20 +6,25 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get('state');
   const error = searchParams.get('error');
 
-  const exchangeUrl = new URL('/api-bank/exchange', request.url);
+  const baseUrl = 'http://etheraapp.com';
+  // The destination is the new exchange page to handle the token logic
+  const exchangeUrl = new URL('/api-bank/exchange', baseUrl);
 
   if (error) {
     exchangeUrl.searchParams.set('error', error);
-    return NextResponse.redirect(exchangeUrl);
-  }
-
-  if (!code || !state) {
+  } else if (!code || !state) {
     exchangeUrl.searchParams.set('error', 'authorization_failed');
-    return NextResponse.redirect(exchangeUrl);
+  } else {
+    exchangeUrl.searchParams.set('code', code);
+    exchangeUrl.searchParams.set('state', state);
   }
 
-  exchangeUrl.searchParams.set('code', code);
-  exchangeUrl.searchParams.set('state', state);
-
-  return NextResponse.redirect(exchangeUrl);
+  // Manually construct the redirect response. This is more robust
+  // in this specific hosting environment.
+  return new Response(null, {
+    status: 302, // Temporary Redirect
+    headers: {
+      'Location': exchangeUrl.toString(),
+    },
+  });
 }
