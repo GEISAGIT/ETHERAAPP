@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 export function CoraAuthForm() {
   const handleLogin = () => {
-    // Usando exatamente a URL fornecida pelo usuário para evitar qualquer problema de codificação.
-    const authUrl = 'https://api.stage.cora.com.br/oauth/authorize?client_id=app-5PvHrdVlMh7NZiLrcgvKbO&response_type=code&redirect_uri=http://localhost:9002/api-bank/callback&scopes=invoice%20account%20payment';
+    // Usando exatamente a URL fornecida pelo usuário para o ambiente de produção.
+    const authUrl = 'https://api.stage.cora.com.br/oauth/authorize?client_id=app-5PvHrdVlMh7NZiLrcgvKbO&response_type=code&redirect_uri=http://etheraapp.com/api-bank/callback&scopes=invoice%20account%20payment';
     window.location.href = authUrl;
   };
 
