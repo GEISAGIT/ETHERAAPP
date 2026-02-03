@@ -1,7 +1,6 @@
 'use server';
 import { exchangeCodeForToken } from '@/app/api-bank/actions';
-import { NextRequest } from 'next/server';
-import { redirect } from 'next/navigation';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -10,16 +9,28 @@ export async function GET(request: NextRequest) {
   const finalRedirectOrigin = 'http://etheraapp.com';
 
   if (!code) {
-    redirect(`${finalRedirectOrigin}/api-bank?error=authorization_failed`);
+    const url = `${finalRedirectOrigin}/api-bank?error=authorization_failed`;
+    return new NextResponse(null, {
+        status: 302,
+        headers: { 'Location': url },
+    });
   }
 
   const redirectUri = 'http://etheraapp.com/api-bank/callback';
 
   try {
     const tokenData = await exchangeCodeForToken(code, redirectUri);
-    redirect(`${finalRedirectOrigin}/api-bank?success=true`);
+    const url = `${finalRedirectOrigin}/api-bank?success=true`;
+     return new NextResponse(null, {
+        status: 302,
+        headers: { 'Location': url },
+    });
 
   } catch (error: any) {
-    redirect(`${finalRedirectOrigin}/api-bank?error=${encodeURIComponent(error.message)}`);
+    const url = `${finalRedirectOrigin}/api-bank?error=${encodeURIComponent(error.message)}`;
+    return new NextResponse(null, {
+        status: 302,
+        headers: { 'Location': url },
+    });
   }
 }
