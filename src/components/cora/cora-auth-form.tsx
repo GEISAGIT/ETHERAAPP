@@ -14,9 +14,9 @@ export function CoraAuthForm() {
 
     const scopes = 'invoice account payment';
 
-    // Manually construct the URL to be identical to the one that works,
-    // encoding spaces in scopes as '%20'.
-    const authUrl = `https://api.stage.cora.com.br/oauth/authorize?client_id=${clientId}&response_type=${responseType}&redirect_uri=${encodeURIComponent(redirectUri)}&scopes=${scopes.replace(/ /g, '%20')}`;
+    // Correctly construct the URL without encoding the redirect_uri parameter value.
+    // The browser will handle sending it as part of the query string.
+    const authUrl = `https://api.stage.cora.com.br/oauth/authorize?client_id=${clientId}&response_type=${responseType}&redirect_uri=${redirectUri}&scopes=${scopes.replace(/ /g, '%20')}`;
 
     window.location.href = authUrl;
   };
