@@ -12,6 +12,8 @@ function ApiBankContent() {
   const success = searchParams.get('success');
   const error = searchParams.get('error');
 
+  const isConfigError = error === 'Cora client secret is not configured.';
+
   return (
     <div className="space-y-8">
       <header>
@@ -38,7 +40,15 @@ function ApiBankContent() {
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Falha na Conexão</AlertTitle>
           <AlertDescription>
-            Ocorreu um erro ao tentar conectar com a Cora: {error}
+            {isConfigError ? (
+              <div className="space-y-2">
+                <p><strong>Ação necessária:</strong> A configuração do aplicativo está incompleta.</p>
+                <p>A variável de ambiente `CORA_CLIENT_SECRET` não foi definida no arquivo <strong>.env</strong>.</p>
+                <p>Por favor, adicione sua chave secreta da Cora a este arquivo para continuar.</p>
+              </div>
+            ) : (
+              <>Ocorreu um erro ao tentar conectar com a Cora: {error}</>
+            )}
           </AlertDescription>
         </Alert>
       )}
