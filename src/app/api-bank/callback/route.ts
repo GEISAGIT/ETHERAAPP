@@ -10,9 +10,8 @@ export async function GET(request: NextRequest) {
   }
 
   // The redirect_uri must match exactly what was sent in the initial authorization request.
-  const redirectUri = request.nextUrl.origin.includes('localhost')
-    ? 'http://localhost:9002/api-bank/callback'
-    : 'https://etheraapp.com/api-bank/callback';
+  // We use the request's origin to ensure it works on localhost, preview URLs, and the final domain.
+  const redirectUri = `${request.nextUrl.origin}/api-bank/callback`;
 
   try {
     const tokenData = await exchangeCodeForToken(code, redirectUri);
