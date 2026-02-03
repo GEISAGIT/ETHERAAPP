@@ -146,3 +146,12 @@ export type Contract = {
     description: string;
   }
 };
+
+export type CoraToken = {
+    userId: string;
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: Timestamp;
+    scope: string;
+    tokenType: string;
+};

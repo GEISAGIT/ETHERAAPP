@@ -450,6 +450,21 @@
         }
       },
       "required": ["id", "userId", "name", "type", "paymentFrequency", "status", "createdAt", "updatedAt"]
+    },
+    "CoraToken": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CoraToken",
+      "type": "object",
+      "description": "Stores OAuth tokens for the Cora API.",
+      "properties": {
+        "userId": { "type": "string", "description": "The ID of the user this token belongs to." },
+        "accessToken": { "type": "string" },
+        "refreshToken": { "type": "string" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "scope": { "type": "string" },
+        "tokenType": { "type": "string" }
+      },
+      "required": ["userId", "accessToken", "refreshToken", "expiresAt"]
     }
   },
   "auth": {
@@ -473,6 +488,20 @@
               "name": "userId",
               "description": "The unique identifier for the user."
             }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/coraTokens/{tokenId}",
+        "definition": {
+          "entityName": "CoraToken",
+          "schema": {
+            "$ref": "#/backend/entities/CoraToken"
+          },
+          "description": "Stores Cora API OAuth tokens for a specific user.",
+          "params": [
+            { "name": "userId", "description": "The unique identifier for the user." },
+            { "name": "tokenId", "description": "The unique identifier for the token record." }
           ]
         }
       },

@@ -3,16 +3,25 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CORA_CLIENT_ID } from '@/lib/constants';
+import { useUser } from '@/firebase';
 
 export function CoraAuthForm() {
+  const { user } = useUser();
+
   const handleLogin = () => {
+    if (!user) {
+      // Handle case where user is not logged in
+      console.error("User not logged in");
+      return;
+    }
     const clientId = CORA_CLIENT_ID;
     const scopes = 'invoice account payment';
-    
-    // Hardcoded redirect URI for production testing
     const redirectUri = 'http://etheraapp.com/api-bank/callback';
+
+    // Pass the userId in the state parameter
+    const state = btoa(JSON.stringify({ userId: user.uid }));
     
-    const authUrl = `https://api.stage.cora.com.br/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scopes=${scopes}`;
+    const authUrl = `https://api.stage.cora.com.br/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scopes=${scopes}&state=${state}`;
     
     window.location.href = authUrl;
   };
@@ -27,7 +36,7 @@ export function CoraAuthForm() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-            <Button onClick={handleLogin}>
+            <Button onClick={handleLogin} disabled={!user}>
               Autorizar Acesso à Conta Cora
             </Button>
             <p className="rounded-md border border-amber-500 bg-amber-50 p-4 text-sm font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">

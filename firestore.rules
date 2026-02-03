@@ -47,6 +47,10 @@ service cloud.firestore {
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
+
+      match /coraTokens/{tokenId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     match /roles/{roleId} {
