@@ -8,33 +8,32 @@ export async function GET(request: NextRequest) {
   console.log('Callback route hit. Full URL:', request.url);
   console.log('Received authorization code:', code);
 
+  // This must be the final public URL of your app.
   const finalRedirectUrlBase = 'http://etheraapp.com/api-bank';
 
   if (!code) {
-    const errorUrl = `${finalRedirectUrlBase}?error=authorization_failed`;
-    return new NextResponse(
-        `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${errorUrl}" /></head><body>Redirecionando...</body></html>`,
-        { headers: { 'Content-Type': 'text/html' } }
-    );
+    const errorUrl = new URL(finalRedirectUrlBase);
+    errorUrl.searchParams.set('error', 'authorization_failed');
+    return NextResponse.redirect(errorUrl);
   }
 
+  // The redirect URI used in the token exchange must EXACTLY match the one used in the auth request
   const redirectUriForTokenExchange = 'http://etheraapp.com/api-bank/callback';
 
   try {
     const tokenData = await exchangeCodeForToken(code, redirectUriForTokenExchange);
-    const successUrl = `${finalRedirectUrlBase}?success=true`;
-    console.log('Token exchange successful. Redirecting to:', successUrl);
-    return new NextResponse(
-        `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${successUrl}" /></head><body>Redirecionando...</body></html>`,
-        { headers: { 'Content-Type': 'text/html' } }
-    );
+
+    const successUrl = new URL(finalRedirectUrlBase);
+    successUrl.searchParams.set('success', 'true');
+    console.log('Token exchange successful. Redirecting to:', successUrl.toString());
+    return NextResponse.redirect(successUrl);
+
   } catch (error: any) {
-    const errorUrl = `${finalRedirectUrlBase}?error=${encodeURIComponent(error.message)}`;
+    const errorUrl = new URL(finalRedirectUrlBase);
+    // Use encodeURIComponent to handle special characters in the error message
+    errorUrl.searchParams.set('error', error.message || 'token_exchange_failed');
     console.error('Error during token exchange:', error.message);
-    console.log('Redirecting to error page:', errorUrl);
-    return new NextResponse(
-        `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=${errorUrl}" /></head><body>Redirecionando...</body></html>`,
-        { headers: { 'Content-Type': 'text/html' } }
-    );
+    console.log('Redirecting to error page:', errorUrl.toString());
+    return NextResponse.redirect(errorUrl);
   }
 }
