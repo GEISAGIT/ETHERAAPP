@@ -4,12 +4,13 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { CORA_CLIENT_ID } from '@/lib/constants';
 
-export async function exchangeCodeForToken(code: string): Promise<any> {
+export async function exchangeCodeForToken(code: string): Promise<{ data?: any, error?: string }> {
   const clientId = CORA_CLIENT_ID;
   const clientSecret = process.env.CORA_CLIENT_SECRET;
 
   if (!clientSecret) {
-    throw new Error('Cora client secret is not configured.');
+    console.error("CRITICAL: CORA_CLIENT_SECRET is not configured in environment variables.");
+    return { error: 'A variável de ambiente CORA_CLIENT_SECRET não foi definida no servidor.' };
   }
 
   const tokenUrl = 'https://api.stage.cora.com.br/oauth/token';
@@ -32,18 +33,18 @@ export async function exchangeCodeForToken(code: string): Promise<any> {
       body: params.toString(),
     });
 
-    const data = await response.json();
+    const responseData = await response.json();
 
     if (!response.ok) {
-      console.error('Error from Cora API:', data);
-      throw new Error(data.error_description || 'Failed to exchange code for token.');
+      console.error('Error from Cora API during token exchange:', responseData);
+      return { error: responseData.error_description || 'Falha ao trocar o código pelo token na API da Cora.' };
     }
     
-    return data;
+    return { data: responseData };
 
-  } catch (error) {
-    console.error('Error exchanging code for token:', error);
-    throw error;
+  } catch (error: any) {
+    console.error('Network or other error during token exchange:', error);
+    return { error: 'Ocorreu um erro de comunicação ao tentar conectar com a Cora.' };
   }
 }
 

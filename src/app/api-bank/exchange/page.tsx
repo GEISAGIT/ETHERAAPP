@@ -21,6 +21,7 @@ function ExchangeToken() {
   const { toast } = useToast();
   
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<'loading' | 'error' | 'success'>('loading');
 
   useEffect(() => {
     const code = searchParams.get('code');
@@ -29,11 +30,13 @@ function ExchangeToken() {
 
     if (errorParam) {
       setError(`Ocorreu um erro durante a autorização: ${errorParam}`);
+      setStatus('error');
       return;
     }
 
     if (!code || !state) {
       setError('Parâmetros de autorização inválidos.');
+      setStatus('error');
       return;
     }
 
@@ -48,22 +51,26 @@ function ExchangeToken() {
       userIdFromState = JSON.parse(atob(state)).userId;
     } catch (e) {
       setError('Parâmetro de estado inválido ou corrompido.');
+      setStatus('error');
       return;
     }
 
     if (user.uid !== userIdFromState) {
         setError('A sessão do usuário não corresponde à solicitação de autorização. Por segurança, o processo foi interrompido.');
+        setStatus('error');
         return;
     }
 
     const processToken = async () => {
-      try {
-        const tokenData = await exchangeCodeForToken(code);
+        const result = await exchangeCodeForToken(code);
         
-        if (tokenData.error) {
-            throw new Error(tokenData.error_description || tokenData.error);
+        if (result.error) {
+            setError(result.error);
+            setStatus('error');
+            return;
         }
 
+        const tokenData = result.data;
         const expiresAt = Timestamp.fromMillis(Date.now() + tokenData.expires_in * 1000);
 
         const coraToken: CoraToken = {
@@ -77,7 +84,6 @@ function ExchangeToken() {
 
         const tokenDocRef = doc(firestore, 'users', user.uid, 'coraTokens', 'cora-token');
         
-        // This is a non-blocking call
         setDocumentNonBlocking(tokenDocRef, coraToken, { merge: true });
 
         toast({
@@ -85,25 +91,29 @@ function ExchangeToken() {
           description: 'Sua conta Cora foi conectada com sucesso.',
         });
 
+        setStatus('success');
         router.push('/api-bank');
-
-      } catch (e: any) {
-        console.error('Error exchanging code for token:', e);
-        setError(e.message || 'Falha ao trocar o código de autorização pelo token de acesso.');
-      }
     };
 
     processToken();
   }, [searchParams, router, firestore, user, toast]);
 
-  if (error) {
+  if (status === 'error') {
     return (
         <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
             <Alert variant="destructive" className="max-w-lg">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Falha na Conexão</AlertTitle>
+              <AlertTitle>Falha na Conexão com a Cora</AlertTitle>
               <AlertDescription>
-                <p>{error}</p>
+                <p>
+                  Não foi possível finalizar a conexão. Ocorreu o seguinte erro:
+                </p>
+                <p className="mt-2 font-mono bg-destructive/10 p-2 rounded-md text-xs">
+                  {error || "Erro desconhecido."}
+                </p>
+                <p className="mt-4">
+                  Isso geralmente acontece se a variável de ambiente `CORA_CLIENT_SECRET` não foi configurada corretamente.
+                </p>
                 <Button asChild variant="link" className="p-0 mt-2">
                     <Link href="/api-bank">Tentar Novamente</Link>
                 </Button>
