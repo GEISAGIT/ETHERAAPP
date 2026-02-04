@@ -30,29 +30,40 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
 
     const handleGetBalance = async (accessToken: string) => {
         setIsLoading(true);
-        try {
-            const balanceData = await getAccountBalance(accessToken);
-            setBalance(balanceData.amount);
-        } catch (error: any) {
-             if (error.message.includes('token')) { // Simple check for expired token
-                handleRefreshToken();
-             } else {
+        const result = await getAccountBalance(accessToken);
+        
+        if (result.error) {
+            if (result.isTokenError) {
+                toast({
+                    title: 'Sessão expirada',
+                    description: 'Seu token de acesso expirou. Tentando renovar...',
+                });
+                await handleRefreshToken();
+            } else {
                 toast({
                     variant: 'destructive',
                     title: 'Erro ao buscar saldo',
-                    description: error.message || 'Não foi possível buscar o saldo.'
+                    description: result.error || 'Não foi possível buscar o saldo.'
                 });
-             }
-        } finally {
+                setIsLoading(false);
+            }
+        } else if (result.data) {
+            setBalance(result.data.amount);
             setIsLoading(false);
         }
     }
 
     const handleRefreshToken = async () => {
         if (!user || !firestore) return;
-        setIsLoading(true);
-        try {
-            const newTokenData = await refreshCoraToken(token.refreshToken);
+        // setIsLoading is already true from handleGetBalance
+        
+        const result = await refreshCoraToken(token.refreshToken);
+
+        if (result.error) {
+             toast({ variant: 'destructive', title: 'Falha ao atualizar token', description: result.error });
+             setIsLoading(false);
+        } else if (result.data) {
+            const newTokenData = result.data;
             const newExpiresAt = Timestamp.fromMillis(Date.now() + newTokenData.expires_in * 1000);
             
             const newToken: Partial<CoraToken> = {
@@ -63,16 +74,14 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
             const tokenDocRef = doc(firestore, 'users', user.uid, 'coraTokens', 'cora-token');
             setDocumentNonBlocking(tokenDocRef, newToken, { merge: true });
 
-            toast({ title: 'Token atualizado!', description: 'Seu token de acesso foi atualizado. Tentando buscar saldo novamente.' });
+            toast({ title: 'Token atualizado!', description: 'Seu token de acesso foi atualizado. Buscando saldo novamente.' });
             
-            // Retry getting balance with the new token
+            // Retry getting balance with the new token.
+            // The handleGetBalance will set loading to false.
             await handleGetBalance(newTokenData.access_token);
-
-        } catch (e: any) {
-            toast({ variant: 'destructive', title: 'Falha ao atualizar token', description: e.message });
-            setIsLoading(false);
         }
     }
+
 
     return (
         <Card>

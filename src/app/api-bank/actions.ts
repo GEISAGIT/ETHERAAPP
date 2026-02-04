@@ -48,7 +48,7 @@ export async function exchangeCodeForToken(code: string): Promise<{ data?: any, 
   }
 }
 
-export async function getAccountBalance(accessToken: string): Promise<any> {
+export async function getAccountBalance(accessToken: string): Promise<{ data?: any; error?: string; isTokenError?: boolean; }> {
     const balanceUrl = 'https://api.stage.cora.com.br/v1/account/balance';
     try {
         const response = await fetch(balanceUrl, {
@@ -60,21 +60,25 @@ export async function getAccountBalance(accessToken: string): Promise<any> {
         const data = await response.json();
         if (!response.ok) {
             console.error('Error getting balance from Cora:', data);
-            throw new Error(data.message || 'Failed to get balance.');
+            // Check if it's a token-related error
+            const isTokenError = response.status === 401 || (data.message && data.message.toLowerCase().includes('token'));
+            return { error: data.message || 'Falha ao buscar o saldo.', isTokenError };
         }
-        return data;
-    } catch (error) {
+        return { data };
+    } catch (error: any) {
         console.error('Error getting account balance:', error);
-        throw error;
+        return { error: error.message || 'Ocorreu um erro de rede ao buscar o saldo.' };
     }
 }
 
-export async function refreshCoraToken(refreshToken: string): Promise<any> {
+export async function refreshCoraToken(refreshToken: string): Promise<{ data?: any; error?: string }> {
     const clientId = CORA_CLIENT_ID;
     const clientSecret = process.env.CORA_CLIENT_SECRET;
 
     if (!clientSecret) {
-        throw new Error('Cora client secret is not configured.');
+        const errorMessage = 'Cora client secret is not configured.';
+        console.error(errorMessage);
+        return { error: errorMessage };
     }
 
     const tokenUrl = 'https://api.stage.cora.com.br/oauth/token';
@@ -95,11 +99,11 @@ export async function refreshCoraToken(refreshToken: string): Promise<any> {
         const data = await response.json();
         if (!response.ok) {
             console.error('Error refreshing token:', data);
-            throw new Error(data.error_description || 'Failed to refresh token.');
+            return { error: data.error_description || 'Falha ao atualizar o token.' };
         }
-        return data;
-    } catch (error) {
+        return { data };
+    } catch (error: any) {
         console.error('Error refreshing token:', error);
-        throw error;
+        return { error: error.message || 'Ocorreu um erro de rede ao atualizar o token.' };
     }
 }
