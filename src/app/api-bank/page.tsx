@@ -288,7 +288,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                 }
             },
             services: [{
-                name: values.serviceDescription,
+                name: "Serviço Prestado",
                 description: values.serviceDescription,
                 amount: Math.round(values.amount * 100), // convert to cents
             }],
