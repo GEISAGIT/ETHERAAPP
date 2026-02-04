@@ -62,7 +62,7 @@ const boletoFormSchema = z.object({
   }, "CEP inválido. Deve conter 8 números."),
   customerAddressComplement: z.string().optional(),
   serviceDescription: z.string().min(5, "Descrição é obrigatória."),
-  amount: z.coerce.number().positive("O valor deve ser maior que zero."),
+  amount: z.coerce.number().min(5, "O valor mínimo para emissão de boleto é de R$ 5,00."),
   dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.'}),
 });
 
@@ -793,3 +793,5 @@ export default function ApiBankPage() {
         </AppLayout>
     )
 }
+
+    
