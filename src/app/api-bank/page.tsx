@@ -221,10 +221,10 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 {dateRange?.from ? (
                                     dateRange.to ? (
                                     <>
-                                        {format(dateRange.from, "dd/MM/yy")} - {format(dateRange.to, "dd/MM/yy")}
+                                        {format(dateRange.from, "dd/MM/yy", { locale: ptBR })} - {format(dateRange.to, "dd/MM/yy", { locale: ptBR })}
                                     </>
                                     ) : (
-                                    format(dateRange.from, "dd/MM/yy")
+                                    format(dateRange.from, "dd/MM/yy", { locale: ptBR })
                                     )
                                 ) : (
                                     <span>Selecione um período</span>
@@ -268,7 +268,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                <TableBody>
                                    {statement.entries.map((entry) => (
                                        <TableRow key={entry.id}>
-                                           <TableCell>{format(parseISO(entry.createdAt), "dd/MM/yyyy HH:mm")}</TableCell>
+                                           <TableCell>{format(parseISO(entry.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</TableCell>
                                            <TableCell>
                                                <div className="flex items-center gap-2">
                                                     {entry.type === 'CREDIT' ? <ArrowUpCircle className="h-4 w-4 text-emerald-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
