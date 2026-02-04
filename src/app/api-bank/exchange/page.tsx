@@ -43,6 +43,7 @@ function ExchangeToken() {
     }
 
     const processToken = async () => {
+      try {
         const result = await exchangeCodeForToken(code);
         
         if (result.error) {
@@ -65,6 +66,11 @@ function ExchangeToken() {
         // You will see the "Authorize" button again because we haven't saved the token yet.
         // This confirms the token exchange is working.
         router.push('/api-bank');
+      } catch (e: any) {
+        console.error("Falha ao processar o token:", e);
+        setError(e.message || "Ocorreu um erro crítico ao comunicar com o servidor. Verifique os logs do servidor.");
+        setStatus('error');
+      }
     };
 
     processToken();
@@ -84,7 +90,7 @@ function ExchangeToken() {
                   {error || "Erro desconhecido."}
                 </p>
                 <p className="mt-4">
-                  Verifique se a variável de ambiente `CORA_CLIENT_SECRET` foi configurada corretamente no servidor.
+                  Verifique se a variável de ambiente `CORA_CLIENT_SECRET` foi configurada corretamente no servidor e se o serviço foi reiniciado.
                 </p>
                 <Button asChild variant="link" className="p-0 mt-2">
                     <Link href="/api-bank">Tentar Novamente</Link>
