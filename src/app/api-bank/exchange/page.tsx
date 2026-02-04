@@ -3,11 +3,9 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { exchangeCodeForToken } from '@/app/api-bank/actions';
-import { useFirestore, useUser, setDocumentNonBlocking } from '@/firebase';
-import { doc, Timestamp } from 'firebase/firestore';
+import { useUser } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { CoraToken } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,7 +14,6 @@ import Link from 'next/link';
 function ExchangeToken() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
   
@@ -40,25 +37,9 @@ function ExchangeToken() {
       return;
     }
 
-    if (!user || !firestore) {
-      // This can happen if the page loads before the user state is ready.
-      // We'll let it retry on the next render.
+    if (!user) {
+      // Wait for user to be loaded
       return;
-    }
-
-    let userIdFromState: string;
-    try {
-      userIdFromState = JSON.parse(atob(state)).userId;
-    } catch (e) {
-      setError('Parâmetro de estado inválido ou corrompido.');
-      setStatus('error');
-      return;
-    }
-
-    if (user.uid !== userIdFromState) {
-        setError('A sessão do usuário não corresponde à solicitação de autorização. Por segurança, o processo foi interrompido.');
-        setStatus('error');
-        return;
     }
 
     const processToken = async () => {
@@ -70,33 +51,24 @@ function ExchangeToken() {
             return;
         }
 
-        const tokenData = result.data;
-        const expiresAt = Timestamp.fromMillis(Date.now() + tokenData.expires_in * 1000);
-
-        const coraToken: CoraToken = {
-          userId: user.uid,
-          accessToken: tokenData.access_token,
-          refreshToken: tokenData.refresh_token,
-          expiresAt: expiresAt,
-          scope: tokenData.scope,
-          tokenType: tokenData.token_type,
-        };
-
-        const tokenDocRef = doc(firestore, 'users', user.uid, 'coraTokens', 'cora-token');
+        // --- SIMPLIFICATION FOR DEBUGGING ---
+        // We are temporarily skipping the step of saving the token to the database
+        // to isolate the problem. We are just confirming the token exchange works.
         
-        setDocumentNonBlocking(tokenDocRef, coraToken, { merge: true });
-
         toast({
-          title: 'Conexão bem-sucedida!',
-          description: 'Sua conta Cora foi conectada com sucesso.',
+          title: 'Etapa 1/2 Concluída: Token Recebido!',
+          description: 'A conexão com a Cora funcionou. Redirecionando...',
         });
 
         setStatus('success');
+        // Redirecting back to the main API bank page.
+        // You will see the "Authorize" button again because we haven't saved the token yet.
+        // This confirms the token exchange is working.
         router.push('/api-bank');
     };
 
     processToken();
-  }, [searchParams, router, firestore, user, toast]);
+  }, [searchParams, router, user, toast]);
 
   if (status === 'error') {
     return (
@@ -112,7 +84,7 @@ function ExchangeToken() {
                   {error || "Erro desconhecido."}
                 </p>
                 <p className="mt-4">
-                  Isso geralmente acontece se a variável de ambiente `CORA_CLIENT_SECRET` não foi configurada corretamente.
+                  Verifique se a variável de ambiente `CORA_CLIENT_SECRET` foi configurada corretamente no servidor.
                 </p>
                 <Button asChild variant="link" className="p-0 mt-2">
                     <Link href="/api-bank">Tentar Novamente</Link>
@@ -126,7 +98,7 @@ function ExchangeToken() {
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <p className="text-muted-foreground">Finalizando conexão com a Cora...</p>
+      <p className="text-muted-foreground">Finalizando conexão com a Cora (Etapa 1 de 2)...</p>
     </div>
   );
 }
