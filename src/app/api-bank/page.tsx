@@ -49,7 +49,7 @@ const boletoFormSchema = z.object({
   customerDocument: z.string().refine(doc => {
     const sanitized = doc.replace(/\D/g, '');
     return sanitized.length === 11 || sanitized.length === 14;
-  }, "CPF/CNPJ inválido. Digite apenas os números ou o formato completo."),
+  }, "CPF/CNPJ inválido. Digite um documento válido."),
   customerEmail: z.string().email("Email inválido."),
   customerAddressStreet: z.string().min(3, "Rua é obrigatória."),
   customerAddressNumber: z.string().min(1, "Número é obrigatório."),
@@ -284,12 +284,12 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                     city: values.customerAddressCity,
                     state: values.customerAddressState.toUpperCase(),
                     zip_code: sanitizedZipCode,
-                    complement: values.customerAddressComplement
+                    complement: values.customerAddressComplement || 'N/A',
                 }
             },
             services: [{
                 name: values.serviceDescription,
-                description: values.serviceDescription,
+                description: `Serviço: ${values.serviceDescription}`,
                 amount: Math.round(values.amount * 100), // convert to cents
             }],
             payment_terms: {
