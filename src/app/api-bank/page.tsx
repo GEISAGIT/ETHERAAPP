@@ -46,14 +46,20 @@ const paymentFormSchema = z.object({
 
 const boletoFormSchema = z.object({
   customerName: z.string().min(3, "Nome do cliente é obrigatório."),
-  customerDocument: z.string().refine(doc => doc.length === 11 || doc.length === 14, "CPF/CNPJ inválido."),
+  customerDocument: z.string().refine(doc => {
+    const sanitized = doc.replace(/\D/g, '');
+    return sanitized.length === 11 || sanitized.length === 14;
+  }, "CPF/CNPJ inválido. Digite apenas os números ou o formato completo."),
   customerEmail: z.string().email("Email inválido."),
   customerAddressStreet: z.string().min(3, "Rua é obrigatória."),
   customerAddressNumber: z.string().min(1, "Número é obrigatório."),
   customerAddressDistrict: z.string().min(3, "Bairro é obrigatório."),
   customerAddressCity: z.string().min(3, "Cidade é obrigatória."),
   customerAddressState: z.string().length(2, "Estado deve ter 2 letras (UF)."),
-  customerAddressZipCode: z.string().min(8, "CEP deve ter 8 números.").max(9, "CEP inválido."),
+  customerAddressZipCode: z.string().refine(zip => {
+    const sanitized = zip.replace(/\D/g, '');
+    return sanitized.length === 8;
+  }, "CEP inválido. Deve conter 8 números."),
   customerAddressComplement: z.string().optional(),
   serviceDescription: z.string().min(5, "Descrição é obrigatória."),
   amount: z.coerce.number().positive("O valor deve ser maior que zero."),
