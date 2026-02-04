@@ -65,12 +65,13 @@ export async function exchangeCodeForToken(code: string): Promise<{ data?: any, 
 }
 
 export async function getAccountBalance(accessToken: string): Promise<{ data?: any; error?: string; isTokenError?: boolean; }> {
-    const balanceUrl = 'https://api.stage.cora.com.br/v1/account/balance';
+    const balanceUrl = 'https://api.stage.cora.com.br/third-party/account/balance';
     try {
         const response = await fetch(balanceUrl, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
+                'accept': 'application/json'
             },
         });
 

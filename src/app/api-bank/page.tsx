@@ -47,8 +47,17 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                 });
                 setIsLoading(false);
             }
-        } else if (result.data) {
-            setBalance(result.data.amount);
+        } else if (result.data && result.data.balance !== undefined) {
+            // The API returns balance as a string, so we parse it.
+            const balanceValue = typeof result.data.balance === 'string' ? parseFloat(result.data.balance) : result.data.balance;
+            setBalance(balanceValue);
+            setIsLoading(false);
+        } else {
+             toast({
+                variant: 'destructive',
+                title: 'Resposta inesperada',
+                description: 'Não foi possível encontrar o saldo na resposta da API.'
+            });
             setIsLoading(false);
         }
     }
