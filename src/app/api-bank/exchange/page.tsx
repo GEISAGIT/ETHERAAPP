@@ -3,7 +3,9 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { exchangeCodeForToken } from '@/app/api-bank/actions';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, setDocumentNonBlocking } from '@/firebase'; // Import firestore and setDoc
+import { doc, Timestamp } from 'firebase/firestore'; // Import doc and Timestamp
+import type { CoraToken } from '@/lib/types'; // Import CoraToken type
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -15,6 +17,7 @@ function ExchangeToken() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useUser();
+  const firestore = useFirestore(); // Get firestore instance
   const { toast } = useToast();
   
   const [error, setError] = useState<string | null>(null);
@@ -37,8 +40,8 @@ function ExchangeToken() {
       return;
     }
 
-    if (!user) {
-      // Wait for user to be loaded
+    if (!user || !firestore) {
+      // Wait for user and firestore to be loaded
       return;
     }
 
@@ -52,29 +55,38 @@ function ExchangeToken() {
             return;
         }
 
-        // --- SIMPLIFICATION FOR DEBUGGING ---
-        // We are temporarily skipping the step of saving the token to the database
-        // to isolate the problem. We are just confirming the token exchange works.
+        const tokenData = result.data;
+        const tokenDocRef = doc(firestore, 'users', user.uid, 'coraTokens', 'cora-token');
+
+        const coraToken: CoraToken = {
+            userId: user.uid,
+            accessToken: tokenData.access_token,
+            refreshToken: tokenData.refresh_token,
+            expiresAt: Timestamp.fromMillis(Date.now() + tokenData.expires_in * 1000),
+            scope: tokenData.scope,
+            tokenType: tokenData.token_type,
+        };
+
+        // Use non-blocking write to save the token
+        setDocumentNonBlocking(tokenDocRef, coraToken, { merge: true });
         
         toast({
-          title: 'Etapa 1/2 Concluída: Token Recebido!',
-          description: 'A conexão com a Cora funcionou. Redirecionando...',
+          title: 'Conexão Realizada com Sucesso!',
+          description: 'Sua conta Cora foi conectada. Redirecionando para a página da API.',
         });
 
         setStatus('success');
-        // Redirecting back to the main API bank page.
-        // You will see the "Authorize" button again because we haven't saved the token yet.
-        // This confirms the token exchange is working.
-        router.push('/api-bank');
+        // Replace the current history entry instead of pushing a new one
+        router.replace('/api-bank');
       } catch (e: any) {
         console.error("Falha ao processar o token:", e);
-        setError(e.message || "Ocorreu um erro crítico ao comunicar com o servidor. Verifique os logs do servidor.");
+        setError(e.message || "Ocorreu um erro crítico ao comunicar com o servidor.");
         setStatus('error');
       }
     };
 
     processToken();
-  }, [searchParams, router, user, toast]);
+  }, [searchParams, router, user, firestore, toast]);
 
   if (status === 'error') {
     return (
@@ -104,7 +116,7 @@ function ExchangeToken() {
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <p className="text-muted-foreground">Finalizando conexão com a Cora (Etapa 1 de 2)...</p>
+      <p className="text-muted-foreground">Finalizando conexão com a Cora (Etapa 2 de 2)...</p>
     </div>
   );
 }
