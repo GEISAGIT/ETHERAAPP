@@ -265,9 +265,15 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                    </TableRow>
                                </TableHeader>
                                <TableBody>
-                                   {statement.entries.map((entry) => (
+                                   {statement.entries.map((entry) => {
+                                       const date = entry.createdAt ? new Date(entry.createdAt) : null;
+                                       const formattedDate = date && !isNaN(date.getTime()) 
+                                          ? format(date, "dd/MM/yyyy HH:mm", { locale: ptBR }) 
+                                          : 'N/A';
+
+                                       return (
                                        <TableRow key={entry.id}>
-                                           <TableCell>{entry.createdAt ? format(new Date(entry.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'N/A'}</TableCell>
+                                           <TableCell>{formattedDate}</TableCell>
                                            <TableCell>
                                                <div className="flex items-center gap-2">
                                                     {entry.type === 'CREDIT' ? <ArrowUpCircle className="h-4 w-4 text-emerald-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
@@ -281,7 +287,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                                {formatCurrencyFromCents(entry.amount)}
                                            </TableCell>
                                        </TableRow>
-                                   ))}
+                                   )})}
                                </TableBody>
                            </Table>
                         ) : (
