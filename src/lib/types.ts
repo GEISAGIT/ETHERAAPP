@@ -200,3 +200,19 @@ export type CoraStatement = {
   end: CoraStatementBoundary;
   entries: CoraStatementEntry[];
 };
+
+export type CoraCreditor = {
+  name: string;
+  document: string;
+  type: 'CPF' | 'CNPJ';
+}
+
+export type CoraPaymentInitiationResponse = {
+    id: string;
+    status: 'INITIATED' | string;
+    amount: number;
+    creditor: CoraCreditor;
+    created_at: string;
+    scheduled_at?: string;
+    code?: string;
+};

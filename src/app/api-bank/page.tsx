@@ -4,13 +4,13 @@ import { CoraAuthForm } from '@/components/cora/cora-auth-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
-import { Suspense, useState } from 'react';
+import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck } from 'lucide-react';
+import { Suspense, useState, useMemo } from 'react';
 import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking } from '@/firebase';
-import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry } from '@/lib/types';
+import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse } from '@/lib/types';
 import { doc, Timestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { getAccountBalance, getAccountData, getBankStatement, refreshCoraToken } from './actions';
+import { getAccountBalance, getAccountData, getBankStatement, refreshCoraToken, initiatePayment } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -19,6 +19,12 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 
 const formatCurrency = (value: number) => {
@@ -32,6 +38,11 @@ const formatCurrencyFromCents = (valueInCents: number) => {
     return formatCurrency(valueInCents / 100);
 }
 
+const paymentFormSchema = z.object({
+  digitableLine: z.string().min(44, 'A linha digitável deve ter no mínimo 44 caracteres.'),
+  scheduledAt: z.date().optional(),
+});
+
 function CoraAccountDetails({ token }: { token: CoraToken }) {
     const [balance, setBalance] = useState<number | null>(null);
     const [isBalanceLoading, setIsBalanceLoading] = useState(false);
@@ -40,10 +51,16 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     const [statement, setStatement] = useState<CoraStatement | null>(null);
     const [isStatementLoading, setIsStatementLoading] = useState(false);
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [paymentResult, setPaymentResult] = useState<CoraPaymentInitiationResponse | null>(null);
+    const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
 
     const { user } = useUser();
     const firestore = useFirestore();
     const { toast } = useToast();
+    
+    const paymentForm = useForm<z.infer<typeof paymentFormSchema>>({
+      resolver: zodResolver(paymentFormSchema),
+    });
 
     // The retryAction is a function that will be called with the new access token
     const handleRefreshToken = async (retryAction: (newAccessToken: string) => Promise<void>) => {
@@ -61,6 +78,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
              setIsBalanceLoading(false);
              setIsAccountDataLoading(false);
              setIsStatementLoading(false);
+             setIsInitiatingPayment(false);
         } else if (result.data) {
             const newTokenData = result.data;
             const newExpiresAt = Timestamp.fromMillis(Date.now() + newTokenData.expires_in * 1000);
@@ -164,7 +182,36 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
         }
     }
 
-    const isLoading = isBalanceLoading || isAccountDataLoading || isStatementLoading;
+    const handleInitiatePayment = async (accessToken: string, values: z.infer<typeof paymentFormSchema>) => {
+        setIsInitiatingPayment(true);
+        setPaymentResult(null);
+
+        const scheduledAt = values.scheduledAt ? format(values.scheduledAt, 'yyyy-MM-dd') : undefined;
+        
+        const result = await initiatePayment(accessToken, values.digitableLine, scheduledAt);
+
+        if (result.error) {
+            if (result.isTokenError) {
+                await handleRefreshToken((newAccessToken) => handleInitiatePayment(newAccessToken, values));
+            } else {
+                toast({ variant: 'destructive', title: 'Erro ao Iniciar Pagamento', description: result.error });
+                setIsInitiatingPayment(false);
+            }
+        } else if (result.data) {
+            setPaymentResult(result.data);
+            toast({ title: 'Pagamento Iniciado!', description: 'Aprove a transação no seu aplicativo Cora.' });
+            setIsInitiatingPayment(false);
+        } else {
+            toast({ variant: 'destructive', title: 'Resposta inesperada', description: 'Não foi possível iniciar o pagamento.' });
+            setIsInitiatingPayment(false);
+        }
+    }
+
+    const onPaymentSubmit = (values: z.infer<typeof paymentFormSchema>) => {
+      handleInitiatePayment(token.accessToken, values);
+    }
+
+    const isLoading = isBalanceLoading || isAccountDataLoading || isStatementLoading || isInitiatingPayment;
 
     return (
         <Card>
@@ -293,6 +340,89 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                         ) : (
                             <p className="text-muted-foreground text-center p-4">Nenhuma transação encontrada para o período selecionado.</p>
                         )
+                    )}
+                 </div>
+
+                 <div className="rounded-md border p-4 space-y-4">
+                    <h3 className="font-semibold">Iniciar Pagamento de Boleto</h3>
+                    <Form {...paymentForm}>
+                        <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
+                            <FormField
+                                control={paymentForm.control}
+                                name="digitableLine"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Linha Digitável</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="00000.00000 00000.000000..." {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={paymentForm.control}
+                                name="scheduledAt"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-col">
+                                    <FormLabel>Agendar para (Opcional)</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full pl-3 text-left font-normal",
+                                                !field.value && "text-muted-foreground"
+                                            )}
+                                            >
+                                            {field.value ? (
+                                                format(field.value, "PPP", { locale: ptBR })
+                                            ) : (
+                                                <span>Escolha uma data</span>
+                                            )}
+                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={field.value}
+                                            onSelect={field.onChange}
+                                            disabled={(date) => date < new Date()}
+                                            initialFocus
+                                            locale={ptBR}
+                                        />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <Button type="submit" disabled={isLoading}>
+                                {isInitiatingPayment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {isInitiatingPayment ? 'Iniciando...' : 'Iniciar Pagamento'}
+                            </Button>
+                        </form>
+                    </Form>
+                    {paymentResult && (
+                        <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-3 mt-4">
+                            <div className="flex items-start gap-3">
+                                <ClipboardCheck className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
+                                <div className="flex-1">
+                                    <h4 className="font-semibold text-green-800 dark:text-green-200">Pagamento Iniciado com Sucesso!</h4>
+                                     <p className="text-sm text-green-700 dark:text-green-300">
+                                        O pagamento foi iniciado e aguarda sua aprovação no aplicativo da Cora.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-xs text-green-700 dark:text-green-300 space-y-1 pl-8">
+                                <p><span className="font-medium">Beneficiário:</span> {paymentResult.creditor.name}</p>
+                                <p><span className="font-medium">Valor:</span> {formatCurrencyFromCents(paymentResult.amount)}</p>
+                                <p><span className="font-medium">Status:</span> <Badge variant="secondary">{paymentResult.status}</Badge></p>
+                            </div>
+                        </div>
                     )}
                  </div>
             </CardContent>

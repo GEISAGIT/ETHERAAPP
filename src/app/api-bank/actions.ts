@@ -1,6 +1,7 @@
 'use server';
 
 import { CORA_CLIENT_ID } from '@/lib/constants';
+import { v4 as uuidv4 } from 'uuid';
 
 // Helper to safely parse response and handle errors
 async function handleCoraResponse(response: Response) {
@@ -183,4 +184,47 @@ export async function getBankStatement(
     console.error('Network or other error getting bank statement:', error);
     return { error: error.message || 'Ocorreu um erro de rede ao buscar o extrato.' };
   }
+}
+
+export async function initiatePayment(
+    accessToken: string,
+    digitableLine: string,
+    scheduledAt?: string
+): Promise<{ data?: any; error?: string; isTokenError?: boolean; }> {
+    const paymentUrl = 'https://api.stage.cora.com.br/payments/initiate';
+    const idempotencyKey = uuidv4();
+
+    const body: { digitable_line: string; scheduled_at?: string } = {
+        digitable_line: digitableLine,
+    };
+
+    if (scheduledAt) {
+        body.scheduled_at = scheduledAt;
+    }
+
+    try {
+        const response = await fetch(paymentUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'accept': 'application/json',
+                'Idempotency-Key': idempotencyKey,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+        });
+
+        const result = await handleCoraResponse(response);
+
+        if (result.error) {
+            const isTokenError = result.status === 401 || (result.error && result.error.toLowerCase().includes('token'));
+            return { error: result.error, isTokenError };
+        }
+        
+        return { data: result.data };
+
+    } catch (error: any) {
+        console.error('Network or other error initiating payment:', error);
+        return { error: error.message || 'Ocorreu um erro de rede ao iniciar o pagamento.' };
+    }
 }
