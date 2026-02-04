@@ -90,6 +90,33 @@ export async function getAccountBalance(accessToken: string): Promise<{ data?: a
     }
 }
 
+export async function getAccountData(accessToken: string): Promise<{ data?: any; error?: string; isTokenError?: boolean; }> {
+    const accountDataUrl = 'https://api.stage.cora.com.br/third-party/account/';
+    try {
+        const response = await fetch(accountDataUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'accept': 'application/json'
+            },
+        });
+
+        const result = await handleCoraResponse(response);
+
+        if (result.error) {
+            const isTokenError = result.status === 401 || (result.error && result.error.toLowerCase().includes('token'));
+            return { error: result.error, isTokenError };
+        }
+        
+        return { data: result.data };
+
+    } catch (error: any) {
+        console.error('Network or other error getting account data:', error);
+        return { error: error.message || 'Ocorreu um erro de rede ao buscar os dados da conta.' };
+    }
+}
+
+
 export async function refreshCoraToken(refreshToken: string): Promise<{ data?: any; error?: string }> {
     const clientId = CORA_CLIENT_ID;
     const clientSecret = process.env.CORA_CLIENT_SECRET;

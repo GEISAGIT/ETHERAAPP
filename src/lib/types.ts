@@ -155,3 +155,11 @@ export type CoraToken = {
     scope: string;
     tokenType: string;
 };
+
+export type CoraAccountData = {
+  agency: string;
+  accountNumber: string;
+  accountDigit: string;
+  bankCode: string;
+  bankName: string;
+};
