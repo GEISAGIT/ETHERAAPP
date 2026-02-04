@@ -216,3 +216,47 @@ export type CoraPaymentInitiationResponse = {
     scheduled_at?: string;
     code?: string;
 };
+
+
+// --- BOLETO TYPES ---
+
+export type CoraBoletoCustomer = {
+    name: string;
+    email: string;
+    document: {
+        identity: string;
+        type: 'CPF' | 'CNPJ';
+    };
+};
+
+export type CoraBoletoService = {
+    name: string;
+    description: string;
+    amount: number; // in cents
+};
+
+export type CoraBoletoPaymentTerms = {
+    due_date: string; // YYYY-MM-DD
+};
+
+export type CoraBoletoRequestBody = {
+    customer: CoraBoletoCustomer;
+    services: CoraBoletoService[];
+    payment_terms: CoraBoletoPaymentTerms;
+    payment_forms: ('BANK_SLIP' | 'PIX')[];
+};
+
+export type CoraBoletoResponse = {
+    id: string;
+    status: string;
+    created_at: string;
+    total_amount: number; // in cents
+    payment_options: {
+        bank_slip: {
+            barcode: string;
+            digitable: string;
+            url: string; // PDF link
+        }
+    };
+    // ... other fields are optional for our purpose
+}

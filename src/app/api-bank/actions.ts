@@ -2,6 +2,7 @@
 
 import { CORA_CLIENT_ID } from '@/lib/constants';
 import { v4 as uuidv4 } from 'uuid';
+import type { CoraBoletoRequestBody } from '@/lib/types';
 
 // Helper to safely parse response and handle errors
 async function handleCoraResponse(response: Response) {
@@ -226,5 +227,40 @@ export async function initiatePayment(
     } catch (error: any) {
         console.error('Network or other error initiating payment:', error);
         return { error: error.message || 'Ocorreu um erro de rede ao iniciar o pagamento.' };
+    }
+}
+
+
+export async function issueBoleto(
+    accessToken: string,
+    boletoData: CoraBoletoRequestBody
+): Promise<{ data?: any; error?: string; isTokenError?: boolean; }> {
+    const issueBoletoUrl = 'https://api.stage.cora.com.br/v2/invoices/';
+    const idempotencyKey = uuidv4();
+
+    try {
+        const response = await fetch(issueBoletoUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'accept': 'application/json',
+                'Idempotency-Key': idempotencyKey,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(boletoData),
+        });
+
+        const result = await handleCoraResponse(response);
+
+        if (result.error) {
+            const isTokenError = result.status === 401 || (result.error && result.error.toLowerCase().includes('token'));
+            return { error: result.error, isTokenError };
+        }
+        
+        return { data: result.data };
+
+    } catch (error: any) {
+        console.error('Network or other error issuing boleto:', error);
+        return { error: error.message || 'Ocorreu um erro de rede ao emitir o boleto.' };
     }
 }

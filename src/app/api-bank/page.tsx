@@ -4,13 +4,13 @@ import { CoraAuthForm } from '@/components/cora/cora-auth-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText } from 'lucide-react';
 import { Suspense, useState, useMemo } from 'react';
 import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking } from '@/firebase';
-import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse } from '@/lib/types';
+import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse, CoraBoletoRequestBody, CoraBoletoResponse } from '@/lib/types';
 import { doc, Timestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { getAccountBalance, getAccountData, getBankStatement, refreshCoraToken, initiatePayment } from './actions';
+import { getAccountBalance, getAccountData, getBankStatement, refreshCoraToken, initiatePayment, issueBoleto } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -25,6 +25,7 @@ import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 
 const formatCurrency = (value: number) => {
@@ -43,6 +44,16 @@ const paymentFormSchema = z.object({
   scheduledAt: z.date().optional(),
 });
 
+const boletoFormSchema = z.object({
+  customerName: z.string().min(3, "Nome do cliente é obrigatório."),
+  customerDocument: z.string().refine(doc => doc.length === 11 || doc.length === 14, "CPF/CNPJ inválido."),
+  customerEmail: z.string().email("Email inválido."),
+  serviceDescription: z.string().min(5, "Descrição é obrigatória."),
+  amount: z.coerce.number().positive("O valor deve ser maior que zero."),
+  dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.'}),
+});
+
+
 function CoraAccountDetails({ token }: { token: CoraToken }) {
     const [balance, setBalance] = useState<number | null>(null);
     const [isBalanceLoading, setIsBalanceLoading] = useState(false);
@@ -53,6 +64,8 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [paymentResult, setPaymentResult] = useState<CoraPaymentInitiationResponse | null>(null);
     const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
+    const [boletoResult, setBoletoResult] = useState<CoraBoletoResponse | null>(null);
+    const [isIssuingBoleto, setIsIssuingBoleto] = useState(false);
 
     const { user } = useUser();
     const firestore = useFirestore();
@@ -60,6 +73,10 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     
     const paymentForm = useForm<z.infer<typeof paymentFormSchema>>({
       resolver: zodResolver(paymentFormSchema),
+    });
+
+    const boletoForm = useForm<z.infer<typeof boletoFormSchema>>({
+      resolver: zodResolver(boletoFormSchema),
     });
 
     // The retryAction is a function that will be called with the new access token
@@ -79,6 +96,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
              setIsAccountDataLoading(false);
              setIsStatementLoading(false);
              setIsInitiatingPayment(false);
+             setIsIssuingBoleto(false);
         } else if (result.data) {
             const newTokenData = result.data;
             const newExpiresAt = Timestamp.fromMillis(Date.now() + newTokenData.expires_in * 1000);
@@ -210,8 +228,54 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     const onPaymentSubmit = (values: z.infer<typeof paymentFormSchema>) => {
       handleInitiatePayment(token.accessToken, values);
     }
+    
+    const handleIssueBoleto = async (accessToken: string, requestBody: CoraBoletoRequestBody) => {
+        setIsIssuingBoleto(true);
+        setBoletoResult(null);
 
-    const isLoading = isBalanceLoading || isAccountDataLoading || isStatementLoading || isInitiatingPayment;
+        const result = await issueBoleto(accessToken, requestBody);
+        
+        if (result.error) {
+            if (result.isTokenError) {
+                await handleRefreshToken((newAccessToken) => handleIssueBoleto(newAccessToken, requestBody));
+            } else {
+                toast({ variant: 'destructive', title: 'Erro ao Emitir Boleto', description: result.error });
+                setIsIssuingBoleto(false);
+            }
+        } else if (result.data) {
+            setBoletoResult(result.data);
+            toast({ title: 'Boleto Emitido!', description: 'O boleto foi gerado e está pronto para ser pago.' });
+            setIsIssuingBoleto(false);
+        } else {
+            toast({ variant: 'destructive', title: 'Resposta inesperada', description: 'Não foi possível emitir o boleto.' });
+            setIsIssuingBoleto(false);
+        }
+    };
+    
+    const onBoletoSubmit = (values: z.infer<typeof boletoFormSchema>) => {
+        const requestBody: CoraBoletoRequestBody = {
+            customer: {
+                name: values.customerName,
+                email: values.customerEmail,
+                document: {
+                    identity: values.customerDocument,
+                    type: values.customerDocument.length === 11 ? 'CPF' : 'CNPJ',
+                }
+            },
+            services: [{
+                name: values.serviceDescription,
+                description: values.serviceDescription,
+                amount: Math.round(values.amount * 100), // convert to cents
+            }],
+            payment_terms: {
+                due_date: format(values.dueDate, 'yyyy-MM-dd'),
+            },
+            payment_forms: ['BANK_SLIP', 'PIX'],
+        };
+        handleIssueBoleto(token.accessToken, requestBody);
+    }
+
+    const isLoading = isBalanceLoading || isAccountDataLoading || isStatementLoading || isInitiatingPayment || isIssuingBoleto;
 
     return (
         <Card>
@@ -313,8 +377,8 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                </TableHeader>
                                <TableBody>
                                    {statement.entries.map((entry) => {
-                                       const date = entry.createdAt ? new Date(entry.createdAt) : null;
-                                       const formattedDate = date && !isNaN(date.getTime()) 
+                                       const date = new Date(entry.createdAt);
+                                       const formattedDate = !isNaN(date.getTime()) 
                                           ? format(date, "dd/MM/yyyy HH:mm", { locale: ptBR }) 
                                           : 'N/A';
 
@@ -421,6 +485,139 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 <p><span className="font-medium">Beneficiário:</span> {paymentResult.creditor.name}</p>
                                 <p><span className="font-medium">Valor:</span> {formatCurrencyFromCents(paymentResult.amount)}</p>
                                 <p><span className="font-medium">Status:</span> <Badge variant="secondary">{paymentResult.status}</Badge></p>
+                            </div>
+                        </div>
+                    )}
+                 </div>
+
+                 <div className="rounded-md border p-4 space-y-4">
+                    <h3 className="font-semibold">Emitir Boleto de Cobrança</h3>
+                     <Form {...boletoForm}>
+                        <form onSubmit={boletoForm.handleSubmit(onBoletoSubmit)} className="space-y-4">
+                             <FormField
+                                control={boletoForm.control}
+                                name="customerName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Nome do Cliente</FormLabel>
+                                        <FormControl><Input placeholder="Ex: João da Silva" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField
+                                    control={boletoForm.control}
+                                    name="customerDocument"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>CPF/CNPJ do Cliente</FormLabel>
+                                            <FormControl><Input placeholder="Apenas números" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={boletoForm.control}
+                                    name="customerEmail"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Email do Cliente</FormLabel>
+                                            <FormControl><Input type="email" placeholder="cliente@email.com" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                             <FormField
+                                control={boletoForm.control}
+                                name="serviceDescription"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Descrição do Serviço/Produto</FormLabel>
+                                        <FormControl><Input placeholder="Ex: Consulta Psicológica" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField
+                                    control={boletoForm.control}
+                                    name="amount"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Valor (R$)</FormLabel>
+                                            <FormControl><Input type="number" step="0.01" placeholder="150.00" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                 <FormField
+                                    control={boletoForm.control}
+                                    name="dueDate"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-col">
+                                        <FormLabel>Data de Vencimento</FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                variant={"outline"}
+                                                className={cn(
+                                                    "w-full pl-3 text-left font-normal",
+                                                    !field.value && "text-muted-foreground"
+                                                )}
+                                                >
+                                                {field.value ? (
+                                                    format(field.value, "PPP", { locale: ptBR })
+                                                ) : (
+                                                    <span>Escolha uma data</span>
+                                                )}
+                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={field.value}
+                                                onSelect={field.onChange}
+                                                disabled={(date) => date < new Date()}
+                                                initialFocus
+                                                locale={ptBR}
+                                            />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                            <Button type="submit" disabled={isLoading}>
+                                {isIssuingBoleto && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {isIssuingBoleto ? 'Emitindo...' : 'Emitir Boleto'}
+                            </Button>
+                        </form>
+                    </Form>
+                     {boletoResult && (
+                        <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-3 mt-4">
+                            <div className="flex items-start gap-3">
+                                <FileText className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
+                                <div className="flex-1">
+                                    <h4 className="font-semibold text-green-800 dark:text-green-200">Boleto Emitido com Sucesso!</h4>
+                                     <p className="text-sm text-green-700 dark:text-green-300">
+                                        O boleto foi gerado e está pronto para ser pago.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-xs text-green-700 dark:text-green-300 space-y-2 pl-8">
+                                <p><span className="font-medium">Valor:</span> {formatCurrencyFromCents(boletoResult.total_amount)}</p>
+                                <p><span className="font-medium">Status:</span> <Badge variant="secondary">{boletoResult.status}</Badge></p>
+                                 <Button asChild size="sm" variant="outline" className="text-foreground">
+                                    <Link href={boletoResult.payment_options.bank_slip.url} target="_blank" rel="noopener noreferrer">
+                                        Visualizar PDF do Boleto
+                                    </Link>
+                                </Button>
                             </div>
                         </div>
                     )}
