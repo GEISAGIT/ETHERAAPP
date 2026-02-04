@@ -260,13 +260,16 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     };
     
     const onBoletoSubmit = (values: z.infer<typeof boletoFormSchema>) => {
+        const sanitizedDocument = values.customerDocument.replace(/\D/g, '');
+        const sanitizedZipCode = values.customerAddressZipCode.replace(/\D/g, '');
+
         const requestBody: CoraBoletoRequestBody = {
             customer: {
                 name: values.customerName,
                 email: values.customerEmail,
                 document: {
-                    identity: values.customerDocument,
-                    type: values.customerDocument.length === 11 ? 'CPF' : 'CNPJ',
+                    identity: sanitizedDocument,
+                    type: sanitizedDocument.length === 11 ? 'CPF' : 'CNPJ',
                 },
                 address: {
                     street: values.customerAddressStreet,
@@ -274,7 +277,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                     district: values.customerAddressDistrict,
                     city: values.customerAddressCity,
                     state: values.customerAddressState.toUpperCase(),
-                    zip_code: values.customerAddressZipCode.replace('-', ''),
+                    zip_code: sanitizedZipCode,
                     complement: values.customerAddressComplement
                 }
             },
