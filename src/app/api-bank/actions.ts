@@ -159,7 +159,7 @@ export async function getBankStatement(
   
   if (options.start) statementUrl.searchParams.set('start', options.start);
   if (options.end) statementUrl.searchParams.set('end', options.end);
-  statementUrl.searchParams.set('perPage', '100'); // Get more results
+  statementUrl.searchParams.set('perPage', '100');
 
   try {
     const response = await fetch(statementUrl.toString(), {

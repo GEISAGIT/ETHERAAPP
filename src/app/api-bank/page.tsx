@@ -19,7 +19,6 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 
 
 const formatCurrency = (value: number) => {
@@ -268,13 +267,13 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                <TableBody>
                                    {statement.entries.map((entry) => (
                                        <TableRow key={entry.id}>
-                                           <TableCell>{format(new Date(entry.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</TableCell>
+                                           <TableCell>{entry.createdAt ? format(new Date(entry.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }) : 'N/A'}</TableCell>
                                            <TableCell>
                                                <div className="flex items-center gap-2">
                                                     {entry.type === 'CREDIT' ? <ArrowUpCircle className="h-4 w-4 text-emerald-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
                                                     <div className="flex flex-col">
-                                                        <span className="font-medium">{entry.transaction.description}</span>
-                                                        <span className="text-xs text-muted-foreground">{entry.transaction.counterParty.name}</span>
+                                                        <span className="font-medium">{entry.transaction?.description ?? 'Descrição não disponível'}</span>
+                                                        <span className="text-xs text-muted-foreground">{entry.transaction?.counterParty?.name ?? 'Contraparte não disponível'}</span>
                                                     </div>
                                                 </div>
                                            </TableCell>
