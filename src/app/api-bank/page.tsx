@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -268,7 +268,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                <TableBody>
                                    {statement.entries.map((entry) => (
                                        <TableRow key={entry.id}>
-                                           <TableCell>{format(parseISO(entry.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</TableCell>
+                                           <TableCell>{format(new Date(entry.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}</TableCell>
                                            <TableCell>
                                                <div className="flex items-center gap-2">
                                                     {entry.type === 'CREDIT' ? <ArrowUpCircle className="h-4 w-4 text-emerald-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
