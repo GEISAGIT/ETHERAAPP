@@ -1,16 +1,38 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { CORA_CLIENT_ID } from '@/lib/constants';
+
+// Helper to safely parse response and handle errors
+async function handleCoraResponse(response: Response) {
+    const text = await response.text();
+    let data;
+
+    try {
+        data = JSON.parse(text);
+    } catch (error) {
+        // If parsing fails, the response was likely plain text.
+        // We use the text as the error message.
+        data = { message: text || "A resposta da API não estava no formato esperado." };
+    }
+
+    if (!response.ok) {
+        const errorMessage = data.message || data.error_description || 'Ocorreu um erro na comunicação com a Cora.';
+        console.error('Error from Cora API:', { status: response.status, body: data });
+        return { error: errorMessage, status: response.status };
+    }
+    
+    return { data };
+}
+
 
 export async function exchangeCodeForToken(code: string): Promise<{ data?: any, error?: string }> {
   const clientId = CORA_CLIENT_ID;
   const clientSecret = process.env.CORA_CLIENT_SECRET;
 
   if (!clientSecret) {
-    console.error("CRITICAL: CORA_CLIENT_SECRET is not configured in environment variables.");
-    return { error: 'A variável de ambiente CORA_CLIENT_SECRET não foi definida no servidor.' };
+    const errorMessage = 'A variável de ambiente CORA_CLIENT_SECRET não foi definida no servidor.';
+    console.error(`CRITICAL: ${errorMessage}`);
+    return { error: errorMessage };
   }
 
   const tokenUrl = 'https://api.stage.cora.com.br/oauth/token';
@@ -32,15 +54,9 @@ export async function exchangeCodeForToken(code: string): Promise<{ data?: any, 
       },
       body: params.toString(),
     });
-
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      console.error('Error from Cora API during token exchange:', responseData);
-      return { error: responseData.error_description || 'Falha ao trocar o código pelo token na API da Cora.' };
-    }
     
-    return { data: responseData };
+    const result = await handleCoraResponse(response);
+    return { data: result.data, error: result.error };
 
   } catch (error: any) {
     console.error('Network or other error during token exchange:', error);
@@ -57,16 +73,18 @@ export async function getAccountBalance(accessToken: string): Promise<{ data?: a
                 'Authorization': `Bearer ${accessToken}`,
             },
         });
-        const data = await response.json();
-        if (!response.ok) {
-            console.error('Error getting balance from Cora:', data);
-            // Check if it's a token-related error
-            const isTokenError = response.status === 401 || (data.message && data.message.toLowerCase().includes('token'));
-            return { error: data.message || 'Falha ao buscar o saldo.', isTokenError };
+
+        const result = await handleCoraResponse(response);
+
+        if (result.error) {
+            const isTokenError = result.status === 401 || (result.error && result.error.toLowerCase().includes('token'));
+            return { error: result.error, isTokenError };
         }
-        return { data };
+        
+        return { data: result.data };
+
     } catch (error: any) {
-        console.error('Error getting account balance:', error);
+        console.error('Network or other error getting account balance:', error);
         return { error: error.message || 'Ocorreu um erro de rede ao buscar o saldo.' };
     }
 }
@@ -96,14 +114,11 @@ export async function refreshCoraToken(refreshToken: string): Promise<{ data?: a
             body: params.toString(),
         });
 
-        const data = await response.json();
-        if (!response.ok) {
-            console.error('Error refreshing token:', data);
-            return { error: data.error_description || 'Falha ao atualizar o token.' };
-        }
-        return { data };
+        const result = await handleCoraResponse(response);
+        return { data: result.data, error: result.error };
+        
     } catch (error: any) {
-        console.error('Error refreshing token:', error);
+        console.error('Network or other error refreshing token:', error);
         return { error: error.message || 'Ocorreu um erro de rede ao atualizar o token.' };
     }
 }
