@@ -4,14 +4,22 @@ import { CoraAuthForm } from '@/components/cora/cora-auth-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { Suspense, useState } from 'react';
 import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking } from '@/firebase';
-import type { CoraToken, CoraAccountData } from '@/lib/types';
+import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry } from '@/lib/types';
 import { doc, Timestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { getAccountBalance, getAccountData, refreshCoraToken } from './actions';
+import { getAccountBalance, getAccountData, getBankStatement, refreshCoraToken } from './actions';
 import { useToast } from '@/hooks/use-toast';
+import type { DateRange } from 'react-day-picker';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 
 const formatCurrency = (value: number) => {
@@ -21,12 +29,19 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+const formatCurrencyFromCents = (valueInCents: number) => {
+    return formatCurrency(valueInCents / 100);
+}
+
 function CoraAccountDetails({ token }: { token: CoraToken }) {
     const [balance, setBalance] = useState<number | null>(null);
     const [isBalanceLoading, setIsBalanceLoading] = useState(false);
     const [accountData, setAccountData] = useState<CoraAccountData | null>(null);
     const [isAccountDataLoading, setIsAccountDataLoading] = useState(false);
-    
+    const [statement, setStatement] = useState<CoraStatement | null>(null);
+    const [isStatementLoading, setIsStatementLoading] = useState(false);
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
     const { user } = useUser();
     const firestore = useFirestore();
     const { toast } = useToast();
@@ -46,6 +61,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
              toast({ variant: 'destructive', title: 'Falha ao atualizar token', description: result.error });
              setIsBalanceLoading(false);
              setIsAccountDataLoading(false);
+             setIsStatementLoading(false);
         } else if (result.data) {
             const newTokenData = result.data;
             const newExpiresAt = Timestamp.fromMillis(Date.now() + newTokenData.expires_in * 1000);
@@ -122,7 +138,34 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
         }
     }
 
-    const isLoading = isBalanceLoading || isAccountDataLoading;
+    const handleGetStatement = async (accessToken: string) => {
+        setIsStatementLoading(true);
+        setStatement(null);
+
+        const options = {
+            start: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+            end: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
+        };
+        
+        const result = await getBankStatement(accessToken, options);
+
+        if (result.error) {
+            if (result.isTokenError) {
+                await handleRefreshToken(handleGetStatement);
+            } else {
+                toast({ variant: 'destructive', title: 'Erro ao buscar extrato', description: result.error });
+                setIsStatementLoading(false);
+            }
+        } else if (result.data) {
+            setStatement(result.data);
+            setIsStatementLoading(false);
+        } else {
+            toast({ variant: 'destructive', title: 'Resposta inesperada', description: 'Não foi possível obter o extrato da API.' });
+            setIsStatementLoading(false);
+        }
+    }
+
+    const isLoading = isBalanceLoading || isAccountDataLoading || isStatementLoading;
 
     return (
         <Card>
@@ -159,6 +202,93 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                         {isAccountDataLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {isAccountDataLoading ? 'Buscando Dados...' : 'Buscar Dados da Conta'}
                     </Button>
+                 </div>
+
+                 <div className="rounded-md border p-4 space-y-4">
+                    <h3 className="font-semibold">Extrato da Conta</h3>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                         <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                id="date"
+                                variant={"outline"}
+                                className={cn(
+                                    "w-full justify-start text-left font-normal sm:w-auto",
+                                    !dateRange && "text-muted-foreground"
+                                )}
+                                >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateRange?.from ? (
+                                    dateRange.to ? (
+                                    <>
+                                        {format(dateRange.from, "dd/MM/yy")} - {format(dateRange.to, "dd/MM/yy")}
+                                    </>
+                                    ) : (
+                                    format(dateRange.from, "dd/MM/yy")
+                                    )
+                                ) : (
+                                    <span>Selecione um período</span>
+                                )}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={dateRange?.from}
+                                selected={dateRange}
+                                onSelect={setDateRange}
+                                numberOfMonths={2}
+                                locale={ptBR}
+                                />
+                            </PopoverContent>
+                        </Popover>
+                         <Button onClick={() => handleGetStatement(token.accessToken)} disabled={isLoading || !dateRange?.from}>
+                            {isStatementLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isStatementLoading ? 'Buscando Extrato...' : 'Buscar Extrato'}
+                        </Button>
+                    </div>
+
+                    {isStatementLoading && (
+                        <div className="flex items-center justify-center p-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    )}
+                    
+                    {statement && (
+                        statement.entries.length > 0 ? (
+                           <Table>
+                               <TableHeader>
+                                   <TableRow>
+                                       <TableHead>Data</TableHead>
+                                       <TableHead>Descrição</TableHead>
+                                       <TableHead className="text-right">Valor</TableHead>
+                                   </TableRow>
+                               </TableHeader>
+                               <TableBody>
+                                   {statement.entries.map((entry) => (
+                                       <TableRow key={entry.id}>
+                                           <TableCell>{format(parseISO(entry.createdAt), "dd/MM/yyyy HH:mm")}</TableCell>
+                                           <TableCell>
+                                               <div className="flex items-center gap-2">
+                                                    {entry.type === 'CREDIT' ? <ArrowUpCircle className="h-4 w-4 text-emerald-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">{entry.transaction.description}</span>
+                                                        <span className="text-xs text-muted-foreground">{entry.transaction.counterParty.name}</span>
+                                                    </div>
+                                                </div>
+                                           </TableCell>
+                                           <TableCell className={`text-right font-mono ${entry.type === 'CREDIT' ? 'text-emerald-500' : 'text-red-500'}`}>
+                                               {formatCurrencyFromCents(entry.amount)}
+                                           </TableCell>
+                                       </TableRow>
+                                   ))}
+                               </TableBody>
+                           </Table>
+                        ) : (
+                            <p className="text-muted-foreground text-center p-4">Nenhuma transação encontrada para o período selecionado.</p>
+                        )
+                    )}
                  </div>
             </CardContent>
         </Card>

@@ -163,3 +163,40 @@ export type CoraAccountData = {
   bankCode: string;
   bankName: string;
 };
+
+export type CoraStatementCounterParty = {
+  name: string;
+  identity: string;
+};
+
+export type CoraStatementTransaction = {
+  id: string;
+  type: string;
+  description: string;
+  counterParty: CoraStatementCounterParty;
+};
+
+export type CoraStatementEntry = {
+  id: string;
+  type: 'CREDIT' | 'DEBIT';
+  amount: number; // in cents
+  createdAt: string; // ISO Date string
+  transaction: CoraStatementTransaction;
+};
+
+export type CoraStatementHeader = {
+  businessName: string;
+  businessDocument: string;
+};
+
+export type CoraStatementBoundary = {
+    date: string;
+    balance: number; // in cents
+}
+
+export type CoraStatement = {
+  header: CoraStatementHeader;
+  start: CoraStatementBoundary;
+  end: CoraStatementBoundary;
+  entries: CoraStatementEntry[];
+};

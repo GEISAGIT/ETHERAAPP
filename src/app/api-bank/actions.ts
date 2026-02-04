@@ -150,3 +150,37 @@ export async function refreshCoraToken(refreshToken: string): Promise<{ data?: a
         return { error: error.message || 'Ocorreu um erro de rede ao atualizar o token.' };
     }
 }
+
+export async function getBankStatement(
+  accessToken: string,
+  options: { start?: string; end?: string }
+): Promise<{ data?: any; error?: string; isTokenError?: boolean }> {
+  const statementUrl = new URL('https://api.stage.cora.com.br/bank-statement/statement');
+  
+  if (options.start) statementUrl.searchParams.set('start', options.start);
+  if (options.end) statementUrl.searchParams.set('end', options.end);
+  statementUrl.searchParams.set('perPage', '100'); // Get more results
+
+  try {
+    const response = await fetch(statementUrl.toString(), {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'accept': 'application/json'
+      },
+    });
+
+    const result = await handleCoraResponse(response);
+
+    if (result.error) {
+      const isTokenError = result.status === 401 || (result.error && result.error.toLowerCase().includes('token'));
+      return { error: result.error, isTokenError };
+    }
+    
+    return { data: result.data };
+
+  } catch (error: any) {
+    console.error('Network or other error getting bank statement:', error);
+    return { error: error.message || 'Ocorreu um erro de rede ao buscar o extrato.' };
+  }
+}
