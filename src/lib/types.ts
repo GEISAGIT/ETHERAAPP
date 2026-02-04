@@ -220,6 +220,16 @@ export type CoraPaymentInitiationResponse = {
 
 // --- BOLETO TYPES ---
 
+export type CoraBoletoAddress = {
+    street: string;
+    number: string;
+    district: string;
+    city: string;
+    state: string;
+    complement?: string;
+    zip_code: string;
+}
+
 export type CoraBoletoCustomer = {
     name: string;
     email: string;
@@ -227,6 +237,7 @@ export type CoraBoletoCustomer = {
         identity: string;
         type: 'CPF' | 'CNPJ';
     };
+    address: CoraBoletoAddress;
 };
 
 export type CoraBoletoService = {

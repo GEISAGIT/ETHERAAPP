@@ -48,6 +48,13 @@ const boletoFormSchema = z.object({
   customerName: z.string().min(3, "Nome do cliente é obrigatório."),
   customerDocument: z.string().refine(doc => doc.length === 11 || doc.length === 14, "CPF/CNPJ inválido."),
   customerEmail: z.string().email("Email inválido."),
+  customerAddressStreet: z.string().min(3, "Rua é obrigatória."),
+  customerAddressNumber: z.string().min(1, "Número é obrigatório."),
+  customerAddressDistrict: z.string().min(3, "Bairro é obrigatório."),
+  customerAddressCity: z.string().min(3, "Cidade é obrigatória."),
+  customerAddressState: z.string().length(2, "Estado deve ter 2 letras (UF)."),
+  customerAddressZipCode: z.string().min(8, "CEP deve ter 8 números.").max(9, "CEP inválido."),
+  customerAddressComplement: z.string().optional(),
   serviceDescription: z.string().min(5, "Descrição é obrigatória."),
   amount: z.coerce.number().positive("O valor deve ser maior que zero."),
   dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.'}),
@@ -260,6 +267,15 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                 document: {
                     identity: values.customerDocument,
                     type: values.customerDocument.length === 11 ? 'CPF' : 'CNPJ',
+                },
+                address: {
+                    street: values.customerAddressStreet,
+                    number: values.customerAddressNumber,
+                    district: values.customerAddressDistrict,
+                    city: values.customerAddressCity,
+                    state: values.customerAddressState.toUpperCase(),
+                    zip_code: values.customerAddressZipCode.replace('-', ''),
+                    complement: values.customerAddressComplement
                 }
             },
             services: [{
@@ -529,6 +545,91 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                     )}
                                 />
                             </div>
+                            <div className="space-y-2 rounded-md border p-4">
+                                <h4 className="font-medium text-sm">Endereço do Cliente</h4>
+                                <FormField
+                                    control={boletoForm.control}
+                                    name="customerAddressStreet"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Rua</FormLabel>
+                                            <FormControl><Input placeholder="Ex: Rua das Flores" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <FormField
+                                        control={boletoForm.control}
+                                        name="customerAddressNumber"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Número</FormLabel>
+                                                <FormControl><Input placeholder="123" {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={boletoForm.control}
+                                        name="customerAddressComplement"
+                                        render={({ field }) => (
+                                            <FormItem className="sm:col-span-2">
+                                                <FormLabel>Complemento</FormLabel>
+                                                <FormControl><Input placeholder="Apto 101" {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <FormField
+                                    control={boletoForm.control}
+                                    name="customerAddressDistrict"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Bairro</FormLabel>
+                                            <FormControl><Input placeholder="Centro" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <FormField
+                                        control={boletoForm.control}
+                                        name="customerAddressCity"
+                                        render={({ field }) => (
+                                            <FormItem className="sm:col-span-2">
+                                                <FormLabel>Cidade</FormLabel>
+                                                <FormControl><Input placeholder="São Paulo" {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={boletoForm.control}
+                                        name="customerAddressState"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Estado (UF)</FormLabel>
+                                                <FormControl><Input placeholder="SP" maxLength={2} {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                 <FormField
+                                    control={boletoForm.control}
+                                    name="customerAddressZipCode"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>CEP</FormLabel>
+                                            <FormControl><Input placeholder="00000-000" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+
                              <FormField
                                 control={boletoForm.control}
                                 name="serviceDescription"
