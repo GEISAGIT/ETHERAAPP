@@ -48,22 +48,22 @@ const paymentFormSchema = z.object({
 });
 
 const boletoFormSchema = z.object({
-  payerName: z.string().min(3, "Nome do pagador é obrigatório."),
-  payerEmail: z.string().email("Por favor, insira um email válido."),
-  payerDocument: z.string().refine(doc => {
+  customerName: z.string().min(3, "Nome do cliente é obrigatório."),
+  customerEmail: z.string().email("Por favor, insira um email válido."),
+  customerDocument: z.string().refine(doc => {
     const sanitized = doc.replace(/\D/g, '');
     return sanitized.length === 11 || sanitized.length === 14;
   }, "CPF/CNPJ inválido. Digite um documento válido."),
-  payerAddressStreet: z.string().min(3, "Rua é obrigatória."),
-  payerAddressNumber: z.string().min(1, "Número é obrigatório."),
-  payerAddressDistrict: z.string().min(3, "Bairro é obrigatório."),
-  payerAddressCity: z.string().min(3, "Cidade é obrigatória."),
-  payerAddressState: z.string().length(2, "Estado deve ter 2 letras (UF)."),
-  payerAddressZipCode: z.string().refine(zip => {
+  customerAddressStreet: z.string().min(3, "Rua é obrigatória."),
+  customerAddressNumber: z.string().min(1, "Número é obrigatório."),
+  customerAddressDistrict: z.string().min(3, "Bairro é obrigatório."),
+  customerAddressCity: z.string().min(3, "Cidade é obrigatória."),
+  customerAddressState: z.string().length(2, "Estado deve ter 2 letras (UF)."),
+  customerAddressZipCode: z.string().refine(zip => {
     const sanitized = zip.replace(/\D/g, '');
     return sanitized.length === 8;
   }, "CEP inválido. Deve conter 8 números."),
-  payerAddressComplement: z.string().optional(),
+  customerAddressComplement: z.string().optional(),
   serviceDescription: z.string().min(3, "A descrição do serviço é obrigatória."),
   amount: z.coerce.number().min(0.01, "O valor deve ser positivo."),
   dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.'}),
@@ -284,26 +284,26 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     };
     
     const onBoletoSubmit = (values: z.infer<typeof boletoFormSchema>) => {
-        const sanitizedDocument = values.payerDocument.replace(/\D/g, '');
-        const sanitizedZipCode = values.payerAddressZipCode.replace(/\D/g, '');
+        const sanitizedDocument = values.customerDocument.replace(/\D/g, '');
+        const sanitizedZipCode = values.customerAddressZipCode.replace(/\D/g, '');
 
         const requestBody: CoraBoletoRequestBody = {
             external_id: `BOLETO-${uuidv4()}`,
             customer: {
-                name: values.payerName,
-                email: values.payerEmail,
+                name: values.customerName,
+                email: values.customerEmail,
                 document: {
                     identity: sanitizedDocument,
                     type: sanitizedDocument.length === 11 ? 'CPF' : 'CNPJ',
                 },
                 address: {
-                    street: values.payerAddressStreet,
-                    number: values.payerAddressNumber,
-                    district: values.payerAddressDistrict,
-                    city: values.payerAddressCity,
-                    state: values.payerAddressState.toUpperCase(),
+                    street: values.customerAddressStreet,
+                    number: values.customerAddressNumber,
+                    district: values.customerAddressDistrict,
+                    city: values.customerAddressCity,
+                    state: values.customerAddressState.toUpperCase(),
                     zip_code: sanitizedZipCode,
-                    complement: values.payerAddressComplement || undefined,
+                    complement: values.customerAddressComplement || undefined,
                 }
             },
             services: [{
@@ -544,10 +544,10 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <FormField
                                     control={boletoForm.control}
-                                    name="payerName"
+                                    name="customerName"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Nome do Pagador</FormLabel>
+                                            <FormLabel>Nome do Cliente</FormLabel>
                                             <FormControl><Input placeholder="Ex: João da Silva" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -555,10 +555,10 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 />
                                 <FormField
                                     control={boletoForm.control}
-                                    name="payerEmail"
+                                    name="customerEmail"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Email do Pagador</FormLabel>
+                                            <FormLabel>Email do Cliente</FormLabel>
                                             <FormControl><Input placeholder="email@exemplo.com" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -567,20 +567,20 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                              </div>
                              <FormField
                                 control={boletoForm.control}
-                                name="payerDocument"
+                                name="customerDocument"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>CPF/CNPJ do Pagador</FormLabel>
+                                        <FormLabel>CPF/CNPJ do Cliente</FormLabel>
                                         <FormControl><Input placeholder="Apenas números" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
                             <div className="space-y-2 rounded-md border p-4">
-                                <h4 className="font-medium text-sm">Endereço do Pagador</h4>
+                                <h4 className="font-medium text-sm">Endereço do Cliente</h4>
                                 <FormField
                                     control={boletoForm.control}
-                                    name="payerAddressStreet"
+                                    name="customerAddressStreet"
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Rua</FormLabel>
@@ -592,7 +592,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <FormField
                                         control={boletoForm.control}
-                                        name="payerAddressNumber"
+                                        name="customerAddressNumber"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Número</FormLabel>
@@ -603,7 +603,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                     />
                                      <FormField
                                         control={boletoForm.control}
-                                        name="payerAddressComplement"
+                                        name="customerAddressComplement"
                                         render={({ field }) => (
                                             <FormItem className="sm:col-span-2">
                                                 <FormLabel>Complemento (Opcional)</FormLabel>
@@ -615,7 +615,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 </div>
                                 <FormField
                                     control={boletoForm.control}
-                                    name="payerAddressDistrict"
+                                    name="customerAddressDistrict"
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Bairro</FormLabel>
@@ -627,7 +627,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <FormField
                                         control={boletoForm.control}
-                                        name="payerAddressCity"
+                                        name="customerAddressCity"
                                         render={({ field }) => (
                                             <FormItem className="sm:col-span-2">
                                                 <FormLabel>Cidade</FormLabel>
@@ -638,7 +638,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                     />
                                      <FormField
                                         control={boletoForm.control}
-                                        name="payerAddressState"
+                                        name="customerAddressState"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Estado (UF)</FormLabel>
@@ -650,7 +650,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 </div>
                                  <FormField
                                     control={boletoForm.control}
-                                    name="payerAddressZipCode"
+                                    name="customerAddressZipCode"
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>CEP</FormLabel>
@@ -731,7 +731,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                             </Button>
                         </form>
                     </Form>
-                     {boletoResult && (
+                     {boletoResult && boletoResult.digitable_line && (
                         <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4">
                             <div className="flex items-start gap-3">
                                 <FileText className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
@@ -745,9 +745,9 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                             <div className="text-sm text-green-700 dark:text-green-300 space-y-3 pl-8">
                                 <div>
                                     <Label className="font-medium">ID do Boleto (para pagamento via API):</Label>
-                                    <p className="font-mono text-xs">{boletoResult.bank_slip_id}</p>
+                                    <p className="font-mono text-xs">{boletoResult.id || boletoResult.bank_slip_id}</p>
                                 </div>
-                                <div>
+                                {boletoResult.digitable_line && <div>
                                     <Label className="font-medium">Linha Digitável:</Label>
                                     <div className="flex items-center gap-2">
                                         <Input readOnly value={boletoResult.digitable_line} className="text-xs h-8" />
@@ -755,8 +755,8 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                             <Copy className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                </div>
-                                <div>
+                                </div>}
+                                {boletoResult.barcode && <div>
                                     <Label className="font-medium">Código de Barras:</Label>
                                     <div className="flex items-center gap-2">
                                         <Input readOnly value={boletoResult.barcode} className="text-xs h-8" />
@@ -764,7 +764,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                             <Copy className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                </div>
+                                </div>}
                             </div>
                         </div>
                     )}

@@ -1,3 +1,5 @@
+'use client';
+
 import { Timestamp } from 'firebase/firestore';
 
 export type IncomeTransaction = {
@@ -261,17 +263,21 @@ export type CoraPaymentTerms = {
 };
 
 export type CoraBoletoRequestBody = {
-    external_id: string;
+    external_id?: string;
     customer: CoraCustomer;
     services: CoraService[];
     payment_terms: CoraPaymentTerms;
     payment_forms: Array<'BANK_SLIP'>;
-    instructions?: string; // This is a top-level field for additional instructions
+    instructions?: string;
 };
 
 
 export type CoraBoletoResponse = {
-    bank_slip_id: string;
+    bank_slip_id?: string; // Kept for compatibility with old responses
     barcode: string;
     digitable_line: string;
+    // V2 responses might have a different structure
+    id?: string;
+    code?: string;
+    status?: string;
 };
