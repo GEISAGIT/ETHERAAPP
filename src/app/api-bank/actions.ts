@@ -244,7 +244,7 @@ export async function issueBoleto(
     accessToken: string,
     boletoData: CoraBoletoRequestBody
 ): Promise<{ data?: any; error?: string; isTokenError?: boolean; }> {
-    const issueBoletoUrl = 'https://api.stage.cora.com.br/receivables';
+    const issueBoletoUrl = 'https://api.stage.cora.com.br/v2/bank-slip';
     const idempotencyKey = uuidv4();
 
     try {

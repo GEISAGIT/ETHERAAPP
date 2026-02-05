@@ -218,67 +218,47 @@ export type CoraPaymentInitiationResponse = {
 };
 
 
-// --- BOLETO TYPES ---
+// --- BOLETO V2 TYPES ---
 
-export type CoraBoletoAddress = {
+export type CoraPayerAddress = {
     street: string;
     number: string;
     district: string;
     city: string;
     state: string;
-    complement?: string;
     zip_code: string;
-}
+    complement?: string;
+};
 
-export type CoraBoletoCustomer = {
+export type CoraPayer = {
     name: string;
-    email: string;
     document: {
         identity: string;
         type: 'CPF' | 'CNPJ';
     };
-    address: CoraBoletoAddress;
+    address: CoraPayerAddress;
 };
 
-export type CoraBoletoService = {
-    name: string;
-    description: string;
-    amount: number; // in cents
-};
-
-export type CoraBoletoFine = {
+export type CoraFine = {
     rate: number; // Percentage
 };
 
-export type CoraBoletoInterest = {
+export type CoraInterest = {
     rate: number; // Percentage
-};
-
-export type CoraBoletoPaymentTerms = {
-    due_date: string; // YYYY-MM-DD
-    fine?: CoraBoletoFine;
-    interest?: CoraBoletoInterest;
 };
 
 export type CoraBoletoRequestBody = {
-    external_id?: string;
-    customer: CoraBoletoCustomer;
-    services: CoraBoletoService[];
-    payment_terms: CoraBoletoPaymentTerms;
-    payment_forms: ('BANK_SLIP' | 'PIX')[];
+    external_id: string;
+    amount: number; // in cents
+    due_date: string; // YYYY-MM-DD
+    payer: CoraPayer;
+    fine?: CoraFine;
+    interest?: CoraInterest;
+    instructions?: string;
 };
 
 export type CoraBoletoResponse = {
-    id: string;
-    status: string;
-    created_at: string;
-    total_amount: number; // in cents
-    payment_options: {
-        bank_slip: {
-            barcode: string;
-            digitable: string;
-            url: string; // PDF link
-        }
-    };
-    // ... other fields are optional for our purpose
-}
+    bank_slip_id: string;
+    barcode: string;
+    digitable_line: string;
+};

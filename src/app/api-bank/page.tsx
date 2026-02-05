@@ -4,7 +4,7 @@ import { CoraAuthForm } from '@/components/cora/cora-auth-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText, Copy } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText, Copy, Barcode } from 'lucide-react';
 import { Suspense, useState, useMemo } from 'react';
 import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse, CoraBoletoRequestBody, CoraBoletoResponse } from '@/lib/types';
@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Label } from '@/components/ui/label';
 import { v4 as uuidv4 } from 'uuid';
+import { Textarea } from '@/components/ui/textarea';
 
 
 const formatCurrency = (value: number) => {
@@ -47,24 +48,23 @@ const paymentFormSchema = z.object({
 });
 
 const boletoFormSchema = z.object({
-  customerName: z.string().min(3, "Nome do cliente é obrigatório."),
-  customerDocument: z.string().refine(doc => {
+  payerName: z.string().min(3, "Nome do pagador é obrigatório."),
+  payerDocument: z.string().refine(doc => {
     const sanitized = doc.replace(/\D/g, '');
     return sanitized.length === 11 || sanitized.length === 14;
   }, "CPF/CNPJ inválido. Digite um documento válido."),
-  customerEmail: z.string().email("Email inválido."),
-  customerAddressStreet: z.string().min(3, "Rua é obrigatória."),
-  customerAddressNumber: z.string().min(1, "Número é obrigatório."),
-  customerAddressDistrict: z.string().min(3, "Bairro é obrigatório."),
-  customerAddressCity: z.string().min(3, "Cidade é obrigatória."),
-  customerAddressState: z.string().length(2, "Estado deve ter 2 letras (UF)."),
-  customerAddressZipCode: z.string().refine(zip => {
+  payerAddressStreet: z.string().min(3, "Rua é obrigatória."),
+  payerAddressNumber: z.string().min(1, "Número é obrigatório."),
+  payerAddressDistrict: z.string().min(3, "Bairro é obrigatório."),
+  payerAddressCity: z.string().min(3, "Cidade é obrigatória."),
+  payerAddressState: z.string().length(2, "Estado deve ter 2 letras (UF)."),
+  payerAddressZipCode: z.string().refine(zip => {
     const sanitized = zip.replace(/\D/g, '');
     return sanitized.length === 8;
   }, "CEP inválido. Deve conter 8 números."),
-  customerAddressComplement: z.string().optional(),
-  serviceDescription: z.string().min(5, "Descrição é obrigatória."),
-  amount: z.coerce.number().min(5, "O valor mínimo para emissão de boleto é de R$ 5,00."),
+  payerAddressComplement: z.string().optional(),
+  instructions: z.string().optional(),
+  amount: z.coerce.number().min(0.01, "O valor deve ser positivo."),
   dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.'}),
 });
 
@@ -283,39 +283,35 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     };
     
     const onBoletoSubmit = (values: z.infer<typeof boletoFormSchema>) => {
-        const sanitizedDocument = values.customerDocument.replace(/\D/g, '');
-        const sanitizedZipCode = values.customerAddressZipCode.replace(/\D/g, '');
+        const sanitizedDocument = values.payerDocument.replace(/\D/g, '');
+        const sanitizedZipCode = values.payerAddressZipCode.replace(/\D/g, '');
 
-        const requestBody = {
-            external_id: uuidv4(),
-            customer: {
-                name: values.customerName,
-                email: values.customerEmail,
+        const requestBody: CoraBoletoRequestBody = {
+            external_id: `BOLETO-${uuidv4()}`,
+            amount: Math.round(values.amount * 100),
+            due_date: format(values.dueDate, 'yyyy-MM-dd'),
+            payer: {
+                name: values.payerName,
                 document: {
                     identity: sanitizedDocument,
                     type: sanitizedDocument.length === 11 ? 'CPF' : 'CNPJ',
                 },
                 address: {
-                    street: values.customerAddressStreet,
-                    number: values.customerAddressNumber,
-                    district: values.customerAddressDistrict,
-                    city: values.customerAddressCity,
-                    state: values.customerAddressState.toUpperCase(),
+                    street: values.payerAddressStreet,
+                    number: values.payerAddressNumber,
+                    district: values.payerAddressDistrict,
+                    city: values.payerAddressCity,
+                    state: values.payerAddressState.toUpperCase(),
                     zip_code: sanitizedZipCode,
-                    complement: values.customerAddressComplement || 'N/A',
+                    complement: values.payerAddressComplement || undefined,
                 }
             },
-            services: [{
-                name: "Serviço Prestado",
-                description: values.serviceDescription,
-                amount: Math.round(values.amount * 100),
-            }],
-            payment_terms: {
-                due_date: format(values.dueDate, 'yyyy-MM-dd'),
-            },
-            payment_forms: ['BANK_SLIP'],
+            fine: { rate: 2 },
+            interest: { rate: 1 },
+            instructions: values.instructions,
         };
-        handleIssueBoleto(token.accessToken, requestBody as CoraBoletoRequestBody);
+        
+        handleIssueBoleto(token.accessToken, requestBody);
     }
 
     const isLoading = isBalanceLoading || isAccountDataLoading || isStatementLoading || isInitiatingPayment || isIssuingBoleto;
@@ -534,49 +530,36 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                  </div>
 
                  <div className="rounded-md border p-4 space-y-4">
-                    <h3 className="font-semibold">Emitir Boleto de Cobrança</h3>
+                    <h3 className="font-semibold">Emitir Boleto de Cobrança (V2)</h3>
                      <Form {...boletoForm}>
                         <form onSubmit={boletoForm.handleSubmit(onBoletoSubmit)} className="space-y-4">
                              <FormField
                                 control={boletoForm.control}
-                                name="customerName"
+                                name="payerName"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Nome do Cliente</FormLabel>
+                                        <FormLabel>Nome do Pagador</FormLabel>
                                         <FormControl><Input placeholder="Ex: João da Silva" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormField
-                                    control={boletoForm.control}
-                                    name="customerDocument"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>CPF/CNPJ do Cliente</FormLabel>
-                                            <FormControl><Input placeholder="Apenas números" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={boletoForm.control}
-                                    name="customerEmail"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Email do Cliente</FormLabel>
-                                            <FormControl><Input type="email" placeholder="cliente@email.com" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
+                             <FormField
+                                control={boletoForm.control}
+                                name="payerDocument"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>CPF/CNPJ do Pagador</FormLabel>
+                                        <FormControl><Input placeholder="Apenas números" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                             <div className="space-y-2 rounded-md border p-4">
-                                <h4 className="font-medium text-sm">Endereço do Cliente</h4>
+                                <h4 className="font-medium text-sm">Endereço do Pagador</h4>
                                 <FormField
                                     control={boletoForm.control}
-                                    name="customerAddressStreet"
+                                    name="payerAddressStreet"
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Rua</FormLabel>
@@ -588,7 +571,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <FormField
                                         control={boletoForm.control}
-                                        name="customerAddressNumber"
+                                        name="payerAddressNumber"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Número</FormLabel>
@@ -599,10 +582,10 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                     />
                                      <FormField
                                         control={boletoForm.control}
-                                        name="customerAddressComplement"
+                                        name="payerAddressComplement"
                                         render={({ field }) => (
                                             <FormItem className="sm:col-span-2">
-                                                <FormLabel>Complemento</FormLabel>
+                                                <FormLabel>Complemento (Opcional)</FormLabel>
                                                 <FormControl><Input placeholder="Apto 101" {...field} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -611,7 +594,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 </div>
                                 <FormField
                                     control={boletoForm.control}
-                                    name="customerAddressDistrict"
+                                    name="payerAddressDistrict"
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Bairro</FormLabel>
@@ -623,7 +606,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <FormField
                                         control={boletoForm.control}
-                                        name="customerAddressCity"
+                                        name="payerAddressCity"
                                         render={({ field }) => (
                                             <FormItem className="sm:col-span-2">
                                                 <FormLabel>Cidade</FormLabel>
@@ -634,7 +617,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                     />
                                      <FormField
                                         control={boletoForm.control}
-                                        name="customerAddressState"
+                                        name="payerAddressState"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Estado (UF)</FormLabel>
@@ -646,7 +629,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 </div>
                                  <FormField
                                     control={boletoForm.control}
-                                    name="customerAddressZipCode"
+                                    name="payerAddressZipCode"
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>CEP</FormLabel>
@@ -659,11 +642,11 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
 
                              <FormField
                                 control={boletoForm.control}
-                                name="serviceDescription"
+                                name="instructions"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Descrição do Serviço/Produto</FormLabel>
-                                        <FormControl><Input placeholder="Ex: Consulta Psicológica" {...field} /></FormControl>
+                                        <FormLabel>Instruções (Opcional)</FormLabel>
+                                        <FormControl><Textarea placeholder="Ex: Boleto de teste em ambiente STAGE" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -710,7 +693,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                                 mode="single"
                                                 selected={field.value}
                                                 onSelect={field.onChange}
-                                                disabled={(date) => date < new Date()}
+                                                disabled={(date) => date < new Date(new Date().setDate(new Date().getDate()))}
                                                 initialFocus
                                                 locale={ptBR}
                                             />
@@ -728,7 +711,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                         </form>
                     </Form>
                      {boletoResult && (
-                        <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-3 mt-4">
+                        <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4">
                             <div className="flex items-start gap-3">
                                 <FileText className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
                                 <div className="flex-1">
@@ -738,23 +721,29 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                     </p>
                                 </div>
                             </div>
-                            <div className="text-xs text-green-700 dark:text-green-300 space-y-2 pl-8">
-                                <p><span className="font-medium">Valor:</span> {formatCurrencyFromCents(boletoResult.total_amount)}</p>
-                                <p><span className="font-medium">Status:</span> <Badge variant="secondary">{boletoResult.status}</Badge></p>
-                                <div className='space-y-2'>
+                            <div className="text-sm text-green-700 dark:text-green-300 space-y-3 pl-8">
+                                <div>
+                                    <Label className="font-medium">ID do Boleto (para pagamento via API):</Label>
+                                    <p className="font-mono text-xs">{boletoResult.bank_slip_id}</p>
+                                </div>
+                                <div>
                                     <Label className="font-medium">Linha Digitável:</Label>
                                     <div className="flex items-center gap-2">
-                                        <Input readOnly value={boletoResult.payment_options.bank_slip.digitable} className="text-xs h-8" />
-                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.payment_options.bank_slip.digitable, "Linha digitável copiada.")}>
+                                        <Input readOnly value={boletoResult.digitable_line} className="text-xs h-8" />
+                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.digitable_line, "Linha digitável copiada.")}>
                                             <Copy className="h-4 w-4" />
                                         </Button>
                                     </div>
                                 </div>
-                                 <Button asChild size="sm" variant="outline" className="text-foreground">
-                                    <Link href={boletoResult.payment_options.bank_slip.url} target="_blank" rel="noopener noreferrer">
-                                        Visualizar PDF do Boleto
-                                    </Link>
-                                </Button>
+                                <div>
+                                    <Label className="font-medium">Código de Barras:</Label>
+                                    <div className="flex items-center gap-2">
+                                        <Input readOnly value={boletoResult.barcode} className="text-xs h-8" />
+                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.barcode, "Código de barras copiado.")}>
+                                            <Copy className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
