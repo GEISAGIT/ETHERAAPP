@@ -1,1 +1,1 @@
-export const CORA_CLIENT_ID = 'app-5PvHrdVlMh7NZiLrcgvKbO';
+export const CORA_CLIENT_ID = process.env.NEXT_PUBLIC_CORA_CLIENT_ID;

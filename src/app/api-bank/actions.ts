@@ -12,12 +12,9 @@ async function handleCoraResponse(response: Response) {
     if (!response.ok) {
         let errorMessage = `Erro da API Cora (Status: ${response.status}).`;
         try {
-            // Try to parse the error response as JSON for detailed info
             data = JSON.parse(text);
-            // Pretty-print the JSON error object
             errorMessage += `\nDetalhes: ${JSON.stringify(data, null, 2)}`;
         } catch (e) {
-            // If it's not JSON, just append the raw text
             errorMessage += `\nResposta: ${text}`;
         }
 
@@ -25,7 +22,6 @@ async function handleCoraResponse(response: Response) {
         return { error: errorMessage, status: response.status };
     }
 
-    // If response is OK, parse the success response
     try {
         data = JSON.parse(text);
         return { data };
@@ -40,8 +36,9 @@ export async function exchangeCodeForToken(code: string): Promise<{ data?: any, 
   const clientId = CORA_CLIENT_ID;
   const clientSecret = process.env.CORA_CLIENT_SECRET;
 
-  if (!clientSecret) {
-    const errorMessage = 'A variável de ambiente CORA_CLIENT_SECRET não foi definida no servidor.';
+  if (!clientId || !clientSecret) {
+    const missingVars = [!clientId && 'NEXT_PUBLIC_CORA_CLIENT_ID', !clientSecret && 'CORA_CLIENT_SECRET'].filter(Boolean).join(', ');
+    const errorMessage = `As seguintes variáveis de ambiente não foram definidas no servidor: ${missingVars}.`;
     console.error(`CRITICAL: ${errorMessage}`);
     return { error: errorMessage };
   }
@@ -132,9 +129,10 @@ export async function refreshCoraToken(refreshToken: string): Promise<{ data?: a
     const clientId = CORA_CLIENT_ID;
     const clientSecret = process.env.CORA_CLIENT_SECRET;
 
-    if (!clientSecret) {
-        const errorMessage = 'Cora client secret is not configured.';
-        console.error(errorMessage);
+    if (!clientId || !clientSecret) {
+        const missingVars = [!clientId && 'NEXT_PUBLIC_CORA_CLIENT_ID', !clientSecret && 'CORA_CLIENT_SECRET'].filter(Boolean).join(', ');
+        const errorMessage = `As seguintes variáveis de ambiente não foram definidas no servidor: ${missingVars}.`;
+        console.error(`CRITICAL: ${errorMessage}`);
         return { error: errorMessage };
     }
 

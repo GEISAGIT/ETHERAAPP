@@ -7,6 +7,7 @@ import { useUser } from '@/firebase';
 
 export function CoraAuthForm() {
   const { user } = useUser();
+  const clientId = CORA_CLIENT_ID;
 
   const handleLogin = () => {
     if (!user) {
@@ -14,7 +15,11 @@ export function CoraAuthForm() {
       console.error("User not logged in");
       return;
     }
-    const clientId = CORA_CLIENT_ID;
+    if (!clientId) {
+      console.error("Cora Client ID is not configured.");
+      return;
+    }
+
     const scopes = 'invoice account payment';
     const redirectUri = 'http://etheraapp.com/api-bank/callback';
 
@@ -36,9 +41,14 @@ export function CoraAuthForm() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-            <Button onClick={handleLogin} disabled={!user}>
+            <Button onClick={handleLogin} disabled={!user || !clientId}>
               Autorizar Acesso à Conta Cora
             </Button>
+            {!clientId && (
+                 <p className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm font-medium text-destructive">
+                    <b>Ação Necessária:</b> A variável de ambiente <code>NEXT_PUBLIC_CORA_CLIENT_ID</code> não foi configurada. Por favor, adicione-a ao seu arquivo <code>.env</code> para continuar.
+                </p>
+            )}
             <p className="rounded-md border border-amber-500 bg-amber-50 p-4 text-sm font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                 <span className="font-bold">Atenção:</span> Este é um ambiente de teste (homologação). As alterações aqui não afetam o seu aplicativo em produção.
             </p>
