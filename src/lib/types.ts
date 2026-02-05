@@ -220,7 +220,7 @@ export type CoraPaymentInitiationResponse = {
 
 // --- BOLETO V2 TYPES ---
 
-export type CoraPayerAddress = {
+export type CoraCustomerAddress = {
     street: string;
     number: string;
     district: string;
@@ -230,13 +230,20 @@ export type CoraPayerAddress = {
     complement?: string;
 };
 
-export type CoraPayer = {
+export type CoraCustomer = {
     name: string;
+    email: string;
     document: {
         identity: string;
         type: 'CPF' | 'CNPJ';
     };
-    address: CoraPayerAddress;
+    address: CoraCustomerAddress;
+};
+
+export type CoraService = {
+    name: string;
+    description: string;
+    amount: number; // in cents
 };
 
 export type CoraFine = {
@@ -247,15 +254,21 @@ export type CoraInterest = {
     rate: number; // Percentage
 };
 
-export type CoraBoletoRequestBody = {
-    external_id: string;
-    amount: number; // in cents
+export type CoraPaymentTerms = {
     due_date: string; // YYYY-MM-DD
-    payer: CoraPayer;
     fine?: CoraFine;
     interest?: CoraInterest;
-    instructions?: string;
 };
+
+export type CoraBoletoRequestBody = {
+    external_id: string;
+    customer: CoraCustomer;
+    services: CoraService[];
+    payment_terms: CoraPaymentTerms;
+    payment_forms: Array<'BANK_SLIP'>;
+    instructions?: string; // This is a top-level field for additional instructions
+};
+
 
 export type CoraBoletoResponse = {
     bank_slip_id: string;

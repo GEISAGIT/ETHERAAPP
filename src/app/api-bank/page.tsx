@@ -49,6 +49,7 @@ const paymentFormSchema = z.object({
 
 const boletoFormSchema = z.object({
   payerName: z.string().min(3, "Nome do pagador é obrigatório."),
+  payerEmail: z.string().email("Por favor, insira um email válido."),
   payerDocument: z.string().refine(doc => {
     const sanitized = doc.replace(/\D/g, '');
     return sanitized.length === 11 || sanitized.length === 14;
@@ -63,7 +64,7 @@ const boletoFormSchema = z.object({
     return sanitized.length === 8;
   }, "CEP inválido. Deve conter 8 números."),
   payerAddressComplement: z.string().optional(),
-  instructions: z.string().optional(),
+  serviceDescription: z.string().min(3, "A descrição do serviço é obrigatória."),
   amount: z.coerce.number().min(0.01, "O valor deve ser positivo."),
   dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.'}),
 });
@@ -288,10 +289,9 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
 
         const requestBody: CoraBoletoRequestBody = {
             external_id: `BOLETO-${uuidv4()}`,
-            amount: Math.round(values.amount * 100),
-            due_date: format(values.dueDate, 'yyyy-MM-dd'),
-            payer: {
+            customer: {
                 name: values.payerName,
+                email: values.payerEmail,
                 document: {
                     identity: sanitizedDocument,
                     type: sanitizedDocument.length === 11 ? 'CPF' : 'CNPJ',
@@ -306,9 +306,17 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                     complement: values.payerAddressComplement || undefined,
                 }
             },
-            fine: { rate: 2 },
-            interest: { rate: 1 },
-            instructions: values.instructions,
+            services: [{
+                name: "Serviço Prestado",
+                description: values.serviceDescription,
+                amount: Math.round(values.amount * 100),
+            }],
+            payment_terms: {
+                due_date: format(values.dueDate, 'yyyy-MM-dd'),
+                fine: { rate: 2 },
+                interest: { rate: 1 }
+            },
+            payment_forms: ["BANK_SLIP"]
         };
         
         handleIssueBoleto(token.accessToken, requestBody);
@@ -533,17 +541,30 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                     <h3 className="font-semibold">Emitir Boleto de Cobrança (V2)</h3>
                      <Form {...boletoForm}>
                         <form onSubmit={boletoForm.handleSubmit(onBoletoSubmit)} className="space-y-4">
-                             <FormField
-                                control={boletoForm.control}
-                                name="payerName"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Nome do Pagador</FormLabel>
-                                        <FormControl><Input placeholder="Ex: João da Silva" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <FormField
+                                    control={boletoForm.control}
+                                    name="payerName"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Nome do Pagador</FormLabel>
+                                            <FormControl><Input placeholder="Ex: João da Silva" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={boletoForm.control}
+                                    name="payerEmail"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Email do Pagador</FormLabel>
+                                            <FormControl><Input placeholder="email@exemplo.com" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                             </div>
                              <FormField
                                 control={boletoForm.control}
                                 name="payerDocument"
@@ -642,11 +663,11 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
 
                              <FormField
                                 control={boletoForm.control}
-                                name="instructions"
+                                name="serviceDescription"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Instruções (Opcional)</FormLabel>
-                                        <FormControl><Textarea placeholder="Ex: Boleto de teste em ambiente STAGE" {...field} /></FormControl>
+                                        <FormLabel>Descrição do Serviço/Produto</FormLabel>
+                                        <FormControl><Textarea placeholder="Ex: Consulta de rotina" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
