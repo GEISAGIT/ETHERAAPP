@@ -26,6 +26,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { Label } from '@/components/ui/label';
 
 
 const formatCurrency = (value: number) => {
@@ -284,7 +285,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
         const sanitizedDocument = values.customerDocument.replace(/\D/g, '');
         const sanitizedZipCode = values.customerAddressZipCode.replace(/\D/g, '');
 
-        const requestBody: CoraBoletoRequestBody = {
+        const requestBody = {
             customer: {
                 name: values.customerName,
                 email: values.customerEmail,
@@ -305,14 +306,20 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
             services: [{
                 name: "Serviço Prestado",
                 description: values.serviceDescription,
-                amount: Math.round(values.amount * 100), // convert to cents
+                amount: Math.round(values.amount * 100),
             }],
             payment_terms: {
                 due_date: format(values.dueDate, 'yyyy-MM-dd'),
+                fine: {
+                    rate: 2, // 2%
+                },
+                interest: {
+                    rate: 1, // 1%
+                }
             },
             payment_forms: ['BANK_SLIP'],
         };
-        handleIssueBoleto(token.accessToken, requestBody);
+        handleIssueBoleto(token.accessToken, requestBody as CoraBoletoRequestBody);
     }
 
     const isLoading = isBalanceLoading || isAccountDataLoading || isStatementLoading || isInitiatingPayment || isIssuingBoleto;
@@ -707,7 +714,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                                 mode="single"
                                                 selected={field.value}
                                                 onSelect={field.onChange}
-                                                disabled={(date) => date <= new Date()}
+                                                disabled={(date) => date < new Date()}
                                                 initialFocus
                                                 locale={ptBR}
                                             />

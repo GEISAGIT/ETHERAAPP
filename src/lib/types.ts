@@ -246,8 +246,18 @@ export type CoraBoletoService = {
     amount: number; // in cents
 };
 
+export type CoraBoletoFine = {
+    rate: number; // Percentage
+};
+
+export type CoraBoletoInterest = {
+    rate: number; // Percentage
+};
+
 export type CoraBoletoPaymentTerms = {
     due_date: string; // YYYY-MM-DD
+    fine?: CoraBoletoFine;
+    interest?: CoraBoletoInterest;
 };
 
 export type CoraBoletoRequestBody = {
