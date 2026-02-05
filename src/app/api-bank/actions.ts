@@ -8,17 +8,36 @@ import type { CoraBoletoRequestBody } from '@/lib/types';
 async function handleCoraResponse(response: Response) {
     const text = await response.text();
     let data;
+    let isJson = false;
 
     try {
         data = JSON.parse(text);
+        isJson = true;
     } catch (error) {
-        // If parsing fails, the response was likely plain text.
-        // We use the text as the error message.
-        data = { message: text || "A resposta da API não estava no formato esperado." };
+        data = { message: text || "A resposta da API não estava no formato esperado e não era um JSON válido." };
     }
 
     if (!response.ok) {
-        const errorMessage = data.message || data.error_description || 'Ocorreu um erro na comunicação com a Cora.';
+        let errorMessage = 'Ocorreu um erro na comunicação com a Cora.';
+
+        if (isJson) {
+            // Check for different known error formats from Cora
+            if (data.message) {
+                errorMessage = data.message;
+            } else if (data.error_description) {
+                errorMessage = data.error_description;
+            } else if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+                // If there's an array of errors, join their messages.
+                errorMessage = data.errors.map((e: any) => e.message || 'Erro desconhecido').join(', ');
+            } else {
+                // As a last resort, stringify the whole object.
+                errorMessage = `Erro não detalhado recebido da Cora: ${JSON.stringify(data)}`;
+            }
+        } else {
+            // If the response was not JSON, the text itself is the error message.
+            errorMessage = text;
+        }
+
         console.error('Error from Cora API:', { status: response.status, body: data });
         return { error: errorMessage, status: response.status };
     }
