@@ -8,41 +8,31 @@ import type { CoraBoletoRequestBody } from '@/lib/types';
 async function handleCoraResponse(response: Response) {
     const text = await response.text();
     let data;
-    let isJson = false;
-
-    try {
-        data = JSON.parse(text);
-        isJson = true;
-    } catch (error) {
-        data = { message: text || "A resposta da API não estava no formato esperado e não era um JSON válido." };
-    }
 
     if (!response.ok) {
-        let errorMessage = 'Ocorreu um erro na comunicação com a Cora.';
-
-        if (isJson) {
-            // Check for different known error formats from Cora
-            if (data.message) {
-                errorMessage = data.message;
-            } else if (data.error_description) {
-                errorMessage = data.error_description;
-            } else if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
-                // If there's an array of errors, join their messages.
-                errorMessage = data.errors.map((e: any) => e.message || 'Erro desconhecido').join(', ');
-            } else {
-                // As a last resort, stringify the whole object.
-                errorMessage = `Erro não detalhado recebido da Cora: ${JSON.stringify(data)}`;
-            }
-        } else {
-            // If the response was not JSON, the text itself is the error message.
-            errorMessage = text;
+        let errorMessage = `Erro da API Cora (Status: ${response.status}).`;
+        try {
+            // Try to parse the error response as JSON for detailed info
+            data = JSON.parse(text);
+            // Pretty-print the JSON error object
+            errorMessage += `\nDetalhes: ${JSON.stringify(data, null, 2)}`;
+        } catch (e) {
+            // If it's not JSON, just append the raw text
+            errorMessage += `\nResposta: ${text}`;
         }
 
-        console.error('Error from Cora API:', { status: response.status, body: data });
+        console.error('Error from Cora API:', { status: response.status, body: text });
         return { error: errorMessage, status: response.status };
     }
-    
-    return { data };
+
+    // If response is OK, parse the success response
+    try {
+        data = JSON.parse(text);
+        return { data };
+    } catch (error) {
+        console.error('Failed to parse successful Cora API response:', text);
+        return { error: "A resposta da API Cora foi bem-sucedida, mas o formato era inválido.", status: response.status };
+    }
 }
 
 
