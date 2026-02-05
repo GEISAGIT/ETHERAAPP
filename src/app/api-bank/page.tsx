@@ -4,7 +4,7 @@ import { CoraAuthForm } from '@/components/cora/cora-auth-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText, Copy } from 'lucide-react';
 import { Suspense, useState, useMemo } from 'react';
 import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse, CoraBoletoRequestBody, CoraBoletoResponse } from '@/lib/types';
@@ -91,6 +91,21 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     const boletoForm = useForm<z.infer<typeof boletoFormSchema>>({
       resolver: zodResolver(boletoFormSchema),
     });
+
+    const copyToClipboard = (textToCopy: string, successMessage: string) => {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({
+                title: 'Copiado!',
+                description: successMessage,
+            });
+        }, (err) => {
+            toast({
+                variant: 'destructive',
+                title: 'Falha ao copiar',
+                description: 'Não foi possível copiar o texto.',
+            });
+        });
+    }
 
     // The retryAction is a function that will be called with the new access token
     const handleRefreshToken = async (retryAction: (newAccessToken: string) => Promise<void>) => {
@@ -692,7 +707,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                                 mode="single"
                                                 selected={field.value}
                                                 onSelect={field.onChange}
-                                                disabled={(date) => date < new Date()}
+                                                disabled={(date) => date <= new Date()}
                                                 initialFocus
                                                 locale={ptBR}
                                             />
@@ -723,6 +738,15 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                             <div className="text-xs text-green-700 dark:text-green-300 space-y-2 pl-8">
                                 <p><span className="font-medium">Valor:</span> {formatCurrencyFromCents(boletoResult.total_amount)}</p>
                                 <p><span className="font-medium">Status:</span> <Badge variant="secondary">{boletoResult.status}</Badge></p>
+                                <div className='space-y-2'>
+                                    <Label className="font-medium">Linha Digitável:</Label>
+                                    <div className="flex items-center gap-2">
+                                        <Input readOnly value={boletoResult.payment_options.bank_slip.digitable} className="text-xs h-8" />
+                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.payment_options.bank_slip.digitable, "Linha digitável copiada.")}>
+                                            <Copy className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
                                  <Button asChild size="sm" variant="outline" className="text-foreground">
                                     <Link href={boletoResult.payment_options.bank_slip.url} target="_blank" rel="noopener noreferrer">
                                         Visualizar PDF do Boleto
@@ -793,5 +817,3 @@ export default function ApiBankPage() {
         </AppLayout>
     )
 }
-
-    
