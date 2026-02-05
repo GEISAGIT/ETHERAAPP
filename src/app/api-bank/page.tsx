@@ -295,7 +295,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
             payment_terms: {
                 due_date: format(values.dueDate, 'yyyy-MM-dd'),
             },
-            payment_forms: ['BANK_SLIP', 'PIX'],
+            payment_forms: ['BANK_SLIP'],
         };
         handleIssueBoleto(token.accessToken, requestBody);
     }
