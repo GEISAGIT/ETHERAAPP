@@ -288,7 +288,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
         const sanitizedZipCode = values.customerAddressZipCode.replace(/\D/g, '');
 
         const requestBody: CoraBoletoRequestBody = {
-            external_id: `BOLETO-${uuidv4()}`,
+            code: `boleto-teste-${uuidv4().substring(0, 8)}`,
             customer: {
                 name: values.customerName,
                 email: values.customerEmail,
@@ -313,8 +313,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
             }],
             payment_terms: {
                 due_date: format(values.dueDate, 'yyyy-MM-dd'),
-                fine: { rate: 2 },
-                interest: { rate: 1 }
+                fine: { amount: 200 } // Fixed fine of 200 cents (R$ 2.00)
             },
             payment_forms: ["BANK_SLIP"]
         };

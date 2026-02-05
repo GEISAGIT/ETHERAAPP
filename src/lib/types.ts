@@ -249,7 +249,7 @@ export type CoraService = {
 };
 
 export type CoraFine = {
-    rate: number; // Percentage
+    amount: number; // in cents
 };
 
 export type CoraInterest = {
@@ -263,7 +263,7 @@ export type CoraPaymentTerms = {
 };
 
 export type CoraBoletoRequestBody = {
-    external_id?: string;
+    code?: string;
     customer: CoraCustomer;
     services: CoraService[];
     payment_terms: CoraPaymentTerms;
