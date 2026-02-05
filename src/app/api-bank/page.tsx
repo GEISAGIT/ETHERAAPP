@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Label } from '@/components/ui/label';
+import { v4 as uuidv4 } from 'uuid';
 
 
 const formatCurrency = (value: number) => {
@@ -286,6 +287,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
         const sanitizedZipCode = values.customerAddressZipCode.replace(/\D/g, '');
 
         const requestBody = {
+            external_id: uuidv4(),
             customer: {
                 name: values.customerName,
                 email: values.customerEmail,
@@ -310,12 +312,6 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
             }],
             payment_terms: {
                 due_date: format(values.dueDate, 'yyyy-MM-dd'),
-                fine: {
-                    rate: 2, // 2%
-                },
-                interest: {
-                    rate: 1, // 1%
-                }
             },
             payment_forms: ['BANK_SLIP'],
         };

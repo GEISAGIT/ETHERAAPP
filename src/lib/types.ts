@@ -261,6 +261,7 @@ export type CoraBoletoPaymentTerms = {
 };
 
 export type CoraBoletoRequestBody = {
+    external_id?: string;
     customer: CoraBoletoCustomer;
     services: CoraBoletoService[];
     payment_terms: CoraBoletoPaymentTerms;
