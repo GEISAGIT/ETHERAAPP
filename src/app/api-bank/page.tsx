@@ -82,6 +82,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
     const [boletoResult, setBoletoResult] = useState<CoraBoletoResponse | null>(null);
     const [isIssuingBoleto, setIsIssuingBoleto] = useState(false);
+    const [issuingBoletoError, setIssuingBoletoError] = useState<string | null>(null);
 
     const { user } = useUser();
     const firestore = useFirestore();
@@ -263,14 +264,15 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     const handleIssueBoleto = async (accessToken: string, requestBody: CoraBoletoRequestBody) => {
         setIsIssuingBoleto(true);
         setBoletoResult(null);
+        setIssuingBoletoError(null);
 
         const result = await issueBoleto(accessToken, requestBody);
         
         if (result.error) {
+            setIssuingBoletoError(result.error);
             if (result.isTokenError) {
                 await handleRefreshToken((newAccessToken) => handleIssueBoleto(newAccessToken, requestBody));
             } else {
-                toast({ variant: 'destructive', title: 'Erro ao Emitir Boleto', description: result.error });
                 setIsIssuingBoleto(false);
             }
         } else if (result.data) {
@@ -278,7 +280,8 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
             toast({ title: 'Boleto Emitido!', description: 'O boleto foi gerado e está pronto para ser pago.' });
             setIsIssuingBoleto(false);
         } else {
-            toast({ variant: 'destructive', title: 'Resposta inesperada', description: 'Não foi possível emitir o boleto.' });
+            const errorMsg = 'Não foi possível emitir o boleto. A API retornou uma resposta inesperada.';
+            setIssuingBoletoError(errorMsg);
             setIsIssuingBoleto(false);
         }
     };
@@ -766,6 +769,18 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 </div>}
                             </div>
                         </div>
+                    )}
+                    {issuingBoletoError && (
+                        <Alert variant="destructive" className="mt-4">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Falha na Emissão do Boleto</AlertTitle>
+                            <AlertDescription>
+                                <p className="mb-2">A API da Cora retornou um erro. Verifique os dados enviados. Este tipo de erro (`422`) geralmente acontece no ambiente de testes se os dados (como CPF/CNPJ) não são valores de teste válidos. </p>
+                                <pre className="mt-2 whitespace-pre-wrap rounded-md bg-destructive/10 p-2 font-mono text-xs">
+                                {issuingBoletoError}
+                                </pre>
+                            </AlertDescription>
+                        </Alert>
                     )}
                  </div>
             </CardContent>
