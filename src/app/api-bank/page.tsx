@@ -1,12 +1,12 @@
 'use client';
 import { AppLayout } from '@/components/layout/app-layout';
 import { CoraAuthForm } from '@/components/cora/cora-auth-form';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText, Copy, Barcode, QrCode } from 'lucide-react';
-import { Suspense, useState, useMemo } from 'react';
-import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { Suspense, useState, useMemo, useEffect } from 'react';
+import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse, CoraInvoiceRequestBody, CoraInvoiceResponse } from '@/lib/types';
 import { doc, Timestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -70,6 +70,159 @@ const invoiceFormSchema = z.object({
   amount: z.coerce.number().min(0.01, "O valor deve ser positivo."),
   dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.'}),
 });
+
+function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | null, onDisconnect: () => void }) {
+    const [accountData, setAccountData] = useState<CoraAccountData | null>(null);
+    const [isLoadingAccount, setIsLoadingAccount] = useState(false);
+    const [boletoResult, setBoletoResult] = useState<CoraInvoiceResponse | null>(null);
+    const [isIssuingBoleto, setIsIssuingBoleto] = useState(false);
+    const [issuingBoletoError, setIssuingBoletoError] = useState<string | null>(null);
+    const [paymentResult, setPaymentResult] = useState<CoraPaymentInitiationResponse | null>(null);
+    const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        const fetchAccountData = async () => {
+            if (mainToken) {
+                setIsLoadingAccount(true);
+                const result = await getAccountData(mainToken.accessToken);
+                if (result.data) {
+                    setAccountData(result.data);
+                } else {
+                    setAccountData(null);
+                }
+                setIsLoadingAccount(false);
+            } else {
+                setAccountData(null);
+            }
+        };
+        fetchAccountData();
+    }, [mainToken]);
+    
+    const handleIssueTestBoleto = async () => {
+      if (!mainToken) return;
+      setIsIssuingBoleto(true);
+      setIssuingBoletoError(null);
+      setBoletoResult(null);
+
+      const requestBody: CoraInvoiceRequestBody = {
+          code: `teste-guiado-${uuidv4().substring(0, 8)}`,
+          customer: {
+              name: "Cliente B (Pagador)",
+              email: "cliente.b@emailteste.com",
+              document: { identity: "34452343104", type: 'CPF' },
+              address: { street: "Rua Teste", number: "1", district: "Bairro Teste", city: "Cidade Teste", state: "SP", zip_code: "01001000" }
+          },
+          services: [{ name: "Serviço de Teste", description: "Teste de fluxo guiado", amount: 15000 }],
+          payment_terms: { due_date: format(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd') },
+          payment_forms: ["BANK_SLIP"]
+      };
+
+      const result = await issueInvoice(mainToken.accessToken, requestBody);
+      if (result.error) {
+          setIssuingBoletoError(result.error);
+      } else if (result.data) {
+          setBoletoResult(result.data);
+          toast({ title: 'Boleto de teste emitido!' });
+      }
+      setIsIssuingBoleto(false);
+    };
+
+    const handlePayTestBoleto = async () => {
+        if (!mainToken || !boletoResult?.bank_slip?.digitable_line) return;
+        setIsInitiatingPayment(true);
+        setPaymentResult(null);
+
+        const result = await initiatePayment(mainToken.accessToken, boletoResult.bank_slip.digitable_line);
+        if (result.error) {
+            toast({ variant: 'destructive', title: 'Erro ao Pagar Boleto', description: result.error });
+        } else if (result.data) {
+            setPaymentResult(result.data);
+            toast({ title: 'Pagamento Iniciado!', description: 'O pagamento foi enviado para processamento.' });
+        }
+        setIsInitiatingPayment(false);
+    };
+
+    return (
+        <div className="space-y-6">
+            <h3 className="font-headline text-2xl">Fluxo de Teste Guiado</h3>
+            <p className="text-muted-foreground">Siga os passos abaixo para simular o fluxo completo de emissão e pagamento, conforme as instruções da Cora.</p>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Passo 1: Autorizar conta</CardTitle>
+                    <CardDescription>
+                        Clique para conectar a conta Cora que deseja usar (Emissor ou Pagador). Você será redirecionado para a tela de login da Cora.
+                        <ul className="list-disc pl-5 mt-2 text-xs">
+                            <li><span className="font-semibold">Cliente A (Emissor):</span> CPF `42343487324` / Senha `12345678`</li>
+                            <li><span className="font-semibold">Cliente B (Pagador):</span> CPF `34452343104` / Senha `12345678`</li>
+                        </ul>
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {isLoadingAccount ? (
+                        <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Verificando...</div>
+                    ) : mainToken && accountData ? (
+                        <div className="flex items-center justify-between p-3 bg-primary/10 rounded-md">
+                            <div className='text-sm'>
+                               <p className="font-semibold text-primary">Conta Conectada:</p>
+                               <p>{accountData.bankName} | Ag: {accountData.agency} | CC: {accountData.accountNumber}-{accountData.accountDigit}</p>
+                            </div>
+                            <Button variant="destructive" size="sm" onClick={onDisconnect}>Desconectar</Button>
+                        </div>
+                    ) : (
+                        <CoraAuthForm />
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Passo 2: Emitir Boleto (com Cliente A)</CardTitle>
+                    <CardDescription>Com a conta do Cliente A conectada, clique no botão para emitir um boleto de R$ 150,00 para o Cliente B.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button onClick={handleIssueTestBoleto} disabled={!mainToken || isIssuingBoleto}>
+                        {isIssuingBoleto ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Emitindo...</> : 'Emitir Boleto de Teste'}
+                    </Button>
+                    {issuingBoletoError && (
+                      <Alert variant="destructive" className="mt-4">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Falha na Emissão</AlertTitle>
+                        <AlertDescription>{issuingBoletoError}</AlertDescription>
+                      </Alert>
+                    )}
+                    {boletoResult && boletoResult.bank_slip && (
+                       <div className="mt-4 space-y-2 text-sm p-3 border rounded-md bg-muted/20">
+                          <p className="font-semibold">Boleto emitido com sucesso!</p>
+                          <p className="font-mono text-xs break-all">{boletoResult.bank_slip.digitable_line}</p>
+                       </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Passo 3: Pagar Boleto (com Cliente B)</CardTitle>
+                    <CardDescription>Desconecte a conta do Cliente A, conecte a conta do Cliente B (Passo 1), e então clique para pagar o boleto emitido.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <Button onClick={handlePayTestBoleto} disabled={!mainToken || isInitiatingPayment || !boletoResult}>
+                        {isInitiatingPayment ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Pagando...</> : 'Pagar Boleto com Conta Atua'}
+                    </Button>
+                    {paymentResult && (
+                        <div className="mt-4 space-y-2 text-sm p-3 border rounded-md bg-muted/20">
+                          <p className="font-semibold">Pagamento iniciado!</p>
+                          <p>Status: <Badge>{paymentResult.status}</Badge></p>
+                           <p>Beneficiário: {paymentResult.creditor.name}</p>
+                           <p>Valor: {formatCurrencyFromCents(paymentResult.amount)}</p>
+                       </div>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
 
 
 function CoraAccountDetails({ token }: { token: CoraToken }) {
@@ -1094,10 +1247,13 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                         </div>
                     </TabsContent>
                     <TabsContent value="new_tests" className="mt-4">
-                        <div className="rounded-md border p-4">
-                            <h3 className="font-semibold">Área para Novos Testes</h3>
-                            <p className="text-muted-foreground">Este espaço está reservado para novas implementações e testes da API.</p>
-                        </div>
+                        <GuidedTestFlow mainToken={token} onDisconnect={() => {
+                            if (user && firestore) {
+                                const tokenDocRef = doc(firestore, 'users', user.uid, 'coraTokens', 'cora-token');
+                                deleteDocumentNonBlocking(tokenDocRef);
+                                toast({ title: 'Conta Desconectada', description: 'Você pode conectar outra conta agora.'});
+                            }
+                        }} />
                     </TabsContent>
                 </Tabs>
             </CardContent>
