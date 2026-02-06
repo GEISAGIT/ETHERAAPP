@@ -30,6 +30,7 @@ import { Label } from '@/components/ui/label';
 import { v4 as uuidv4 } from 'uuid';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 const formatCurrency = (value: number) => {
@@ -399,690 +400,706 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                 <CardTitle>Conta Cora Conectada</CardTitle>
                 <CardDescription>Sua conta está conectada. Use as ações abaixo para interagir com a API.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-                 <div className="rounded-md border p-4 space-y-2">
-                    <h3 className="font-semibold">Saldo da Conta</h3>
-                    {balance === null ? (
-                        <p className="text-muted-foreground">Clique no botão para buscar seu saldo atual.</p>
-                    ) : (
-                        <p className="text-2xl font-bold text-primary">{formatCurrency(balance)}</p>
-                    )}
-                    <Button onClick={() => handleGetBalance(token.accessToken)} disabled={isLoading}>
-                        {isBalanceLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {isBalanceLoading ? 'Buscando Saldo...' : 'Buscar Saldo'}
-                    </Button>
-                 </div>
-                 
-                 <div className="rounded-md border p-4 space-y-2">
-                    <h3 className="font-semibold">Dados da Conta</h3>
-                     {accountData ? (
-                        <div className="text-sm space-y-1">
-                            <p><span className="font-medium text-muted-foreground">Banco:</span> {accountData.bankCode} - {accountData.bankName}</p>
-                            <p><span className="font-medium text-muted-foreground">Agência:</span> {accountData.agency}</p>
-                            <p><span className="font-medium text-muted-foreground">Conta:</span> {accountData.accountNumber}-{accountData.accountDigit}</p>
-                        </div>
-                    ) : (
-                        <p className="text-muted-foreground">Clique no botão para buscar os dados da sua conta.</p>
-                    )}
-                    <Button onClick={() => handleGetAccountData(token.accessToken)} disabled={isLoading}>
-                        {isAccountDataLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {isAccountDataLoading ? 'Buscando Dados...' : 'Buscar Dados da Conta'}
-                    </Button>
-                 </div>
-
-                 <div className="rounded-md border p-4 space-y-4">
-                    <h3 className="font-semibold">Extrato da Conta</h3>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                         <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                id="date"
-                                variant={"outline"}
-                                className={cn(
-                                    "w-full justify-start text-left font-normal sm:w-auto",
-                                    !dateRange && "text-muted-foreground"
-                                )}
-                                >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (
-                                    dateRange.to ? (
-                                    <>
-                                        {format(dateRange.from, "dd/MM/yy", { locale: ptBR })} - {format(dateRange.to, "dd/MM/yy", { locale: ptBR })}
-                                    </>
-                                    ) : (
-                                    format(dateRange.from, "dd/MM/yy", { locale: ptBR })
-                                    )
+            <CardContent>
+                <Tabs defaultValue="v2">
+                    <TabsList>
+                        <TabsTrigger value="v2">API v2 (Oficial)</TabsTrigger>
+                        <TabsTrigger value="new_tests">Novos Testes</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="v2" className="mt-4">
+                        <div className="space-y-4">
+                            <div className="rounded-md border p-4 space-y-2">
+                                <h3 className="font-semibold">Saldo da Conta</h3>
+                                {balance === null ? (
+                                    <p className="text-muted-foreground">Clique no botão para buscar seu saldo atual.</p>
                                 ) : (
-                                    <span>Selecione um período</span>
+                                    <p className="text-2xl font-bold text-primary">{formatCurrency(balance)}</p>
                                 )}
+                                <Button onClick={() => handleGetBalance(token.accessToken)} disabled={isLoading}>
+                                    {isBalanceLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    {isBalanceLoading ? 'Buscando Saldo...' : 'Buscar Saldo'}
                                 </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                initialFocus
-                                mode="range"
-                                defaultMonth={dateRange?.from}
-                                selected={dateRange}
-                                onSelect={setDateRange}
-                                numberOfMonths={2}
-                                locale={ptBR}
-                                />
-                            </PopoverContent>
-                        </Popover>
-                         <Button onClick={() => handleGetStatement(token.accessToken)} disabled={isLoading || !dateRange?.from}>
-                            {isStatementLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isStatementLoading ? 'Buscando Extrato...' : 'Buscar Extrato'}
-                        </Button>
-                    </div>
-
-                    {isStatementLoading && (
-                        <div className="flex items-center justify-center p-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        </div>
-                    )}
-                    
-                    {statement && (
-                        statement.entries.length > 0 ? (
-                           <Table>
-                               <TableHeader>
-                                   <TableRow>
-                                       <TableHead>Data</TableHead>
-                                       <TableHead>Descrição</TableHead>
-                                       <TableHead className="text-right">Valor</TableHead>
-                                   </TableRow>
-                               </TableHeader>
-                               <TableBody>
-                                   {statement.entries.map((entry) => {
-                                       const date = new Date(entry.createdAt);
-                                       const formattedDate = !isNaN(date.getTime()) 
-                                          ? format(date, "dd/MM/yyyy HH:mm", { locale: ptBR }) 
-                                          : 'N/A';
-
-                                       return (
-                                       <TableRow key={entry.id}>
-                                           <TableCell>{formattedDate}</TableCell>
-                                           <TableCell>
-                                               <div className="flex items-center gap-2">
-                                                    {entry.type === 'CREDIT' ? <ArrowUpCircle className="h-4 w-4 text-emerald-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium">{entry.transaction?.description ?? 'Descrição não disponível'}</span>
-                                                        <span className="text-xs text-muted-foreground">{entry.transaction?.counterParty?.name ?? 'Contraparte não disponível'}</span>
-                                                    </div>
-                                                </div>
-                                           </TableCell>
-                                           <TableCell className={`text-right font-mono ${entry.type === 'CREDIT' ? 'text-emerald-500' : 'text-red-500'}`}>
-                                               {formatCurrencyFromCents(entry.amount)}
-                                           </TableCell>
-                                       </TableRow>
-                                   )})}
-                               </TableBody>
-                           </Table>
-                        ) : (
-                            <p className="text-muted-foreground text-center p-4">Nenhuma transação encontrada para o período selecionado.</p>
-                        )
-                    )}
-                 </div>
-
-                 <div className="rounded-md border p-4 space-y-4">
-                    <h3 className="font-semibold">Iniciar Pagamento de Boleto</h3>
-                    <Form {...paymentForm}>
-                        <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
-                            <FormField
-                                control={paymentForm.control}
-                                name="digitableLine"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Linha Digitável</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="00000.00000 00000.000000..." {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
+                            </div>
+                            
+                            <div className="rounded-md border p-4 space-y-2">
+                                <h3 className="font-semibold">Dados da Conta</h3>
+                                {accountData ? (
+                                    <div className="text-sm space-y-1">
+                                        <p><span className="font-medium text-muted-foreground">Banco:</span> {accountData.bankCode} - {accountData.bankName}</p>
+                                        <p><span className="font-medium text-muted-foreground">Agência:</span> {accountData.agency}</p>
+                                        <p><span className="font-medium text-muted-foreground">Conta:</span> {accountData.accountNumber}-{accountData.accountDigit}</p>
+                                    </div>
+                                ) : (
+                                    <p className="text-muted-foreground">Clique no botão para buscar os dados da sua conta.</p>
                                 )}
-                            />
-                             <FormField
-                                control={paymentForm.control}
-                                name="scheduledAt"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                    <FormLabel>Agendar para (Opcional)</FormLabel>
+                                <Button onClick={() => handleGetAccountData(token.accessToken)} disabled={isLoading}>
+                                    {isAccountDataLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    {isAccountDataLoading ? 'Buscando Dados...' : 'Buscar Dados da Conta'}
+                                </Button>
+                            </div>
+
+                            <div className="rounded-md border p-4 space-y-4">
+                                <h3 className="font-semibold">Extrato da Conta</h3>
+                                <div className="flex flex-col sm:flex-row gap-2">
                                     <Popover>
                                         <PopoverTrigger asChild>
-                                        <FormControl>
                                             <Button
+                                            id="date"
                                             variant={"outline"}
                                             className={cn(
-                                                "w-full pl-3 text-left font-normal",
-                                                !field.value && "text-muted-foreground"
+                                                "w-full justify-start text-left font-normal sm:w-auto",
+                                                !dateRange && "text-muted-foreground"
                                             )}
                                             >
-                                            {field.value ? (
-                                                format(field.value, "PPP", { locale: ptBR })
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {dateRange?.from ? (
+                                                dateRange.to ? (
+                                                <>
+                                                    {format(dateRange.from, "dd/MM/yy", { locale: ptBR })} - {format(dateRange.to, "dd/MM/yy", { locale: ptBR })}
+                                                </>
+                                                ) : (
+                                                format(dateRange.from, "dd/MM/yy", { locale: ptBR })
+                                                )
                                             ) : (
-                                                <span>Escolha uma data</span>
+                                                <span>Selecione um período</span>
                                             )}
-                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                             </Button>
-                                        </FormControl>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value}
-                                            onSelect={field.onChange}
-                                            disabled={(date) => date < new Date()}
+                                            <Calendar
                                             initialFocus
+                                            mode="range"
+                                            defaultMonth={dateRange?.from}
+                                            selected={dateRange}
+                                            onSelect={setDateRange}
+                                            numberOfMonths={2}
                                             locale={ptBR}
-                                        />
+                                            />
                                         </PopoverContent>
                                     </Popover>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <Button type="submit" disabled={isLoading}>
-                                {isInitiatingPayment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {isInitiatingPayment ? 'Iniciando...' : 'Iniciar Pagamento'}
-                            </Button>
-                        </form>
-                    </Form>
-                    {paymentResult && (
-                        <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-3 mt-4">
-                            <div className="flex items-start gap-3">
-                                <ClipboardCheck className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
-                                <div className="flex-1">
-                                    <h4 className="font-semibold text-green-800 dark:text-green-200">Pagamento Iniciado com Sucesso!</h4>
-                                     <p className="text-sm text-green-700 dark:text-green-300">
-                                        O pagamento foi iniciado e aguarda sua aprovação no aplicativo da Cora.
-                                    </p>
+                                    <Button onClick={() => handleGetStatement(token.accessToken)} disabled={isLoading || !dateRange?.from}>
+                                        {isStatementLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        {isStatementLoading ? 'Buscando Extrato...' : 'Buscar Extrato'}
+                                    </Button>
                                 </div>
-                            </div>
-                            <div className="text-xs text-green-700 dark:text-green-300 space-y-1 pl-8">
-                                <p><span className="font-medium">Beneficiário:</span> {paymentResult.creditor.name}</p>
-                                <p><span className="font-medium">Valor:</span> {formatCurrencyFromCents(paymentResult.amount)}</p>
-                                <p><span className="font-medium">Status:</span> <Badge variant="secondary">{paymentResult.status}</Badge></p>
-                            </div>
-                        </div>
-                    )}
-                 </div>
 
-                 <div className="rounded-md border p-4 space-y-4">
-                    <h3 className="font-semibold">Emitir Boleto de Cobrança (V2)</h3>
-                     <Form {...boletoForm}>
-                        <form onSubmit={boletoForm.handleSubmit(onBoletoSubmit)} className="space-y-4">
-                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <FormField
-                                    control={boletoForm.control}
-                                    name="customerName"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Nome do Cliente</FormLabel>
-                                            <FormControl><Input placeholder="Ex: João da Silva" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={boletoForm.control}
-                                    name="customerEmail"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Email do Cliente</FormLabel>
-                                            <FormControl><Input placeholder="email@exemplo.com" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                             </div>
-                             <FormField
-                                control={boletoForm.control}
-                                name="customerDocument"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>CPF/CNPJ do Cliente</FormLabel>
-                                        <FormControl><Input placeholder="Apenas números" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <div className="space-y-2 rounded-md border p-4">
-                                <h4 className="font-medium text-sm">Endereço do Cliente</h4>
-                                <FormField
-                                    control={boletoForm.control}
-                                    name="customerAddressStreet"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Rua</FormLabel>
-                                            <FormControl><Input placeholder="Ex: Rua das Flores" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <FormField
-                                        control={boletoForm.control}
-                                        name="customerAddressNumber"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Número</FormLabel>
-                                                <FormControl><Input placeholder="123" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                     <FormField
-                                        control={boletoForm.control}
-                                        name="customerAddressComplement"
-                                        render={({ field }) => (
-                                            <FormItem className="sm:col-span-2">
-                                                <FormLabel>Complemento (Opcional)</FormLabel>
-                                                <FormControl><Input placeholder="Apto 101" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                                <FormField
-                                    control={boletoForm.control}
-                                    name="customerAddressDistrict"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Bairro</FormLabel>
-                                            <FormControl><Input placeholder="Centro" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <FormField
-                                        control={boletoForm.control}
-                                        name="customerAddressCity"
-                                        render={({ field }) => (
-                                            <FormItem className="sm:col-span-2">
-                                                <FormLabel>Cidade</FormLabel>
-                                                <FormControl><Input placeholder="São Paulo" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                     <FormField
-                                        control={boletoForm.control}
-                                        name="customerAddressState"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Estado (UF)</FormLabel>
-                                                <FormControl><Input placeholder="SP" maxLength={2} {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                                 <FormField
-                                    control={boletoForm.control}
-                                    name="customerAddressZipCode"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>CEP</FormLabel>
-                                            <FormControl><Input placeholder="00000-000" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-
-                             <FormField
-                                control={boletoForm.control}
-                                name="serviceDescription"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Descrição do Serviço/Produto</FormLabel>
-                                        <FormControl><Textarea placeholder="Ex: Consulta de rotina" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormField
-                                    control={boletoForm.control}
-                                    name="amount"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Valor (R$)</FormLabel>
-                                            <FormControl><Input type="number" step="0.01" placeholder="150.00" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                 <FormField
-                                    control={boletoForm.control}
-                                    name="dueDate"
-                                    render={({ field }) => (
-                                        <FormItem className="flex flex-col">
-                                        <FormLabel>Data de Vencimento</FormLabel>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button
-                                                variant={"outline"}
-                                                className={cn(
-                                                    "w-full pl-3 text-left font-normal",
-                                                    !field.value && "text-muted-foreground"
-                                                )}
-                                                >
-                                                {field.value ? (
-                                                    format(field.value, "PPP", { locale: ptBR })
-                                                ) : (
-                                                    <span>Escolha uma data</span>
-                                                )}
-                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                mode="single"
-                                                selected={field.value}
-                                                onSelect={field.onChange}
-                                                disabled={(date) => date < new Date(new Date().setDate(new Date().getDate()))}
-                                                initialFocus
-                                                locale={ptBR}
-                                            />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                            <Button type="submit" disabled={isLoading}>
-                                {isIssuingBoleto && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {isIssuingBoleto ? 'Emitindo...' : 'Emitir Boleto'}
-                            </Button>
-                        </form>
-                    </Form>
-                     {boletoResult && boletoResult.bank_slip && (
-                        <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4">
-                            <div className="flex items-start gap-3">
-                                <FileText className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
-                                <div className="flex-1">
-                                    <h4 className="font-semibold text-green-800 dark:text-green-200">Boleto Emitido com Sucesso!</h4>
-                                     <p className="text-sm text-green-700 dark:text-green-300">
-                                        O boleto foi gerado e está pronto para ser pago.
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="text-sm text-green-700 dark:text-green-300 space-y-3 pl-8">
-                                {boletoResult.id && <div>
-                                    <Label className="font-medium">ID da Cobrança:</Label>
-                                    <p className="font-mono text-xs">{boletoResult.id}</p>
-                                </div>}
-                                {boletoResult.bank_slip.digitable_line && <div>
-                                    <Label className="font-medium">Linha Digitável:</Label>
-                                    <div className="flex items-center gap-2">
-                                        <Input readOnly value={boletoResult.bank_slip.digitable_line} className="text-xs h-8" />
-                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.bank_slip!.digitable_line, "Linha digitável copiada.")}>
-                                            <Copy className="h-4 w-4" />
-                                        </Button>
+                                {isStatementLoading && (
+                                    <div className="flex items-center justify-center p-8">
+                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                     </div>
-                                </div>}
-                                {boletoResult.bank_slip.barcode && <div>
-                                    <Label className="font-medium">Código de Barras:</Label>
-                                    <div className="flex items-center gap-2">
-                                        <Input readOnly value={boletoResult.bank_slip.barcode} className="text-xs h-8" />
-                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.bank_slip!.barcode, "Código de barras copiado.")}>
-                                            <Copy className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </div>}
-                            </div>
-                        </div>
-                    )}
-                    {issuingBoletoError && (
-                         <Alert variant="destructive" className="mt-4">
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Falha na Emissão do Boleto</AlertTitle>
-                            <AlertDescription>
-                                <p className="mb-2">A API da Cora retornou um erro. Verifique os dados enviados. Este tipo de erro (`422`) geralmente acontece no ambiente de testes se os dados (como CPF/CNPJ) não são valores de teste válidos. </p>
-                                <pre className="mt-2 whitespace-pre-wrap rounded-md bg-destructive/10 p-2 font-mono text-xs">
-                                {issuingBoletoError}
-                                </pre>
-                            </AlertDescription>
-                        </Alert>
-                    )}
-                 </div>
+                                )}
+                                
+                                {statement && (
+                                    statement.entries.length > 0 ? (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Data</TableHead>
+                                                <TableHead>Descrição</TableHead>
+                                                <TableHead className="text-right">Valor</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {statement.entries.map((entry) => {
+                                                const date = new Date(entry.createdAt);
+                                                const formattedDate = !isNaN(date.getTime()) 
+                                                ? format(date, "dd/MM/yyyy HH:mm", { locale: ptBR }) 
+                                                : 'N/A';
 
-                 <div className="rounded-md border p-4 space-y-4">
-                    <h3 className="font-semibold">Emitir QR Code Pix (V2)</h3>
-                    <Form {...pixForm}>
-                        <form onSubmit={pixForm.handleSubmit(onPixSubmit)} className="space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <FormField
-                                    control={pixForm.control}
-                                    name="customerName"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Nome do Cliente</FormLabel>
-                                            <FormControl><Input placeholder="Ex: Maria Souza" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={pixForm.control}
-                                    name="customerEmail"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Email do Cliente</FormLabel>
-                                            <FormControl><Input placeholder="email@exemplo.com" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                             </div>
-                             <FormField
-                                control={pixForm.control}
-                                name="customerDocument"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>CPF/CNPJ do Cliente</FormLabel>
-                                        <FormControl><Input placeholder="Apenas números" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
+                                                return (
+                                                <TableRow key={entry.id}>
+                                                    <TableCell>{formattedDate}</TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            {entry.type === 'CREDIT' ? <ArrowUpCircle className="h-4 w-4 text-emerald-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
+                                                            <div className="flex flex-col">
+                                                                <span className="font-medium">{entry.transaction?.description ?? 'Descrição não disponível'}</span>
+                                                                <span className="text-xs text-muted-foreground">{entry.transaction?.counterParty?.name ?? 'Contraparte não disponível'}</span>
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className={`text-right font-mono ${entry.type === 'CREDIT' ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                        {formatCurrencyFromCents(entry.amount)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            )})}
+                                        </TableBody>
+                                    </Table>
+                                    ) : (
+                                        <p className="text-muted-foreground text-center p-4">Nenhuma transação encontrada para o período selecionado.</p>
+                                    )
                                 )}
-                            />
-                             <div className="space-y-2 rounded-md border p-4">
-                                <h4 className="font-medium text-sm">Endereço do Cliente</h4>
-                                <FormField
-                                    control={pixForm.control}
-                                    name="customerAddressStreet"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Rua</FormLabel>
-                                            <FormControl><Input placeholder="Ex: Rua das Palmeiras" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <FormField
-                                        control={pixForm.control}
-                                        name="customerAddressNumber"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Número</FormLabel>
-                                                <FormControl><Input placeholder="456" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                     <FormField
-                                        control={pixForm.control}
-                                        name="customerAddressComplement"
-                                        render={({ field }) => (
-                                            <FormItem className="sm:col-span-2">
-                                                <FormLabel>Complemento (Opcional)</FormLabel>
-                                                <FormControl><Input placeholder="Casa 2" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                                <FormField
-                                    control={pixForm.control}
-                                    name="customerAddressDistrict"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Bairro</FormLabel>
-                                            <FormControl><Input placeholder="Vila Madalena" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <FormField
-                                        control={pixForm.control}
-                                        name="customerAddressCity"
-                                        render={({ field }) => (
-                                            <FormItem className="sm:col-span-2">
-                                                <FormLabel>Cidade</FormLabel>
-                                                <FormControl><Input placeholder="São Paulo" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                     <FormField
-                                        control={pixForm.control}
-                                        name="customerAddressState"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Estado (UF)</FormLabel>
-                                                <FormControl><Input placeholder="SP" maxLength={2} {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                                 <FormField
-                                    control={pixForm.control}
-                                    name="customerAddressZipCode"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>CEP</FormLabel>
-                                            <FormControl><Input placeholder="00000-000" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
                             </div>
-                            <FormField
-                                control={pixForm.control}
-                                name="serviceDescription"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Descrição da Cobrança</FormLabel>
-                                        <FormControl><Textarea placeholder="Ex: Cobrança de consulta" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormField
-                                    control={pixForm.control}
-                                    name="amount"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Valor (R$)</FormLabel>
-                                            <FormControl><Input type="number" step="0.01" placeholder="50.00" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={pixForm.control}
-                                    name="dueDate"
-                                    render={({ field }) => (
-                                        <FormItem className="flex flex-col">
-                                        <FormLabel>Data de Vencimento</FormLabel>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button
-                                                variant={"outline"}
-                                                className={cn(
-                                                    "w-full pl-3 text-left font-normal",
-                                                    !field.value && "text-muted-foreground"
-                                                )}
-                                                >
-                                                {field.value ? (
-                                                    format(field.value, "PPP", { locale: ptBR })
-                                                ) : (
-                                                    <span>Escolha uma data</span>
-                                                )}
-                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                mode="single"
-                                                selected={field.value}
-                                                onSelect={field.onChange}
-                                                disabled={(date) => date < new Date(new Date().setDate(new Date().getDate()))}
-                                                initialFocus
-                                                locale={ptBR}
-                                            />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                            <Button type="submit" disabled={isLoading}>
-                                {isIssuingPix && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {isIssuingPix ? 'Gerando...' : 'Gerar QR Code Pix'}
-                            </Button>
-                        </form>
-                    </Form>
-                    {pixResult && pixResult.pix?.emv && (
-                        <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4">
-                            <div className="flex items-start gap-3">
-                                <QrCode className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
-                                <div className="flex-1">
-                                    <h4 className="font-semibold text-green-800 dark:text-green-200">QR Code Pix Gerado!</h4>
-                                    <div className="flex flex-col sm:flex-row gap-4 mt-2 items-center">
-                                         {pixResult.payment_options?.bank_slip?.url && (
-                                            <div className="w-32 h-32 relative border p-1 bg-white rounded-md">
-                                                <img src={pixResult.payment_options.bank_slip.url} alt="QR Code Pix" className="w-full h-full" />
+
+                            <div className="rounded-md border p-4 space-y-4">
+                                <h3 className="font-semibold">Iniciar Pagamento de Boleto</h3>
+                                <Form {...paymentForm}>
+                                    <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
+                                        <FormField
+                                            control={paymentForm.control}
+                                            name="digitableLine"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Linha Digitável</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="00000.00000 00000.000000..." {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={paymentForm.control}
+                                            name="scheduledAt"
+                                            render={({ field }) => (
+                                                <FormItem className="flex flex-col">
+                                                <FormLabel>Agendar para (Opcional)</FormLabel>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                    <FormControl>
+                                                        <Button
+                                                        variant={"outline"}
+                                                        className={cn(
+                                                            "w-full pl-3 text-left font-normal",
+                                                            !field.value && "text-muted-foreground"
+                                                        )}
+                                                        >
+                                                        {field.value ? (
+                                                            format(field.value, "PPP", { locale: ptBR })
+                                                        ) : (
+                                                            <span>Escolha uma data</span>
+                                                        )}
+                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                        </Button>
+                                                    </FormControl>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                    <Calendar
+                                                        mode="single"
+                                                        selected={field.value}
+                                                        onSelect={field.onChange}
+                                                        disabled={(date) => date < new Date()}
+                                                        initialFocus
+                                                        locale={ptBR}
+                                                    />
+                                                    </PopoverContent>
+                                                </Popover>
+                                                <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <Button type="submit" disabled={isLoading}>
+                                            {isInitiatingPayment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            {isInitiatingPayment ? 'Iniciando...' : 'Iniciar Pagamento'}
+                                        </Button>
+                                    </form>
+                                </Form>
+                                {paymentResult && (
+                                    <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-3 mt-4">
+                                        <div className="flex items-start gap-3">
+                                            <ClipboardCheck className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
+                                            <div className="flex-1">
+                                                <h4 className="font-semibold text-green-800 dark:text-green-200">Pagamento Iniciado com Sucesso!</h4>
+                                                <p className="text-sm text-green-700 dark:text-green-300">
+                                                    O pagamento foi iniciado e aguarda sua aprovação no aplicativo da Cora.
+                                                </p>
                                             </div>
-                                         )}
-                                        <div className="flex-1">
-                                            <Label htmlFor="pix-copy-paste">Copia e Cola</Label>
-                                            <div className="flex items-center gap-2">
-                                                <Textarea id="pix-copy-paste" readOnly value={pixResult.pix.emv} className="text-xs h-24 bg-background/50" />
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(pixResult.pix!.emv, "Código Pix 'Copia e Cola' copiado.")}>
-                                                    <Copy className="h-4 w-4" />
-                                                </Button>
+                                        </div>
+                                        <div className="text-xs text-green-700 dark:text-green-300 space-y-1 pl-8">
+                                            <p><span className="font-medium">Beneficiário:</span> {paymentResult.creditor.name}</p>
+                                            <p><span className="font-medium">Valor:</span> {formatCurrencyFromCents(paymentResult.amount)}</p>
+                                            <p><span className="font-medium">Status:</span> <Badge variant="secondary">{paymentResult.status}</Badge></p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="rounded-md border p-4 space-y-4">
+                                <h3 className="font-semibold">Emitir Boleto de Cobrança (V2)</h3>
+                                <Form {...boletoForm}>
+                                    <form onSubmit={boletoForm.handleSubmit(onBoletoSubmit)} className="space-y-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <FormField
+                                                control={boletoForm.control}
+                                                name="customerName"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Nome do Cliente</FormLabel>
+                                                        <FormControl><Input placeholder="Ex: João da Silva" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={boletoForm.control}
+                                                name="customerEmail"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Email do Cliente</FormLabel>
+                                                        <FormControl><Input placeholder="email@exemplo.com" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                        <FormField
+                                            control={boletoForm.control}
+                                            name="customerDocument"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>CPF/CNPJ do Cliente</FormLabel>
+                                                    <FormControl><Input placeholder="Apenas números" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <div className="space-y-2 rounded-md border p-4">
+                                            <h4 className="font-medium text-sm">Endereço do Cliente</h4>
+                                            <FormField
+                                                control={boletoForm.control}
+                                                name="customerAddressStreet"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Rua</FormLabel>
+                                                        <FormControl><Input placeholder="Ex: Rua das Flores" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                <FormField
+                                                    control={boletoForm.control}
+                                                    name="customerAddressNumber"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Número</FormLabel>
+                                                            <FormControl><Input placeholder="123" {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={boletoForm.control}
+                                                    name="customerAddressComplement"
+                                                    render={({ field }) => (
+                                                        <FormItem className="sm:col-span-2">
+                                                            <FormLabel>Complemento (Opcional)</FormLabel>
+                                                            <FormControl><Input placeholder="Apto 101" {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                            <FormField
+                                                control={boletoForm.control}
+                                                name="customerAddressDistrict"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Bairro</FormLabel>
+                                                        <FormControl><Input placeholder="Centro" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                <FormField
+                                                    control={boletoForm.control}
+                                                    name="customerAddressCity"
+                                                    render={({ field }) => (
+                                                        <FormItem className="sm:col-span-2">
+                                                            <FormLabel>Cidade</FormLabel>
+                                                            <FormControl><Input placeholder="São Paulo" {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={boletoForm.control}
+                                                    name="customerAddressState"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Estado (UF)</FormLabel>
+                                                            <FormControl><Input placeholder="SP" maxLength={2} {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                            <FormField
+                                                control={boletoForm.control}
+                                                name="customerAddressZipCode"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>CEP</FormLabel>
+                                                        <FormControl><Input placeholder="00000-000" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+
+                                        <FormField
+                                            control={boletoForm.control}
+                                            name="serviceDescription"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Descrição do Serviço/Produto</FormLabel>
+                                                    <FormControl><Textarea placeholder="Ex: Consulta de rotina" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <FormField
+                                                control={boletoForm.control}
+                                                name="amount"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Valor (R$)</FormLabel>
+                                                        <FormControl><Input type="number" step="0.01" placeholder="150.00" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={boletoForm.control}
+                                                name="dueDate"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex flex-col">
+                                                    <FormLabel>Data de Vencimento</FormLabel>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                        <FormControl>
+                                                            <Button
+                                                            variant={"outline"}
+                                                            className={cn(
+                                                                "w-full pl-3 text-left font-normal",
+                                                                !field.value && "text-muted-foreground"
+                                                            )}
+                                                            >
+                                                            {field.value ? (
+                                                                format(field.value, "PPP", { locale: ptBR })
+                                                            ) : (
+                                                                <span>Escolha uma data</span>
+                                                            )}
+                                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                            </Button>
+                                                        </FormControl>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                        <Calendar
+                                                            mode="single"
+                                                            selected={field.value}
+                                                            onSelect={field.onChange}
+                                                            disabled={(date) => date < new Date(new Date().setDate(new Date().getDate()))}
+                                                            initialFocus
+                                                            locale={ptBR}
+                                                        />
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                    <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                        <Button type="submit" disabled={isLoading}>
+                                            {isIssuingBoleto && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            {isIssuingBoleto ? 'Emitindo...' : 'Emitir Boleto'}
+                                        </Button>
+                                    </form>
+                                </Form>
+                                {issuingBoletoError && (
+                                    <Alert variant="destructive" className="mt-4">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <AlertTitle>Falha na Emissão do Boleto</AlertTitle>
+                                        <AlertDescription>
+                                            <p className="mb-2">A API da Cora retornou um erro. Detalhes abaixo:</p>
+                                            <pre className="mt-2 whitespace-pre-wrap rounded-md bg-destructive/10 p-2 font-mono text-xs">
+                                            {issuingBoletoError}
+                                            </pre>
+                                        </AlertDescription>
+                                    </Alert>
+                                )}
+                                {boletoResult && boletoResult.bank_slip && (
+                                    <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4">
+                                        <div className="flex items-start gap-3">
+                                            <FileText className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
+                                            <div className="flex-1">
+                                                <h4 className="font-semibold text-green-800 dark:text-green-200">Boleto Emitido com Sucesso!</h4>
+                                                <p className="text-sm text-green-700 dark:text-green-300">
+                                                    O boleto foi gerado e está pronto para ser pago.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="text-sm text-green-700 dark:text-green-300 space-y-3 pl-8">
+                                            {boletoResult.id && <div>
+                                                <Label className="font-medium">ID da Cobrança:</Label>
+                                                <p className="font-mono text-xs">{boletoResult.id}</p>
+                                            </div>}
+                                            {boletoResult.bank_slip.digitable_line && <div>
+                                                <Label className="font-medium">Linha Digitável:</Label>
+                                                <div className="flex items-center gap-2">
+                                                    <Input readOnly value={boletoResult.bank_slip.digitable_line} className="text-xs h-8" />
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.bank_slip!.digitable_line, "Linha digitável copiada.")}>
+                                                        <Copy className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>}
+                                            {boletoResult.bank_slip.barcode && <div>
+                                                <Label className="font-medium">Código de Barras:</Label>
+                                                <div className="flex items-center gap-2">
+                                                    <Input readOnly value={boletoResult.bank_slip.barcode} className="text-xs h-8" />
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.bank_slip!.barcode, "Código de barras copiado.")}>
+                                                        <Copy className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="rounded-md border p-4 space-y-4">
+                                <h3 className="font-semibold">Emitir QR Code Pix (V2)</h3>
+                                <Form {...pixForm}>
+                                    <form onSubmit={pixForm.handleSubmit(onPixSubmit)} className="space-y-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <FormField
+                                                control={pixForm.control}
+                                                name="customerName"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Nome do Cliente</FormLabel>
+                                                        <FormControl><Input placeholder="Ex: Maria Souza" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={pixForm.control}
+                                                name="customerEmail"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Email do Cliente</FormLabel>
+                                                        <FormControl><Input placeholder="email@exemplo.com" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                        <FormField
+                                            control={pixForm.control}
+                                            name="customerDocument"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>CPF/CNPJ do Cliente</FormLabel>
+                                                    <FormControl><Input placeholder="Apenas números" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <div className="space-y-2 rounded-md border p-4">
+                                            <h4 className="font-medium text-sm">Endereço do Cliente</h4>
+                                            <FormField
+                                                control={pixForm.control}
+                                                name="customerAddressStreet"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Rua</FormLabel>
+                                                        <FormControl><Input placeholder="Ex: Rua das Palmeiras" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                <FormField
+                                                    control={pixForm.control}
+                                                    name="customerAddressNumber"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Número</FormLabel>
+                                                            <FormControl><Input placeholder="456" {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={pixForm.control}
+                                                    name="customerAddressComplement"
+                                                    render={({ field }) => (
+                                                        <FormItem className="sm:col-span-2">
+                                                            <FormLabel>Complemento (Opcional)</FormLabel>
+                                                            <FormControl><Input placeholder="Casa 2" {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                            <FormField
+                                                control={pixForm.control}
+                                                name="customerAddressDistrict"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Bairro</FormLabel>
+                                                        <FormControl><Input placeholder="Vila Madalena" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                <FormField
+                                                    control={pixForm.control}
+                                                    name="customerAddressCity"
+                                                    render={({ field }) => (
+                                                        <FormItem className="sm:col-span-2">
+                                                            <FormLabel>Cidade</FormLabel>
+                                                            <FormControl><Input placeholder="São Paulo" {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={pixForm.control}
+                                                    name="customerAddressState"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Estado (UF)</FormLabel>
+                                                            <FormControl><Input placeholder="SP" maxLength={2} {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                            <FormField
+                                                control={pixForm.control}
+                                                name="customerAddressZipCode"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>CEP</FormLabel>
+                                                        <FormControl><Input placeholder="00000-000" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                        <FormField
+                                            control={pixForm.control}
+                                            name="serviceDescription"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Descrição da Cobrança</FormLabel>
+                                                    <FormControl><Textarea placeholder="Ex: Cobrança de consulta" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <FormField
+                                                control={pixForm.control}
+                                                name="amount"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Valor (R$)</FormLabel>
+                                                        <FormControl><Input type="number" step="0.01" placeholder="50.00" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={pixForm.control}
+                                                name="dueDate"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex flex-col">
+                                                    <FormLabel>Data de Vencimento</FormLabel>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                        <FormControl>
+                                                            <Button
+                                                            variant={"outline"}
+                                                            className={cn(
+                                                                "w-full pl-3 text-left font-normal",
+                                                                !field.value && "text-muted-foreground"
+                                                            )}
+                                                            >
+                                                            {field.value ? (
+                                                                format(field.value, "PPP", { locale: ptBR })
+                                                            ) : (
+                                                                <span>Escolha uma data</span>
+                                                            )}
+                                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                            </Button>
+                                                        </FormControl>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                        <Calendar
+                                                            mode="single"
+                                                            selected={field.value}
+                                                            onSelect={field.onChange}
+                                                            disabled={(date) => date < new Date(new Date().setDate(new Date().getDate()))}
+                                                            initialFocus
+                                                            locale={ptBR}
+                                                        />
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                    <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                        <Button type="submit" disabled={isLoading}>
+                                            {isIssuingPix && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            {isIssuingPix ? 'Gerando...' : 'Gerar QR Code Pix'}
+                                        </Button>
+                                    </form>
+                                </Form>
+                                {issuingPixError && (
+                                    <Alert variant="destructive" className="mt-4">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <AlertTitle>Falha ao Gerar QR Code Pix</AlertTitle>
+                                        <AlertDescription>
+                                            <p>A API da Cora retornou um erro. Verifique o console do navegador para mais detalhes e confirme se o endpoint e a estrutura dos dados estão corretos para a emissão de Pix.</p>
+                                            <pre className="mt-2 whitespace-pre-wrap rounded-md bg-destructive/10 p-2 font-mono text-xs">
+                                            {issuingPixError}
+                                            </pre>
+                                        </AlertDescription>
+                                    </Alert>
+                                )}
+                                {pixResult && pixResult.pix?.emv && (
+                                    <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4">
+                                        <div className="flex items-start gap-3">
+                                            <QrCode className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
+                                            <div className="flex-1">
+                                                <h4 className="font-semibold text-green-800 dark:text-green-200">QR Code Pix Gerado!</h4>
+                                                <div className="flex flex-col sm:flex-row gap-4 mt-2 items-center">
+                                                    {pixResult.payment_options?.bank_slip?.url && (
+                                                        <div className="w-32 h-32 relative border p-1 bg-white rounded-md">
+                                                            <img src={pixResult.payment_options.bank_slip.url} alt="QR Code Pix" className="w-full h-full" />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex-1">
+                                                        <Label htmlFor="pix-copy-paste">Copia e Cola</Label>
+                                                        <div className="flex items-center gap-2">
+                                                            <Textarea id="pix-copy-paste" readOnly value={pixResult.pix.emv} className="text-xs h-24 bg-background/50" />
+                                                            <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(pixResult.pix!.emv, "Código Pix 'Copia e Cola' copiado.")}>
+                                                                <Copy className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         </div>
-                    )}
-                     {issuingPixError && (
-                        <Alert variant="destructive" className="mt-4">
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Falha ao Gerar QR Code Pix</AlertTitle>
-                            <AlertDescription>
-                                <p>A API da Cora retornou um erro. Verifique o console do navegador para mais detalhes e confirme se o endpoint e a estrutura dos dados estão corretos para a emissão de Pix.</p>
-                                <pre className="mt-2 whitespace-pre-wrap rounded-md bg-destructive/10 p-2 font-mono text-xs">
-                                {issuingPixError}
-                                </pre>
-                            </AlertDescription>
-                        </Alert>
-                    )}
-                 </div>
+                    </TabsContent>
+                    <TabsContent value="new_tests" className="mt-4">
+                        <div className="rounded-md border p-4">
+                            <h3 className="font-semibold">Área para Novos Testes</h3>
+                            <p className="text-muted-foreground">Este espaço está reservado para novas implementações e testes da API.</p>
+                        </div>
+                    </TabsContent>
+                </Tabs>
             </CardContent>
         </Card>
     )
