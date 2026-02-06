@@ -2,7 +2,7 @@
 
 import { CORA_CLIENT_ID } from '@/lib/constants';
 import { v4 as uuidv4 } from 'uuid';
-import type { CoraBoletoRequestBody } from '@/lib/types';
+import type { CoraInvoiceRequestBody } from '@/lib/types';
 
 // Helper to safely parse response and handle errors
 async function handleCoraResponse(response: Response) {
@@ -238,15 +238,15 @@ export async function initiatePayment(
 }
 
 
-export async function issueBoleto(
+export async function issueInvoice(
     accessToken: string,
-    boletoData: CoraBoletoRequestBody
+    invoiceData: CoraInvoiceRequestBody
 ): Promise<{ data?: any; error?: string; isTokenError?: boolean; }> {
-    const issueBoletoUrl = 'https://api.stage.cora.com.br/v2/invoices/';
+    const issueInvoiceUrl = 'https://api.stage.cora.com.br/v2/invoices/';
     const idempotencyKey = uuidv4();
 
     try {
-        const response = await fetch(issueBoletoUrl, {
+        const response = await fetch(issueInvoiceUrl, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
@@ -254,7 +254,7 @@ export async function issueBoleto(
                 'Idempotency-Key': idempotencyKey,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(boletoData),
+            body: JSON.stringify(invoiceData),
         });
 
         const result = await handleCoraResponse(response);
@@ -267,44 +267,7 @@ export async function issueBoleto(
         return { data: result.data };
 
     } catch (error: any) {
-        console.error('Network or other error issuing boleto:', error);
-        return { error: error.message || 'Ocorreu um erro de rede ao emitir o boleto.' };
-    }
-}
-
-
-export async function issuePix(
-    accessToken: string,
-    pixData: { amount: number; description?: string }
-): Promise<{ data?: any; error?: string; isTokenError?: boolean; }> {
-    // Endpoint and body structure are an educated guess based on common Pix API patterns.
-    // This may need to be adjusted based on Cora's actual documentation.
-    const issuePixUrl = 'https://api.stage.cora.com.br/v1/pix/qrcodes';
-    const idempotencyKey = uuidv4();
-
-    try {
-        const response = await fetch(issuePixUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'accept': 'application/json',
-                'Idempotency-Key': idempotencyKey,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(pixData),
-        });
-
-        const result = await handleCoraResponse(response);
-
-        if (result.error) {
-            const isTokenError = result.status === 401 || (result.error && result.error.toLowerCase().includes('token'));
-            return { error: result.error, isTokenError };
-        }
-        
-        return { data: result.data };
-
-    } catch (error: any) {
-        console.error('Network or other error issuing Pix:', error);
-        return { error: error.message || 'Ocorreu um erro de rede ao emitir o QR Code Pix.' };
+        console.error('Network or other error issuing invoice:', error);
+        return { error: error.message || 'Ocorreu um erro de rede ao emitir a cobrança.' };
     }
 }

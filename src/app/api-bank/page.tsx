@@ -7,10 +7,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText, Copy, Barcode, QrCode } from 'lucide-react';
 import { Suspense, useState, useMemo } from 'react';
 import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking } from '@/firebase';
-import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse, CoraBoletoRequestBody, CoraBoletoResponse, CoraPixRequestBody, CoraPixResponse } from '@/lib/types';
+import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse, CoraInvoiceRequestBody, CoraInvoiceResponse } from '@/lib/types';
 import { doc, Timestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { getAccountBalance, getAccountData, getBankStatement, refreshCoraToken, initiatePayment, issueBoleto, issuePix } from './actions';
+import { getAccountBalance, getAccountData, getBankStatement, refreshCoraToken, initiatePayment, issueInvoice } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -48,7 +48,7 @@ const paymentFormSchema = z.object({
   scheduledAt: z.date().optional(),
 });
 
-const boletoFormSchema = z.object({
+const invoiceFormSchema = z.object({
   customerName: z.string().min(3, "Nome do cliente é obrigatório."),
   customerEmail: z.string().email("Por favor, insira um email válido."),
   customerDocument: z.string().refine(doc => {
@@ -70,11 +70,6 @@ const boletoFormSchema = z.object({
   dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.'}),
 });
 
-const pixFormSchema = z.object({
-    amount: z.coerce.number().min(0.01, "O valor deve ser positivo."),
-    description: z.string().optional(),
-});
-
 
 function CoraAccountDetails({ token }: { token: CoraToken }) {
     const [balance, setBalance] = useState<number | null>(null);
@@ -86,10 +81,12 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [paymentResult, setPaymentResult] = useState<CoraPaymentInitiationResponse | null>(null);
     const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
-    const [boletoResult, setBoletoResult] = useState<CoraBoletoResponse | null>(null);
+    
+    const [boletoResult, setBoletoResult] = useState<CoraInvoiceResponse | null>(null);
     const [isIssuingBoleto, setIsIssuingBoleto] = useState(false);
     const [issuingBoletoError, setIssuingBoletoError] = useState<string | null>(null);
-    const [pixResult, setPixResult] = useState<CoraPixResponse | null>(null);
+    
+    const [pixResult, setPixResult] = useState<CoraInvoiceResponse | null>(null);
     const [isIssuingPix, setIsIssuingPix] = useState(false);
     const [issuingPixError, setIssuingPixError] = useState<string | null>(null);
 
@@ -101,12 +98,12 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
       resolver: zodResolver(paymentFormSchema),
     });
 
-    const boletoForm = useForm<z.infer<typeof boletoFormSchema>>({
-      resolver: zodResolver(boletoFormSchema),
+    const boletoForm = useForm<z.infer<typeof invoiceFormSchema>>({
+      resolver: zodResolver(invoiceFormSchema),
     });
 
-    const pixForm = useForm<z.infer<typeof pixFormSchema>>({
-      resolver: zodResolver(pixFormSchema),
+    const pixForm = useForm<z.infer<typeof invoiceFormSchema>>({
+      resolver: zodResolver(invoiceFormSchema),
     });
 
     const copyToClipboard = (textToCopy: string, successMessage: string) => {
@@ -275,36 +272,57 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
       handleInitiatePayment(token.accessToken, values);
     }
     
-    const handleIssueBoleto = async (accessToken: string, requestBody: CoraBoletoRequestBody) => {
-        setIsIssuingBoleto(true);
-        setBoletoResult(null);
-        setIssuingBoletoError(null);
-
-        const result = await issueBoleto(accessToken, requestBody);
+    const handleIssueInvoice = async (accessToken: string, requestBody: CoraInvoiceRequestBody, type: 'boleto' | 'pix') => {
+        const isBoleto = type === 'boleto';
+        if (isBoleto) {
+            setIsIssuingBoleto(true);
+            setBoletoResult(null);
+            setIssuingBoletoError(null);
+        } else {
+            setIsIssuingPix(true);
+            setPixResult(null);
+            setIssuingPixError(null);
+        }
+        
+        const result = await issueInvoice(accessToken, requestBody);
         
         if (result.error) {
-            setIssuingBoletoError(result.error);
+            if (isBoleto) setIssuingBoletoError(result.error);
+            else setIssuingPixError(result.error);
+
             if (result.isTokenError) {
-                await handleRefreshToken((newAccessToken) => handleIssueBoleto(newAccessToken, requestBody));
+                await handleRefreshToken((newAccessToken) => handleIssueInvoice(newAccessToken, requestBody, type));
             } else {
-                setIsIssuingBoleto(false);
+                if (isBoleto) setIsIssuingBoleto(false);
+                else setIsIssuingPix(false);
             }
         } else if (result.data) {
-            setBoletoResult(result.data);
-            toast({ title: 'Boleto Emitido!', description: 'O boleto foi gerado e está pronto para ser pago.' });
-            setIsIssuingBoleto(false);
+            if (isBoleto) {
+                setBoletoResult(result.data);
+                toast({ title: 'Boleto Emitido!', description: 'O boleto foi gerado e está pronto para ser pago.' });
+                setIsIssuingBoleto(false);
+            } else {
+                setPixResult(result.data);
+                toast({ title: 'QR Code Gerado!', description: 'O QR Code Pix está pronto para ser usado.' });
+                setIsIssuingPix(false);
+            }
         } else {
-            const errorMsg = 'Não foi possível emitir o boleto. A API retornou uma resposta inesperada.';
-            setIssuingBoletoError(errorMsg);
-            setIsIssuingBoleto(false);
+            const errorMsg = 'Não foi possível emitir a cobrança. A API retornou uma resposta inesperada.';
+            if (isBoleto) {
+                setIssuingBoletoError(errorMsg);
+                setIsIssuingBoleto(false);
+            } else {
+                setIssuingPixError(errorMsg);
+                setIsIssuingPix(false);
+            }
         }
     };
     
-    const onBoletoSubmit = (values: z.infer<typeof boletoFormSchema>) => {
+    const onBoletoSubmit = (values: z.infer<typeof invoiceFormSchema>) => {
         const sanitizedDocument = values.customerDocument.replace(/\D/g, '');
         const sanitizedZipCode = values.customerAddressZipCode.replace(/\D/g, '');
 
-        const requestBody: CoraBoletoRequestBody = {
+        const requestBody: CoraInvoiceRequestBody = {
             code: `boleto-teste-${uuidv4().substring(0, 8)}`,
             customer: {
                 name: values.customerName,
@@ -335,40 +353,43 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
             payment_forms: ["BANK_SLIP"]
         };
         
-        handleIssueBoleto(token.accessToken, requestBody);
+        handleIssueInvoice(token.accessToken, requestBody, 'boleto');
     }
     
-    const handleIssuePix = async (accessToken: string, requestBody: CoraPixRequestBody) => {
-        setIsIssuingPix(true);
-        setPixResult(null);
-        setIssuingPixError(null);
-
-        const result = await issuePix(accessToken, requestBody);
+    const onPixSubmit = (values: z.infer<typeof invoiceFormSchema>) => {
+        const sanitizedDocument = values.customerDocument.replace(/\D/g, '');
+        const sanitizedZipCode = values.customerAddressZipCode.replace(/\D/g, '');
         
-        if (result.error) {
-            setIssuingPixError(result.error);
-            if (result.isTokenError) {
-                await handleRefreshToken((newAccessToken) => handleIssuePix(newAccessToken, requestBody));
-            } else {
-                setIsIssuingPix(false);
-            }
-        } else if (result.data) {
-            setPixResult(result.data);
-            toast({ title: 'QR Code Gerado!', description: 'O QR Code Pix está pronto para ser usado.' });
-            setIsIssuingPix(false);
-        } else {
-            const errorMsg = 'Não foi possível gerar o QR Code. A API retornou uma resposta inesperada.';
-            setIssuingPixError(errorMsg);
-            setIsIssuingPix(false);
-        }
-    };
-
-    const onPixSubmit = (values: z.infer<typeof pixFormSchema>) => {
-        const requestBody: CoraPixRequestBody = {
-            amount: Math.round(values.amount * 100),
-            description: values.description || "Cobrança Pix",
+        const requestBody: CoraInvoiceRequestBody = {
+            code: `pix-teste-${uuidv4().substring(0, 8)}`,
+            customer: {
+                name: values.customerName,
+                email: values.customerEmail,
+                document: {
+                    identity: sanitizedDocument,
+                    type: sanitizedDocument.length === 11 ? 'CPF' : 'CNPJ',
+                },
+                 address: {
+                    street: values.customerAddressStreet,
+                    number: values.customerAddressNumber,
+                    district: values.customerAddressDistrict,
+                    city: values.customerAddressCity,
+                    state: values.customerAddressState.toUpperCase(),
+                    zip_code: sanitizedZipCode,
+                    complement: values.customerAddressComplement || undefined,
+                }
+            },
+            services: [{
+                name: "Serviço Cobrado via Pix",
+                description: values.serviceDescription,
+                amount: Math.round(values.amount * 100),
+            }],
+            payment_terms: {
+                due_date: format(values.dueDate, 'yyyy-MM-dd'),
+            },
+            payment_forms: ['PIX']
         };
-        handleIssuePix(token.accessToken, requestBody);
+        handleIssueInvoice(token.accessToken, requestBody, 'pix');
     }
 
     const isLoading = isBalanceLoading || isAccountDataLoading || isStatementLoading || isInitiatingPayment || isIssuingBoleto || isIssuingPix;
@@ -780,7 +801,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                             </Button>
                         </form>
                     </Form>
-                     {boletoResult && boletoResult.digitable_line && (
+                     {boletoResult && boletoResult.bank_slip && (
                         <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4">
                             <div className="flex items-start gap-3">
                                 <FileText className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
@@ -792,24 +813,24 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 </div>
                             </div>
                             <div className="text-sm text-green-700 dark:text-green-300 space-y-3 pl-8">
-                                <div>
-                                    <Label className="font-medium">ID do Boleto (para pagamento via API):</Label>
-                                    <p className="font-mono text-xs">{boletoResult.id || boletoResult.bank_slip_id}</p>
-                                </div>
-                                {boletoResult.digitable_line && <div>
+                                {boletoResult.id && <div>
+                                    <Label className="font-medium">ID da Cobrança:</Label>
+                                    <p className="font-mono text-xs">{boletoResult.id}</p>
+                                </div>}
+                                {boletoResult.bank_slip.digitable_line && <div>
                                     <Label className="font-medium">Linha Digitável:</Label>
                                     <div className="flex items-center gap-2">
-                                        <Input readOnly value={boletoResult.digitable_line} className="text-xs h-8" />
-                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.digitable_line, "Linha digitável copiada.")}>
+                                        <Input readOnly value={boletoResult.bank_slip.digitable_line} className="text-xs h-8" />
+                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.bank_slip!.digitable_line, "Linha digitável copiada.")}>
                                             <Copy className="h-4 w-4" />
                                         </Button>
                                     </div>
                                 </div>}
-                                {boletoResult.barcode && <div>
+                                {boletoResult.bank_slip.barcode && <div>
                                     <Label className="font-medium">Código de Barras:</Label>
                                     <div className="flex items-center gap-2">
-                                        <Input readOnly value={boletoResult.barcode} className="text-xs h-8" />
-                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.barcode, "Código de barras copiado.")}>
+                                        <Input readOnly value={boletoResult.bank_slip.barcode} className="text-xs h-8" />
+                                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.bank_slip!.barcode, "Código de barras copiado.")}>
                                             <Copy className="h-4 w-4" />
                                         </Button>
                                     </div>
@@ -818,7 +839,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                         </div>
                     )}
                     {issuingBoletoError && (
-                        <Alert variant="destructive" className="mt-4">
+                         <Alert variant="destructive" className="mt-4">
                             <AlertTriangle className="h-4 w-4" />
                             <AlertTitle>Falha na Emissão do Boleto</AlertTitle>
                             <AlertDescription>
@@ -832,9 +853,139 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                  </div>
 
                  <div className="rounded-md border p-4 space-y-4">
-                    <h3 className="font-semibold">Emitir QR Code Pix</h3>
+                    <h3 className="font-semibold">Emitir QR Code Pix (V2)</h3>
                     <Form {...pixForm}>
                         <form onSubmit={pixForm.handleSubmit(onPixSubmit)} className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <FormField
+                                    control={pixForm.control}
+                                    name="customerName"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Nome do Cliente</FormLabel>
+                                            <FormControl><Input placeholder="Ex: Maria Souza" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={pixForm.control}
+                                    name="customerEmail"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Email do Cliente</FormLabel>
+                                            <FormControl><Input placeholder="email@exemplo.com" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                             </div>
+                             <FormField
+                                control={pixForm.control}
+                                name="customerDocument"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>CPF/CNPJ do Cliente</FormLabel>
+                                        <FormControl><Input placeholder="Apenas números" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <div className="space-y-2 rounded-md border p-4">
+                                <h4 className="font-medium text-sm">Endereço do Cliente</h4>
+                                <FormField
+                                    control={pixForm.control}
+                                    name="customerAddressStreet"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Rua</FormLabel>
+                                            <FormControl><Input placeholder="Ex: Rua das Palmeiras" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <FormField
+                                        control={pixForm.control}
+                                        name="customerAddressNumber"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Número</FormLabel>
+                                                <FormControl><Input placeholder="456" {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={pixForm.control}
+                                        name="customerAddressComplement"
+                                        render={({ field }) => (
+                                            <FormItem className="sm:col-span-2">
+                                                <FormLabel>Complemento (Opcional)</FormLabel>
+                                                <FormControl><Input placeholder="Casa 2" {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <FormField
+                                    control={pixForm.control}
+                                    name="customerAddressDistrict"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Bairro</FormLabel>
+                                            <FormControl><Input placeholder="Vila Madalena" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <FormField
+                                        control={pixForm.control}
+                                        name="customerAddressCity"
+                                        render={({ field }) => (
+                                            <FormItem className="sm:col-span-2">
+                                                <FormLabel>Cidade</FormLabel>
+                                                <FormControl><Input placeholder="São Paulo" {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                     <FormField
+                                        control={pixForm.control}
+                                        name="customerAddressState"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Estado (UF)</FormLabel>
+                                                <FormControl><Input placeholder="SP" maxLength={2} {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                                 <FormField
+                                    control={pixForm.control}
+                                    name="customerAddressZipCode"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>CEP</FormLabel>
+                                            <FormControl><Input placeholder="00000-000" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                            <FormField
+                                control={pixForm.control}
+                                name="serviceDescription"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Descrição da Cobrança</FormLabel>
+                                        <FormControl><Textarea placeholder="Ex: Cobrança de consulta" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <FormField
                                     control={pixForm.control}
@@ -849,12 +1000,41 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 />
                                 <FormField
                                     control={pixForm.control}
-                                    name="description"
+                                    name="dueDate"
                                     render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Descrição (Opcional)</FormLabel>
-                                            <FormControl><Input placeholder="Ex: Pagamento consulta" {...field} /></FormControl>
-                                            <FormMessage />
+                                        <FormItem className="flex flex-col">
+                                        <FormLabel>Data de Vencimento</FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                variant={"outline"}
+                                                className={cn(
+                                                    "w-full pl-3 text-left font-normal",
+                                                    !field.value && "text-muted-foreground"
+                                                )}
+                                                >
+                                                {field.value ? (
+                                                    format(field.value, "PPP", { locale: ptBR })
+                                                ) : (
+                                                    <span>Escolha uma data</span>
+                                                )}
+                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={field.value}
+                                                onSelect={field.onChange}
+                                                disabled={(date) => date < new Date(new Date().setDate(new Date().getDate()))}
+                                                initialFocus
+                                                locale={ptBR}
+                                            />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
                                         </FormItem>
                                     )}
                                 />
@@ -865,21 +1045,23 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                             </Button>
                         </form>
                     </Form>
-                    {pixResult && (
+                    {pixResult && pixResult.pix?.emv && (
                         <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4">
                             <div className="flex items-start gap-3">
                                 <QrCode className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
                                 <div className="flex-1">
                                     <h4 className="font-semibold text-green-800 dark:text-green-200">QR Code Pix Gerado!</h4>
                                     <div className="flex flex-col sm:flex-row gap-4 mt-2 items-center">
-                                        <div className="w-32 h-32 relative border p-1 bg-white rounded-md">
-                                            <Image src={pixResult.qr_code_image} alt="QR Code Pix" layout="fill" />
-                                        </div>
+                                         {pixResult.payment_options?.bank_slip?.url && (
+                                            <div className="w-32 h-32 relative border p-1 bg-white rounded-md">
+                                                <img src={pixResult.payment_options.bank_slip.url} alt="QR Code Pix" className="w-full h-full" />
+                                            </div>
+                                         )}
                                         <div className="flex-1">
                                             <Label htmlFor="pix-copy-paste">Copia e Cola</Label>
                                             <div className="flex items-center gap-2">
-                                                <Textarea id="pix-copy-paste" readOnly value={pixResult.qr_code_text} className="text-xs h-24 bg-background/50" />
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(pixResult.qr_code_text, "Código Pix 'Copia e Cola' copiado.")}>
+                                                <Textarea id="pix-copy-paste" readOnly value={pixResult.pix.emv} className="text-xs h-24 bg-background/50" />
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(pixResult.pix!.emv, "Código Pix 'Copia e Cola' copiado.")}>
                                                     <Copy className="h-4 w-4" />
                                                 </Button>
                                             </div>

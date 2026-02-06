@@ -220,7 +220,7 @@ export type CoraPaymentInitiationResponse = {
 };
 
 
-// --- BOLETO V2 TYPES ---
+// --- INVOICE (BOLETO/PIX V2) TYPES ---
 
 export type CoraCustomerAddress = {
     street: string;
@@ -252,43 +252,39 @@ export type CoraFine = {
     amount: number; // in cents
 };
 
-export type CoraInterest = {
-    rate: number; // Percentage
-};
-
 export type CoraPaymentTerms = {
     due_date: string; // YYYY-MM-DD
     fine?: CoraFine;
-    interest?: CoraInterest;
 };
 
-export type CoraBoletoRequestBody = {
+export type CoraInvoiceRequestBody = {
     code?: string;
     customer: CoraCustomer;
     services: CoraService[];
     payment_terms: CoraPaymentTerms;
-    payment_forms: Array<'BANK_SLIP'>;
+    payment_forms: Array<'BANK_SLIP' | 'PIX'>;
     instructions?: string;
 };
 
-
-export type CoraBoletoResponse = {
-    bank_slip_id?: string; // Kept for compatibility with old responses
-    barcode: string;
-    digitable_line: string;
-    // V2 responses might have a different structure
-    id?: string;
-    code?: string;
-    status?: string;
-};
-
-export type CoraPixRequestBody = {
-    amount: number; // in cents
-    description?: string;
-};
-
-export type CoraPixResponse = {
+export type CoraInvoiceResponse = {
     id: string;
-    qr_code_text: string;
-    qr_code_image: string; // base64 png
+    code?: string;
+    status: string;
+
+    // Boleto specific
+    bank_slip?: {
+        digitable_line: string;
+        barcode: string;
+        url: string;
+    };
+
+    // Pix specific
+    pix?: {
+        emv: string; // Copia e Cola
+    };
+    payment_options?: {
+        bank_slip?: {
+            url: string; // PNG URL of QR code
+        };
+    };
 };
