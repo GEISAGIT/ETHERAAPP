@@ -4,13 +4,13 @@ import { CoraAuthForm } from '@/components/cora/cora-auth-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText, Copy, Barcode } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText, Copy, Barcode, QrCode } from 'lucide-react';
 import { Suspense, useState, useMemo } from 'react';
 import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking } from '@/firebase';
-import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse, CoraBoletoRequestBody, CoraBoletoResponse } from '@/lib/types';
+import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse, CoraBoletoRequestBody, CoraBoletoResponse, CoraPixRequestBody, CoraPixResponse } from '@/lib/types';
 import { doc, Timestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { getAccountBalance, getAccountData, getBankStatement, refreshCoraToken, initiatePayment, issueBoleto } from './actions';
+import { getAccountBalance, getAccountData, getBankStatement, refreshCoraToken, initiatePayment, issueBoleto, issuePix } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { Label } from '@/components/ui/label';
 import { v4 as uuidv4 } from 'uuid';
 import { Textarea } from '@/components/ui/textarea';
+import Image from 'next/image';
 
 
 const formatCurrency = (value: number) => {
@@ -69,6 +70,11 @@ const boletoFormSchema = z.object({
   dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.'}),
 });
 
+const pixFormSchema = z.object({
+    amount: z.coerce.number().min(0.01, "O valor deve ser positivo."),
+    description: z.string().optional(),
+});
+
 
 function CoraAccountDetails({ token }: { token: CoraToken }) {
     const [balance, setBalance] = useState<number | null>(null);
@@ -83,6 +89,9 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     const [boletoResult, setBoletoResult] = useState<CoraBoletoResponse | null>(null);
     const [isIssuingBoleto, setIsIssuingBoleto] = useState(false);
     const [issuingBoletoError, setIssuingBoletoError] = useState<string | null>(null);
+    const [pixResult, setPixResult] = useState<CoraPixResponse | null>(null);
+    const [isIssuingPix, setIsIssuingPix] = useState(false);
+    const [issuingPixError, setIssuingPixError] = useState<string | null>(null);
 
     const { user } = useUser();
     const firestore = useFirestore();
@@ -94,6 +103,10 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
 
     const boletoForm = useForm<z.infer<typeof boletoFormSchema>>({
       resolver: zodResolver(boletoFormSchema),
+    });
+
+    const pixForm = useForm<z.infer<typeof pixFormSchema>>({
+      resolver: zodResolver(pixFormSchema),
     });
 
     const copyToClipboard = (textToCopy: string, successMessage: string) => {
@@ -129,6 +142,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
              setIsStatementLoading(false);
              setIsInitiatingPayment(false);
              setIsIssuingBoleto(false);
+             setIsIssuingPix(false);
         } else if (result.data) {
             const newTokenData = result.data;
             const newExpiresAt = Timestamp.fromMillis(Date.now() + newTokenData.expires_in * 1000);
@@ -323,8 +337,41 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
         
         handleIssueBoleto(token.accessToken, requestBody);
     }
+    
+    const handleIssuePix = async (accessToken: string, requestBody: CoraPixRequestBody) => {
+        setIsIssuingPix(true);
+        setPixResult(null);
+        setIssuingPixError(null);
 
-    const isLoading = isBalanceLoading || isAccountDataLoading || isStatementLoading || isInitiatingPayment || isIssuingBoleto;
+        const result = await issuePix(accessToken, requestBody);
+        
+        if (result.error) {
+            setIssuingPixError(result.error);
+            if (result.isTokenError) {
+                await handleRefreshToken((newAccessToken) => handleIssuePix(newAccessToken, requestBody));
+            } else {
+                setIsIssuingPix(false);
+            }
+        } else if (result.data) {
+            setPixResult(result.data);
+            toast({ title: 'QR Code Gerado!', description: 'O QR Code Pix está pronto para ser usado.' });
+            setIsIssuingPix(false);
+        } else {
+            const errorMsg = 'Não foi possível gerar o QR Code. A API retornou uma resposta inesperada.';
+            setIssuingPixError(errorMsg);
+            setIsIssuingPix(false);
+        }
+    };
+
+    const onPixSubmit = (values: z.infer<typeof pixFormSchema>) => {
+        const requestBody: CoraPixRequestBody = {
+            amount: Math.round(values.amount * 100),
+            description: values.description || "Cobrança Pix",
+        };
+        handleIssuePix(token.accessToken, requestBody);
+    }
+
+    const isLoading = isBalanceLoading || isAccountDataLoading || isStatementLoading || isInitiatingPayment || isIssuingBoleto || isIssuingPix;
 
     return (
         <Card>
@@ -778,6 +825,78 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                 <p className="mb-2">A API da Cora retornou um erro. Verifique os dados enviados. Este tipo de erro (`422`) geralmente acontece no ambiente de testes se os dados (como CPF/CNPJ) não são valores de teste válidos. </p>
                                 <pre className="mt-2 whitespace-pre-wrap rounded-md bg-destructive/10 p-2 font-mono text-xs">
                                 {issuingBoletoError}
+                                </pre>
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                 </div>
+
+                 <div className="rounded-md border p-4 space-y-4">
+                    <h3 className="font-semibold">Emitir QR Code Pix</h3>
+                    <Form {...pixForm}>
+                        <form onSubmit={pixForm.handleSubmit(onPixSubmit)} className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormField
+                                    control={pixForm.control}
+                                    name="amount"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Valor (R$)</FormLabel>
+                                            <FormControl><Input type="number" step="0.01" placeholder="50.00" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={pixForm.control}
+                                    name="description"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Descrição (Opcional)</FormLabel>
+                                            <FormControl><Input placeholder="Ex: Pagamento consulta" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                            <Button type="submit" disabled={isLoading}>
+                                {isIssuingPix && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {isIssuingPix ? 'Gerando...' : 'Gerar QR Code Pix'}
+                            </Button>
+                        </form>
+                    </Form>
+                    {pixResult && (
+                        <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4">
+                            <div className="flex items-start gap-3">
+                                <QrCode className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
+                                <div className="flex-1">
+                                    <h4 className="font-semibold text-green-800 dark:text-green-200">QR Code Pix Gerado!</h4>
+                                    <div className="flex flex-col sm:flex-row gap-4 mt-2 items-center">
+                                        <div className="w-32 h-32 relative border p-1 bg-white rounded-md">
+                                            <Image src={pixResult.qr_code_image} alt="QR Code Pix" layout="fill" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <Label htmlFor="pix-copy-paste">Copia e Cola</Label>
+                                            <div className="flex items-center gap-2">
+                                                <Textarea id="pix-copy-paste" readOnly value={pixResult.qr_code_text} className="text-xs h-24 bg-background/50" />
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(pixResult.qr_code_text, "Código Pix 'Copia e Cola' copiado.")}>
+                                                    <Copy className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                     {issuingPixError && (
+                        <Alert variant="destructive" className="mt-4">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Falha ao Gerar QR Code Pix</AlertTitle>
+                            <AlertDescription>
+                                <p>A API da Cora retornou um erro. Verifique o console do navegador para mais detalhes e confirme se o endpoint e a estrutura dos dados estão corretos para a emissão de Pix.</p>
+                                <pre className="mt-2 whitespace-pre-wrap rounded-md bg-destructive/10 p-2 font-mono text-xs">
+                                {issuingPixError}
                                 </pre>
                             </AlertDescription>
                         </Alert>

@@ -271,3 +271,40 @@ export async function issueBoleto(
         return { error: error.message || 'Ocorreu um erro de rede ao emitir o boleto.' };
     }
 }
+
+
+export async function issuePix(
+    accessToken: string,
+    pixData: { amount: number; description?: string }
+): Promise<{ data?: any; error?: string; isTokenError?: boolean; }> {
+    // Endpoint and body structure are an educated guess based on common Pix API patterns.
+    // This may need to be adjusted based on Cora's actual documentation.
+    const issuePixUrl = 'https://api.stage.cora.com.br/v1/pix/qrcodes';
+    const idempotencyKey = uuidv4();
+
+    try {
+        const response = await fetch(issuePixUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'accept': 'application/json',
+                'Idempotency-Key': idempotencyKey,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(pixData),
+        });
+
+        const result = await handleCoraResponse(response);
+
+        if (result.error) {
+            const isTokenError = result.status === 401 || (result.error && result.error.toLowerCase().includes('token'));
+            return { error: result.error, isTokenError };
+        }
+        
+        return { data: result.data };
+
+    } catch (error: any) {
+        console.error('Network or other error issuing Pix:', error);
+        return { error: error.message || 'Ocorreu um erro de rede ao emitir o QR Code Pix.' };
+    }
+}

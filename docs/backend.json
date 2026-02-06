@@ -465,6 +465,50 @@
         "tokenType": { "type": "string" }
       },
       "required": ["userId", "accessToken", "refreshToken", "expiresAt"]
+    },
+    "CoraPixRequest": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CoraPixRequest",
+      "type": "object",
+      "description": "Represents a request to generate a dynamic Pix QR code.",
+      "properties": {
+        "amount": {
+          "type": "number",
+          "description": "The value of the Pix charge in cents."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description for the charge that will be visible to the payer."
+        }
+      },
+      "required": [
+        "amount"
+      ]
+    },
+    "CoraPixResponse": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CoraPixResponse",
+      "type": "object",
+      "description": "Represents the response from a Pix QR code generation.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique ID of the Pix charge."
+        },
+        "qr_code_text": {
+          "type": "string",
+          "description": "The 'Copia e Cola' string for the Pix QR code."
+        },
+        "qr_code_image": {
+          "type": "string",
+          "description": "A Base64 encoded PNG image of the QR code."
+        }
+      },
+      "required": [
+        "id",
+        "qr_code_text",
+        "qr_code_image"
+      ]
     }
   },
   "auth": {

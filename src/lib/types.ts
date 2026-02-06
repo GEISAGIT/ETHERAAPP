@@ -281,3 +281,14 @@ export type CoraBoletoResponse = {
     code?: string;
     status?: string;
 };
+
+export type CoraPixRequestBody = {
+    amount: number; // in cents
+    description?: string;
+};
+
+export type CoraPixResponse = {
+    id: string;
+    qr_code_text: string;
+    qr_code_image: string; // base64 png
+};
