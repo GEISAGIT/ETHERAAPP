@@ -348,7 +348,6 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
             }],
             payment_terms: {
                 due_date: format(values.dueDate, 'yyyy-MM-dd'),
-                fine: { amount: 200 } // Fixed fine of 200 cents (R$ 2.00)
             },
             payment_forms: ["BANK_SLIP"]
         };
