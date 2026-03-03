@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -25,7 +26,8 @@ import {
   Clock,
   Wallet,
   ChevronRight,
-  Home
+  Home,
+  UserCheck
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -48,6 +50,7 @@ const financialMenuItems = [
 ];
 
 const hrMenuItems = [
+  { key: 'timeTracking' as MenuItemKey, href: '/hr/attendance', label: 'Controle de Ponto', icon: UserCheck },
   { key: 'employees' as MenuItemKey, href: '/hr/employees', label: 'Cadastro de Funcionários', icon: Users },
   { key: 'hrTimesheet' as MenuItemKey, href: '/hr/timesheet', label: 'Controle de Funcionários', icon: Clock },
 ];

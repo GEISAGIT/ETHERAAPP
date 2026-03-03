@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Timestamp } from 'firebase/firestore';
@@ -104,6 +105,7 @@ export type Permissions = {
   settings: ViewOnlyActions;
   hrTimesheet: CrudActions;
   employees: CrudActions;
+  timeTracking: CrudActions;
 };
 
 
@@ -119,6 +121,7 @@ export type UserProfile = {
     createdAt: Timestamp;
     permissions: Permissions;
     mustChangePassword?: boolean;
+    statusText?: string;
 }
 
 export type UserManagement = Omit<UserProfile, 'permissions'>;
@@ -215,6 +218,21 @@ export type Employee = {
   compensations?: CompensationRecord[];
   vacationExpirationDate?: Timestamp;
   documents?: EmployeeDocument[];
+};
+
+export type AttendanceType = 'clock_in' | 'clock_out' | 'break_start' | 'break_end';
+
+export type AttendanceRecord = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  timestamp: Timestamp;
+  type: AttendanceType;
+  photoUrl?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
 };
 
 export type CoraToken = {

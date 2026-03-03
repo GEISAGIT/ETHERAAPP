@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -32,6 +33,7 @@ const allPermissionsConfig: {
   { key: 'settings', label: 'Configurações', actions: ['view'] },
   { key: 'employees', label: 'Cadastro de Funcionários', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'hrTimesheet', label: 'Controle de Funcionários', actions: ['view', 'create', 'edit', 'delete'] },
+  { key: 'timeTracking', label: 'Controle de Ponto', actions: ['view', 'create'] },
 ];
 
 const actionLabels: Record<string, string> = {
