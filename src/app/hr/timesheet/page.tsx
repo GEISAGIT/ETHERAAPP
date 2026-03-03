@@ -179,10 +179,10 @@ export default function HRTimesheetPage() {
         <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">
-              Dados do Ponto & Contrato
+              Controle de Funcionários
             </h1>
             <p className="text-muted-foreground">
-              Gestão detalhada de admissão, demissão e configurações de folha.
+              Gestão detalhada de dados cadastrais, contratuais e financeiros.
             </p>
           </div>
           {selectedEmployeeId && (
