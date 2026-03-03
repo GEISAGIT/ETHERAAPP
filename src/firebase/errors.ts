@@ -2,7 +2,7 @@
 import { getAuth, type User } from 'firebase/auth';
 import { getApp, getApps } from 'firebase/app';
 
-type SecurityRuleContext = {
+export type SecurityRuleContext = {
   path: string;
   operation: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write';
   requestResourceData?: any;
@@ -79,7 +79,8 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
   try {
     // Safely attempt to get the current user, only if an app is initialized.
-    if (getApps().length > 0) {
+    const apps = getApps();
+    if (apps && apps.length > 0) {
         const firebaseApp = getApp();
         const firebaseAuth = getAuth(firebaseApp);
         const currentUser = firebaseAuth.currentUser;

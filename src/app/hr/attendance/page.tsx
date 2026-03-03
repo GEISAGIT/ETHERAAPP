@@ -129,22 +129,20 @@ function TimeTrackingContent() {
         );
       });
 
-      // 3. Save Record - Use null instead of undefined for Firestore
-      const record: Omit<AttendanceRecord, 'id'> = {
+      // 3. Save Record - Carefully construct object to avoid undefined fields
+      const recordData: any = {
         employeeId: user.uid,
         employeeName: user.displayName || 'Usuário',
         timestamp: Timestamp.now(),
         type,
         photoUrl: photoUrl || '',
-        location: location || undefined // If null, omit or handle according to schema
       };
 
-      // Ensure no undefined properties are sent
-      const cleanedRecord = JSON.parse(JSON.stringify(record));
-      // Re-add timestamp because stringify/parse destroys it
-      cleanedRecord.timestamp = Timestamp.now();
+      if (location) {
+        recordData.location = location;
+      }
 
-      addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), cleanedRecord);
+      addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), recordData);
 
       toast({
         title: 'Ponto Registrado!',
@@ -277,7 +275,7 @@ function TimeTrackingContent() {
               className="h-16 flex flex-col gap-1"
               onClick={() => handleRecordPoint('break_end')}
               disabled={isRecording || !hasCameraPermission}
-            )
+            >
               <UserCheck className="h-5 w-5" />
               <span className="text-xs">Retorno</span>
             </Button>
