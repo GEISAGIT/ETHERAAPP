@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useUser, useDoc, useMemoFirebase, useAuth, useFirestore } from '@/firebase';
@@ -34,16 +35,20 @@ export default function Home() {
     
     // If user and profile are loaded, decide where to go.
     if (user && userProfile) {
-       if (userProfile.status === 'active') {
+      // Check if password change is required
+      if (userProfile.mustChangePassword) {
+        router.replace('/change-password');
+        return;
+      }
+
+      if (userProfile.status === 'active') {
         router.replace('/home');
       } else {
          // This is now handled by the login form, which shows a toast and signs the user out.
       }
-    } else if (user && !userProfile && !isProfileLoading) {
-        // Wait for profile document creation.
     }
 
-  }, [user, userProfile, isUserLoading, isProfileLoading, router, auth]);
+  }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
   return (
     <div className="flex h-screen w-full items-center justify-center">

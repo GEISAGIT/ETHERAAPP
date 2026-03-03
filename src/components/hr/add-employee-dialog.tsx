@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, CalendarIcon, UserPlus } from 'lucide-react';
+import { Loader2, CalendarIcon, UserPlus, Eye, EyeOff } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -38,14 +38,19 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { addDocumentNonBlocking, useFirestore, useUser } from '@/firebase';
-import { collection, Timestamp, serverTimestamp } from 'firebase/firestore';
-import type { EmployeeStatus, EmployeeRegime, OvertimePolicy } from '@/lib/types';
+import { useFirestore, useUser } from '@/firebase';
+import { collection, Timestamp, serverTimestamp, doc, setDoc } from 'firebase/firestore';
+import { initializeApp, getApps } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
+import { firebaseConfig } from '@/firebase/config';
+import { defaultPermissions } from '@/lib/data';
+import type { UserProfile } from '@/lib/types';
 
 const formSchema = z.object({
   fullName: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres.'),
   cpf: z.string().min(11, 'CPF inválido.').max(14, 'CPF inválido.'),
-  email: z.string().email('Email inválido.').optional().or(z.literal('')),
+  email: z.string().email('Email inválido.'),
+  tempPassword: z.string().min(6, 'A senha temporária deve ter pelo menos 6 caracteres.'),
   phone: z.string().optional(),
   position: z.string().min(2, 'Cargo é obrigatório.'),
   department: z.string().optional(),
@@ -60,7 +65,8 @@ type FormValues = z.infer<typeof formSchema>;
 export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user: adminUser } = useUser();
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -68,6 +74,7 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
       fullName: '',
       cpf: '',
       email: '',
+      tempPassword: '',
       phone: '',
       position: '',
       department: '',
@@ -78,24 +85,78 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
   });
 
   useEffect(() => {
-    if (!open) form.reset();
+    if (!open) {
+      form.reset();
+      setShowPassword(false);
+    }
   }, [open, form]);
 
   const onSubmit = async (values: FormValues) => {
-    if (!user || !firestore) return;
+    if (!adminUser || !firestore) return;
 
-    const employeeData = {
-      ...values,
-      userId: user.uid,
-      hireDate: values.hireDate ? Timestamp.fromDate(values.hireDate) : null,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
+    try {
+      // 1. Initialize a secondary Firebase Auth instance to create the user without logging out the admin
+      const secondaryApp = getApps().find(app => app.name === 'secondary') || initializeApp(firebaseConfig, 'secondary');
+      const secondaryAuth = getAuth(secondaryApp);
 
-    addDocumentNonBlocking(collection(firestore, 'employees'), employeeData);
-    
-    toast({ title: 'Funcionário Cadastrado', description: `${values.fullName} foi adicionado com sucesso.` });
-    onOpenChange(false);
+      // 2. Create the user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, values.email, values.tempPassword);
+      const newUser = userCredential.user;
+
+      // 3. Set display name for the new user
+      await updateProfile(newUser, { 
+        displayName: values.fullName,
+        photoURL: 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media&token=c68144ba-c10e-4921-8fe7-eb791d34eebe'
+      });
+
+      // 4. Create the User Profile in Firestore
+      const userProfile: UserProfile = {
+        uid: newUser.uid,
+        displayName: values.fullName,
+        email: values.email,
+        role: 'user',
+        status: 'active',
+        createdAt: serverTimestamp() as any,
+        permissions: defaultPermissions.user,
+        mustChangePassword: true, // Key flag for the password change flow
+      };
+      await setDoc(doc(firestore, 'users', newUser.uid), userProfile);
+
+      // 5. Create the Employee Record
+      const employeeData = {
+        id: newUser.uid, // Use same UID for consistency
+        fullName: values.fullName,
+        cpf: values.cpf,
+        email: values.email,
+        phone: values.phone || '',
+        position: values.position,
+        department: values.department || '',
+        status: values.status,
+        regimeType: values.regimeType,
+        overtimePolicy: values.overtimePolicy,
+        userId: adminUser.uid, // Admin who created it
+        hireDate: values.hireDate ? Timestamp.fromDate(values.hireDate) : null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+      await setDoc(doc(firestore, 'employees', newUser.uid), employeeData);
+
+      // 6. Sign out the secondary instance
+      await signOut(secondaryAuth);
+
+      toast({ 
+        title: 'Funcionário Cadastrado', 
+        description: `${values.fullName} foi adicionado. A senha temporária é: ${values.tempPassword}` 
+      });
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error("Erro ao cadastrar funcionário:", error);
+      let message = 'Ocorreu um erro ao criar a conta do funcionário.';
+      if (error.code === 'auth/email-already-in-use') {
+        message = 'Este e-mail já está em uso por outro usuário.';
+      }
+      toast({ variant: 'destructive', title: 'Erro no Cadastro', description: message });
+    }
   };
 
   return (
@@ -103,7 +164,9 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-headline">Cadastrar Funcionário</DialogTitle>
-          <DialogDescription>Insira as informações do novo colaborador.</DialogDescription>
+          <DialogDescription>
+            Ao salvar, uma conta de acesso será criada automaticamente para o funcionário com os dados abaixo.
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -118,6 +181,49 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
                 </FormItem>
               )}
             />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>E-mail (Login)</FormLabel>
+                    <FormControl><Input placeholder="email@exemplo.com" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="tempPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Senha Temporária</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input 
+                          type={showPassword ? "text" : "password"} 
+                          placeholder="Senha de acesso" 
+                          {...field} 
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -142,17 +248,7 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>E-mail (Opcional)</FormLabel>
-                  <FormControl><Input placeholder="email@exemplo.com" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -264,7 +360,7 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
               <DialogClose asChild><Button type="button" variant="ghost">Cancelar</Button></DialogClose>
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Salvar Funcionário
+                Cadastrar Funcionário
               </Button>
             </DialogFooter>
           </form>

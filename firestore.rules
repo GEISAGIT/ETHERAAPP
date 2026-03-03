@@ -16,19 +16,15 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Checks if the user's document exists and has the role 'admin'.
-      // This is safer than accessing .data directly, which errors if the doc doesn't exist.
       return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isOriginalCreator() {
-      // This works for create and update where request.resource.data is available.
       return isSignedIn() && request.auth.uid == request.resource.data.userId;
     }
     
     function isExistingDocOwner(docId, collectionName) {
-      // Checks if the document exists before trying to access its data.
       return isSignedIn() && exists(/databases/$(database)/documents/$(collectionName)/$(docId)) &&
              get(/databases/$(database)/documents/$(collectionName)/$(docId)).data.userId == request.auth.uid;
     }
@@ -44,7 +40,7 @@ service cloud.firestore {
                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("permissions", {}).get("userManagement", {}).get("view", false) == true
                    );
       allow list: if isAdmin();
-      allow create: if isOwner(userId);
+      allow create: if isOwner(userId) || isAdmin();
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
 
@@ -101,7 +97,7 @@ service cloud.firestore {
 
     match /employees/{employeeId} {
       allow read, list: if isSignedIn();
-      allow create: if isOriginalCreator();
+      allow create: if isOriginalCreator() || isAdmin();
       allow update: if isExistingDocOwner(employeeId, 'employees') || isAdmin();
       allow delete: if isAdmin();
     }

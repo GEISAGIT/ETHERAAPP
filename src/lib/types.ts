@@ -119,6 +119,7 @@ export type UserProfile = {
     status: UserStatus;
     createdAt: Timestamp;
     permissions: Permissions;
+    mustChangePassword?: boolean;
 }
 
 export type UserManagement = Omit<UserProfile, 'permissions'>;
