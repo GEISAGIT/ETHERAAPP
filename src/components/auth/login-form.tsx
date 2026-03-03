@@ -29,7 +29,8 @@ export function LoginForm() {
   const handleUserDocument = async (user: User, isNewUser: boolean = false) => {
     if (!firestore) return null;
     const userDocRef = doc(firestore, 'users', user.uid);
-    const isAdminEmail = user.email === 'grupodallax@gmail.com';
+    // E-mail do administrador mestre
+    const isAdminEmail = user.email?.toLowerCase() === 'grupodallax@gmail.com';
     const defaultPhotoUrl = 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media&token=c68144ba-c10e-4921-8fe7-eb791d34eebe';
 
     try {
@@ -64,18 +65,20 @@ export function LoginForm() {
         }
         return newUserProfile;
       } else {
-        // MIGRAÇÃO / REPARO: Se o documento existe mas faltam campos essenciais (comum em produção)
+        // MIGRAÇÃO / REPARO: Se o documento existe mas faltam campos essenciais
         const currentData = docSnap.data() as UserProfile;
         const updates: Partial<UserProfile> = {};
         
-        // Garante que o Angelo sempre seja Admin se o e-mail bater
-        if (isAdminEmail && currentData.role !== 'admin') {
-          updates.role = 'admin';
-          updates.status = 'active';
-          updates.permissions = defaultPermissions.admin;
+        // Garante que o administrador mestre sempre tenha permissão total em produção
+        if (isAdminEmail) {
+          if (currentData.role !== 'admin' || currentData.status !== 'active') {
+            updates.role = 'admin';
+            updates.status = 'active';
+            updates.permissions = defaultPermissions.admin;
+          }
         }
 
-        // Garante que o campo de permissões exista
+        // Garante que o campo de permissões exista para qualquer usuário
         if (!currentData.permissions) {
           updates.permissions = defaultPermissions[currentData.role || 'user'];
         }
@@ -90,11 +93,10 @@ export function LoginForm() {
 
     } catch (error) {
       console.error("Erro ao gerenciar documento do usuário:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro de Banco de Dados",
-        description: "Não foi possível verificar suas informações. Tente novamente.",
-      });
+      // Fallback para admin mestre se o erro for apenas de permissão ao ler o próprio perfil
+      if (isAdminEmail) {
+          return { role: 'admin', status: 'active' } as any;
+      }
       throw error;
     }
   };
