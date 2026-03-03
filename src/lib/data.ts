@@ -54,6 +54,7 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     userManagement: { view: true, create: true, edit: true, delete: true },
     profile: { view: true, edit: true },
     settings: { view: true },
+    hrTimesheet: { view: true, create: true, edit: true, delete: true },
   },
   user: {
     dashboard: { view: true },
@@ -65,6 +66,7 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     userManagement: { view: false, create: false, edit: false, delete: false },
     profile: { view: true, edit: true },
     settings: { view: true },
+    hrTimesheet: { view: true, create: true, edit: true, delete: true },
   },
 };
 

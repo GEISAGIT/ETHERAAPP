@@ -101,6 +101,7 @@ export type Permissions = {
   userManagement: CrudActions;
   profile: ViewEditActions;
   settings: ViewOnlyActions;
+  hrTimesheet: CrudActions;
 };
 
 

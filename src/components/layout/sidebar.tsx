@@ -7,8 +7,23 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarHeader,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
 } from '@/components/ui/sidebar';
-import { ArrowRightLeft, BarChart3, LayoutDashboard, PiggyBank, Settings, User, Upload, Users, Banknote } from 'lucide-react';
+import { 
+  ArrowRightLeft, 
+  BarChart3, 
+  LayoutDashboard, 
+  PiggyBank, 
+  Settings, 
+  User, 
+  Upload, 
+  Users, 
+  Banknote,
+  Briefcase,
+  Clock
+} from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
 import { useDoc, useMemoFirebase } from '@/firebase';
@@ -28,6 +43,10 @@ const allMenuItems = [
   { key: 'settings' as MenuItemKey, href: '/settings', label: 'Configurações', icon: Settings },
 ];
 
+const hrMenuItems = [
+  { key: 'hrTimesheet' as MenuItemKey, href: '/hr/timesheet', label: 'Controle de Folha Ponto', icon: Clock },
+];
+
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -42,16 +61,16 @@ export function AppSidebar() {
 
   const { data: userProfile } = useDoc<UserProfile>(userDocRef);
   
-  const menuItems = useMemo(() => {
+  const filterMenuItems = (items: typeof allMenuItems) => {
     const isAdmin = userProfile?.role === 'admin';
 
     // If profile hasn't loaded, return a minimal safe set.
     if (!userProfile) {
-        return allMenuItems.filter(item => !item.adminOnly && (item.key === 'profile' || item.key === 'dashboard'));
+        return items.filter(item => !item.adminOnly && (item.key === 'profile' || item.key === 'dashboard'));
     }
 
     // Now we know userProfile exists.
-    return allMenuItems.filter(item => {
+    return items.filter(item => {
         // Admin sees all.
         if (isAdmin) return true;
         
@@ -66,7 +85,10 @@ export function AppSidebar() {
 
         return false;
     });
-  }, [userProfile]);
+  };
+
+  const menuItems = useMemo(() => filterMenuItems(allMenuItems), [userProfile]);
+  const hrItems = useMemo(() => filterMenuItems(hrMenuItems), [userProfile]);
 
   const isActive = (href: string) => {
     if (href === '/settings') {
@@ -83,23 +105,52 @@ export function AppSidebar() {
           <span className="font-headline text-xl font-semibold text-primary">Ethera</span>
         </div>
       </SidebarHeader>
-      <SidebarContent className="p-2">
-        <SidebarMenu>
-          {menuItems.map(({ href, label, icon: Icon }) => (
-            <SidebarMenuItem key={href}>
-              <SidebarMenuButton
-                asChild
-                isActive={isActive(href)}
-                tooltip={{ children: label, side: 'right' }}
-              >
-                <Link href={href}>
-                  <Icon />
-                  <span>{label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
+      <SidebarContent className="p-2 space-y-4">
+        <SidebarGroup>
+          <SidebarMenu>
+            {menuItems.map(({ href, label, icon: Icon }) => (
+              <SidebarMenuItem key={href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive(href)}
+                  tooltip={{ children: label, side: 'right' }}
+                >
+                  <Link href={href}>
+                    <Icon />
+                    <span>{label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        {hrItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="flex items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px]">
+              <Briefcase className="h-3 w-3" />
+              Recursos Humanos
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {hrItems.map(({ href, label, icon: Icon }) => (
+                  <SidebarMenuItem key={href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(href)}
+                      tooltip={{ children: label, side: 'right' }}
+                    >
+                      <Link href={href}>
+                        <Icon />
+                        <span>{label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </>
   );
