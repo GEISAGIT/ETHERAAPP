@@ -30,8 +30,6 @@ function TimeTrackingContent() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [scanAnimation, setScanAnimation] = useState(false);
 
-  // Fetch recent attendance for the current user
-  // Adicionamos uma verificação extra para garantir que o usuário e o firestore estão prontos
   const attendanceQuery = useMemoFirebase(() => {
     if (!firestore || !user || isUserLoading) return null;
     return query(
@@ -44,13 +42,11 @@ function TimeTrackingContent() {
 
   const { data: recentRecords, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
 
-  // Update clock every second
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Request camera permission
   useEffect(() => {
     const getCameraPermission = async () => {
       try {
@@ -87,31 +83,39 @@ function TimeTrackingContent() {
       if (videoRef.current && canvasRef.current) {
         const video = videoRef.current;
         const canvas = canvasRef.current;
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        const photoPath = `attendance-photos/${user.uid}/${Date.now()}.jpg`;
-        const storageRef = ref(storage, photoPath);
-        
-        await uploadString(storageRef, dataUrl, 'data_url');
-        photoUrl = await getDownloadURL(storageRef);
+        // Ensure video is playing and has dimensions
+        if (video.videoWidth > 0) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          const photoPath = `attendance-photos/${user.uid}/${Date.now()}.jpg`;
+          const storageRef = ref(storage, photoPath);
+          
+          await uploadString(storageRef, dataUrl, 'data_url');
+          photoUrl = await getDownloadURL(storageRef);
+        }
       }
 
-      // 2. Get Location (Optional)
+      // 2. Get Location (with timeout to prevent infinite hang)
       let location = undefined;
       try {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject);
+          navigator.geolocation.getCurrentPosition(resolve, reject, { 
+            enableHighAccuracy: true, 
+            timeout: 5000, 
+            maximumAge: 0 
+          });
         });
         location = {
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude
         };
       } catch (e) {
-        console.warn("Location permission denied or unavailable");
+        console.warn("Location not available or timed out", e);
       }
 
       // 3. Save Record
@@ -131,18 +135,19 @@ function TimeTrackingContent() {
         description: `Seu registro de ${getAttendanceTypeLabel(type).toLowerCase()} foi salvo com sucesso.`,
       });
 
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error("Erro ao registrar ponto:", error);
       toast({
         variant: 'destructive',
         title: 'Erro ao Registrar',
-        description: 'Não foi possível salvar o seu registro de ponto.',
+        description: error.message || 'Não foi possível salvar o seu registro de ponto.',
       });
     } finally {
+      // Small delay for the animation
       setTimeout(() => {
         setIsRecording(false);
         setScanAnimation(false);
-      }, 1000);
+      }, 800);
     }
   };
 
@@ -190,7 +195,6 @@ function TimeTrackingContent() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Captura / Câmera */}
         <Card className="lg:col-span-2 overflow-hidden border-primary/20 shadow-lg">
           <CardHeader className="bg-primary/5 border-b border-primary/10">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -207,7 +211,6 @@ function TimeTrackingContent() {
               className="w-full h-full object-cover scale-x-[-1]"
             />
             
-            {/* Scan Overlay */}
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
               <div className={cn(
                 "w-64 h-64 border-2 rounded-full border-dashed transition-all duration-1000",
@@ -277,7 +280,6 @@ function TimeTrackingContent() {
           </CardFooter>
         </Card>
 
-        {/* Histórico Recente */}
         <div className="space-y-6">
           <Card className="h-full">
             <CardHeader>
@@ -334,7 +336,6 @@ function TimeTrackingContent() {
         </div>
       </div>
 
-      {/* Canvas oculto para captura de imagem */}
       <canvas ref={canvasRef} className="hidden" />
     </div>
   );

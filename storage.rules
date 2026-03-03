@@ -2,11 +2,38 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+    // Regra geral restritiva
     match /{allPaths=**} {
-      // Permite que qualquer pessoa leia arquivos (necessário para imagens públicas como a logo).
-      allow read;
-      // Permite que apenas usuários autenticados escrevam (façam upload) de arquivos.
+      allow read: if request.auth != null;
       allow write: if request.auth != null;
+    }
+
+    // Fotos de Ponto (Biometria)
+    match /attendance-photos/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Documentos de funcionários
+    match /employee-docs/{employeeId}/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Regra específica para uploads públicos (como fotos de perfil, logo)
+    match /uploads/{userId}/{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Regra específica para comprovantes de pagamento
+    match /receipts/{userId}/{allPaths=**} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Regra para fotos de perfil
+    match /profile-pictures/{userId} {
+        allow read;
+        allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
