@@ -2,14 +2,14 @@
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, Timestamp, limit, startOfDay, endOfDay } from 'firebase/firestore';
+import { collection, query, where, orderBy, Timestamp, limit } from 'firebase/firestore';
 import { useState, useRef, useEffect, Suspense, useMemo } from 'react';
-import { Camera, Clock, CheckCircle2, Loader2, History, Fingerprint, CalendarDays, ArrowRightLeft } from 'lucide-react';
+import { Camera, Clock, CheckCircle2, Loader2, History, Fingerprint, CalendarDays, ArrowRightLeft, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { format, isSameDay } from 'date-fns';
+import { format, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
