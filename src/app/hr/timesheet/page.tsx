@@ -12,8 +12,8 @@ import { collection, doc, query, Timestamp, serverTimestamp, where, orderBy } fr
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Employee, EmployeeDiscount, TimeAdjustment, CompensationRecord, WorkStatus, EmployeeDocument, AttendanceRecord, AttendanceType } from '@/lib/types';
 import { useState, useMemo, useEffect, Suspense } from 'react';
-import { CalendarIcon, Loader2, Save, Plus, Trash2, Clock, UserCheck, CreditCard, CalendarDays, History, UploadCloud, FileText, Download, Paperclip, ClipboardList, Stethoscope, AlertCircle } from 'lucide-react';
-import { format, differenceInMinutes, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { CalendarIcon, Loader2, Save, Plus, Trash2, Clock, UserCheck, CreditCard, CalendarDays, History, UploadCloud, FileText, Download, Paperclip, ClipboardList, Stethoscope, AlertCircle, Edit, Check } from 'lucide-react';
+import { format, differenceInMinutes, startOfMonth, endOfMonth, isSameDay, setHours, setMinutes, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 
 function HRTimesheetContent() {
   const firestore = useFirestore();
@@ -35,7 +36,16 @@ function HRTimesheetContent() {
   const [activeTab, setActiveTab] = useState('contract');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isAdjusting, setIsAdjusting] = useState(false);
+  
+  // States for manual/edit dialogs
+  const [isManualRecordOpen, setIsManualRecordOpen] = useState(false);
+  const [isEditRecordOpen, setIsEditRecordOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
+  
+  const [manualDate, setManualDate] = useState<Date>(new Date());
+  const [manualTime, setManualTime] = useState<string>(format(new Date(), 'HH:mm'));
+  const [manualType, setManualType] = useState<AttendanceType>('clock_in');
+  const [manualNotes, setManualTypeNotes] = useState('');
 
   // Read employee ID from URL if present
   useEffect(() => {
@@ -68,7 +78,7 @@ function HRTimesheetContent() {
 
   const { data: rawAttendance, isLoading: attendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
 
-  // Form State
+  // Form State for Employee Data
   const [formData, setFormData] = useState<Partial<Employee>>({});
 
   useEffect(() => {
@@ -96,7 +106,7 @@ function HRTimesheetContent() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = () => {
+  const handleSaveEmployee = () => {
     if (!firestore || !selectedEmployeeId) return;
     setIsSaving(true);
 
@@ -115,32 +125,67 @@ function HRTimesheetContent() {
     }, 500);
   };
 
-  const handleManualRecord = (type: AttendanceType) => {
+  const handleCreateManualRecord = () => {
     if (!firestore || !selectedEmployeeId || !selectedEmployee) return;
     
-    setIsAdjusting(true);
+    // Create timestamp from date + time strings
+    const [hours, minutes] = manualTime.split(':').map(Number);
+    const finalDate = setMinutes(setHours(manualDate, hours), minutes);
+    
     const recordData = {
       employeeId: selectedEmployeeId,
       employeeName: selectedEmployee.fullName,
-      timestamp: Timestamp.now(),
-      type: type,
-      notes: 'Registro manual inserido pelo RH',
+      timestamp: Timestamp.fromDate(finalDate),
+      type: manualType,
+      notes: manualNotes || 'Registro manual inserido pelo RH',
+      manual: true,
+      updatedBy: user?.displayName || 'RH'
     };
 
     addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), recordData);
     
     toast({ 
       title: 'Ponto Inserido', 
-      description: `Registro de ${getAttendanceTypeLabel(type)} adicionado com sucesso.` 
+      description: `Registro de ${getAttendanceTypeLabel(manualType)} adicionado para ${format(finalDate, 'dd/MM/yyyy HH:mm')}.` 
     });
     
-    setTimeout(() => setIsAdjusting(false), 500);
+    setIsManualRecordOpen(false);
+    setManualTypeNotes('');
+  };
+
+  const handleUpdateRecord = () => {
+    if (!firestore || !editingRecord) return;
+
+    const [hours, minutes] = manualTime.split(':').map(Number);
+    const finalDate = setMinutes(setHours(manualDate, hours), minutes);
+
+    const docRef = doc(firestore, 'attendanceRecords', editingRecord.id);
+    updateDocumentNonBlocking(docRef, {
+      timestamp: Timestamp.fromDate(finalDate),
+      notes: manualNotes || 'Horário ajustado pelo RH',
+      manual: true,
+      updatedBy: user?.displayName || 'RH'
+    });
+
+    toast({ title: 'Horário Atualizado' });
+    setIsEditRecordOpen(false);
+    setEditingRecord(null);
+    setManualTypeNotes('');
   };
 
   const deleteRecord = (id: string) => {
     if (!firestore) return;
     deleteDocumentNonBlocking(doc(firestore, 'attendanceRecords', id));
     toast({ title: 'Registro Removido' });
+  };
+
+  const openEditDialog = (record: AttendanceRecord) => {
+    const date = record.timestamp.toDate();
+    setEditingRecord(record);
+    setManualDate(date);
+    setManualTime(format(date, 'HH:mm'));
+    setManualTypeNotes(record.notes || '');
+    setIsEditRecordOpen(true);
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, isAtestado: boolean = false) => {
@@ -243,6 +288,86 @@ function HRTimesheetContent() {
 
   return (
     <div className="space-y-8">
+      {/* Dialog: Manual Record */}
+      <Dialog open={isManualRecordOpen} onOpenChange={setIsManualRecordOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Novo Registro Manual</DialogTitle>
+            <DialogDescription>Insira uma batida de ponto retroativa para o colaborador.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Data do Ponto</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {manualDate ? format(manualDate, "PPP", { locale: ptBR }) : <span>Selecione...</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={manualDate} onSelect={(d) => d && setManualDate(d)} initialFocus locale={ptBR} />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Horário</Label>
+                <Input type="time" value={manualTime} onChange={(e) => setManualTime(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Tipo de Batida</Label>
+                <Select value={manualType} onValueChange={(v: AttendanceType) => setManualType(v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="clock_in">Entrada</SelectItem>
+                    <SelectItem value="break_start">Sair p/ Almoço</SelectItem>
+                    <SelectItem value="break_end">Retorno Almoço</SelectItem>
+                    <SelectItem value="clock_out">Saída Final</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Justificativa / Nota</Label>
+              <Input placeholder="Ex: Esqueceu de bater o ponto" value={manualNotes} onChange={(e) => setManualTypeNotes(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="ghost">Cancelar</Button></DialogClose>
+            <Button onClick={handleCreateManualRecord}>Salvar Registro</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Edit Existing Record */}
+      <Dialog open={isEditRecordOpen} onOpenChange={setIsEditRecordOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ajustar Horário de Ponto</DialogTitle>
+            <DialogDescription>Modifique o horário original registrado pelo colaborador.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Data</Label>
+              <Input value={format(manualDate, 'dd/MM/yyyy')} disabled className="bg-muted" />
+            </div>
+            <div className="space-y-2">
+              <Label>Novo Horário</Label>
+              <Input type="time" value={manualTime} onChange={(e) => setManualTime(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Justificativa do Ajuste</Label>
+              <Input placeholder="Ex: Ajuste solicitado via e-mail" value={manualNotes} onChange={(e) => setManualTypeNotes(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="ghost">Cancelar</Button></DialogClose>
+            <Button onClick={handleUpdateRecord}>Confirmar Ajuste</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">
@@ -259,8 +384,8 @@ function HRTimesheetContent() {
               Folha de Ponto
             </Button>
           )}
-          {selectedEmployeeId && (
-            <Button onClick={handleSave} disabled={isSaving}>
+          {selectedEmployeeId && (activeTab !== 'attendance') && (
+            <Button onClick={handleSaveEmployee} disabled={isSaving}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Salvar Alterações
             </Button>
@@ -311,25 +436,14 @@ function HRTimesheetContent() {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <Card className="lg:col-span-1">
                 <CardHeader>
-                  <CardTitle className="text-sm font-medium">Ações Rápidas</CardTitle>
+                  <CardTitle className="text-sm font-medium">Ações do RH</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-xs uppercase text-muted-foreground">Ajustar Ponto Hoje</Label>
-                    <div className="grid grid-cols-1 gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleManualRecord('clock_in')} disabled={isAdjusting}>
-                        Registrar Entrada
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleManualRecord('break_start')} disabled={isAdjusting}>
-                        Sair p/ Almoço
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleManualRecord('break_end')} disabled={isAdjusting}>
-                        Retorno Almoço
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleManualRecord('clock_out')} disabled={isAdjusting}>
-                        Registrar Saída
-                      </Button>
-                    </div>
+                    <Label className="text-xs uppercase text-muted-foreground">Ajuste de Ponto</Label>
+                    <Button variant="default" size="sm" className="w-full" onClick={() => setIsManualRecordOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" /> Registro Manual
+                    </Button>
                   </div>
                   <div className="pt-4 space-y-2 border-t">
                     <Label className="text-xs uppercase text-muted-foreground">Saúde & Abono</Label>
@@ -352,7 +466,7 @@ function HRTimesheetContent() {
                     <ClipboardList className="h-5 w-5 text-primary" />
                     Histórico de Marcações
                   </CardTitle>
-                  <CardDescription>Visualização detalhada da jornada de trabalho.</CardDescription>
+                  <CardDescription>Visualização detalhada da jornada. Clique nos horários para editar.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {attendanceLoading ? (
@@ -382,19 +496,36 @@ function HRTimesheetContent() {
                             const breakEnd = day.records.find(r => r.type === 'break_end');
                             const clockOut = day.records.find(r => r.type === 'clock_out');
 
+                            const RecordCell = ({ record }: { record?: AttendanceRecord }) => (
+                              <div className="group flex items-center gap-1 min-h-[32px]">
+                                <span className={cn(
+                                  "text-sm",
+                                  record?.manual ? "font-bold text-amber-600" : "text-foreground"
+                                )} title={record?.notes}>
+                                  {record ? format(record.timestamp.toDate(), 'HH:mm') : '--:--'}
+                                </span>
+                                {record && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => openEditDialog(record)}
+                                  >
+                                    <Edit className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            );
+
                             return (
                               <TableRow key={day.date.toISOString()}>
                                 <TableCell className="font-medium">
                                   {format(day.date, "dd/MM (eee)", { locale: ptBR })}
                                 </TableCell>
-                                <TableCell className={cn(clockIn?.notes && "text-amber-600 font-medium")} title={clockIn?.notes}>
-                                  {clockIn ? format(clockIn.timestamp.toDate(), 'HH:mm') : '--:--'}
-                                </TableCell>
-                                <TableCell>{breakStart ? format(breakStart.timestamp.toDate(), 'HH:mm') : '--:--'}</TableCell>
-                                <TableCell>{breakEnd ? format(breakEnd.timestamp.toDate(), 'HH:mm') : '--:--'}</TableCell>
-                                <TableCell className={cn(clockOut?.notes && "text-amber-600 font-medium")} title={clockOut?.notes}>
-                                  {clockOut ? format(clockOut.timestamp.toDate(), 'HH:mm') : '--:--'}
-                                </TableCell>
+                                <TableCell><RecordCell record={clockIn} /></TableCell>
+                                <TableCell><RecordCell record={breakStart} /></TableCell>
+                                <TableCell><RecordCell record={breakEnd} /></TableCell>
+                                <TableCell><RecordCell record={clockOut} /></TableCell>
                                 <TableCell className="text-right font-mono font-bold text-primary">
                                   {calculateTotalHours(day.records)}
                                 </TableCell>
@@ -536,9 +667,9 @@ function HRTimesheetContent() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">Anexos & Documentos</CardTitle>
                 <div className="relative">
-                  <Input type="file" className="hidden" id="doc-upload-hr" onChange={(e) => handleFileUpload(e)} disabled={isUploading} />
+                  <Input type="file" className="hidden" id="doc-upload-hr-docs" onChange={(e) => handleFileUpload(e)} disabled={isUploading} />
                   <Button variant="outline" size="sm" asChild disabled={isUploading}>
-                    <label htmlFor="doc-upload-hr" className="cursor-pointer">
+                    <label htmlFor="doc-upload-hr-docs" className="cursor-pointer">
                       {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
                       Anexar Novo
                     </label>
