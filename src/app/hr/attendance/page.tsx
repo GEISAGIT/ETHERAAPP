@@ -2,14 +2,14 @@
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, Timestamp, limit } from 'firebase/firestore';
+import { collection, query, where, Timestamp, limit } from 'firebase/firestore';
 import { useState, useRef, useEffect, Suspense, useMemo } from 'react';
-import { Camera, Clock, CheckCircle2, Loader2, History, Fingerprint, CalendarDays, ArrowRightLeft, AlertCircle } from 'lucide-react';
+import { Camera, Clock, Loader2, History, Fingerprint, CalendarDays, ArrowRightLeft, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { format, startOfDay, endOfDay, differenceInMinutes } from 'date-fns';
+import { format, startOfDay, endOfDay, differenceInMinutes, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,38 +25,33 @@ function TimeTrackingContent() {
   const [isRecording, setIsRecording] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Datas de referência para hoje (estabilizadas via useMemo)
-  const { todayStart, todayEnd } = useMemo(() => ({
-    todayStart: startOfDay(new Date()),
-    todayEnd: endOfDay(new Date())
-  }), []);
-
-  // Consulta para os registros de HOJE para determinar o próximo tipo de ponto
-  const todayQuery = useMemoFirebase(() => {
+  // Consulta simplificada para evitar erros de índice (ordenação feita em memória)
+  const recordsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
       collection(firestore, 'attendanceRecords'),
       where('employeeId', '==', user.uid),
-      where('timestamp', '>=', Timestamp.fromDate(todayStart)),
-      where('timestamp', '<=', Timestamp.fromDate(todayEnd)),
-      orderBy('timestamp', 'asc')
-    );
-  }, [firestore, user, todayStart, todayEnd]);
-
-  const { data: todayRecords } = useCollection<AttendanceRecord>(todayQuery);
-
-  // Consulta para o histórico geral (Folha de Ponto)
-  const historyQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(
-      collection(firestore, 'attendanceRecords'),
-      where('employeeId', '==', user.uid),
-      orderBy('timestamp', 'desc'),
-      limit(100) // Aumentado para cobrir mais dias
+      limit(150)
     );
   }, [firestore, user]);
 
-  const { data: historyRecords, isLoading: historyLoading } = useCollection<AttendanceRecord>(historyQuery);
+  const { data: allRecords, isLoading: recordsLoading } = useCollection<AttendanceRecord>(recordsQuery);
+
+  // Registros de hoje filtrados e ordenados em memória
+  const todayRecords = useMemo(() => {
+    if (!allRecords) return [];
+    const today = new Date();
+    return allRecords
+      .filter(r => {
+        const date = r.timestamp instanceof Timestamp ? r.timestamp.toDate() : new Date(r.timestamp);
+        return isSameDay(date, today);
+      })
+      .sort((a, b) => {
+        const tA = a.timestamp instanceof Timestamp ? a.timestamp.toMillis() : new Date(a.timestamp).getTime();
+        const tB = b.timestamp instanceof Timestamp ? b.timestamp.toMillis() : new Date(b.timestamp).getTime();
+        return tA - tB;
+      });
+  }, [allRecords]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -82,7 +77,7 @@ function TimeTrackingContent() {
 
   // Determina o próximo tipo de ponto baseado na sequência do dia
   const nextPointType = useMemo((): { type: AttendanceType; label: string } => {
-    const count = todayRecords?.length || 0;
+    const count = todayRecords.length;
     switch (count) {
       case 0: return { type: 'clock_in', label: 'Registrar Entrada' };
       case 1: return { type: 'break_start', label: 'Iniciar Almoço' };
@@ -104,16 +99,16 @@ function TimeTrackingContent() {
       type: nextPointType.type,
     };
 
-    // Salvamento instantâneo
+    // Salvamento instantâneo no Firebase
     addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), recordData);
     
     toast({ 
-      title: 'Ponto Registrado!', 
-      description: `Sua ${getAttendanceTypeLabel(nextPointType.type)} foi gravada às ${format(new Date(), 'HH:mm:ss')}.` 
+      title: 'Ponto Enviado!', 
+      description: `Sua marcação de ${getAttendanceTypeLabel(nextPointType.type)} foi registrada com sucesso.` 
     });
 
-    // Pequeno delay visual para feedback
-    setTimeout(() => setIsRecording(false), 1000);
+    // Feedback visual breve
+    setTimeout(() => setIsRecording(false), 800);
   };
 
   const getAttendanceTypeLabel = (type: AttendanceType) => {
@@ -123,29 +118,32 @@ function TimeTrackingContent() {
       break_start: 'Saída Almoço', 
       break_end: 'Retorno Almoço'
     };
-    return labels[type];
+    return labels[type] || 'Ponto';
   };
 
   // Agrupa o histórico por dia para a Folha de Ponto
   const groupedHistory = useMemo(() => {
-    if (!historyRecords) return [];
+    if (!allRecords) return [];
     
     const groups: Record<string, AttendanceRecord[]> = {};
     
-    historyRecords.forEach(record => {
-      // Garante que timestamp é um objeto do Firestore antes de converter
-      const date = record.timestamp instanceof Timestamp ? record.timestamp.toDate() : new Date(record.timestamp);
-      const dateKey = format(date, 'yyyy-MM-dd');
+    allRecords.forEach(record => {
+      const dateObj = record.timestamp instanceof Timestamp ? record.timestamp.toDate() : new Date(record.timestamp);
+      const dateKey = format(dateObj, 'yyyy-MM-dd');
       
       if (!groups[dateKey]) groups[dateKey] = [];
       groups[dateKey].push(record);
     });
 
     return Object.entries(groups).map(([date, records]) => ({
-      date: new Date(date + 'T12:00:00'), // T12 para evitar problemas de fuso no format
-      records: records.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis())
+      date: new Date(date + 'T12:00:00'),
+      records: records.sort((a, b) => {
+        const tA = a.timestamp instanceof Timestamp ? a.timestamp.toMillis() : new Date(a.timestamp).getTime();
+        const tB = b.timestamp instanceof Timestamp ? b.timestamp.toMillis() : new Date(b.timestamp).getTime();
+        return tA - tB;
+      })
     })).sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [historyRecords]);
+  }, [allRecords]);
 
   const calculateTotalHours = (records: AttendanceRecord[]) => {
     const clockIn = records.find(r => r.type === 'clock_in')?.timestamp.toDate();
@@ -157,16 +155,21 @@ function TimeTrackingContent() {
 
     let totalMinutes = differenceInMinutes(clockOut, clockIn);
     
-    // Subtrai intervalo se houver
     if (breakStart && breakEnd) {
       const breakMinutes = differenceInMinutes(breakEnd, breakStart);
       totalMinutes -= breakMinutes;
     }
 
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
+    const hours = Math.floor(Math.max(0, totalMinutes) / 60);
+    const minutes = Math.max(0, totalMinutes) % 60;
 
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  const formatRecordTime = (record?: AttendanceRecord) => {
+    if (!record) return '--:--';
+    const date = record.timestamp instanceof Timestamp ? record.timestamp.toDate() : new Date(record.timestamp);
+    return format(date, 'HH:mm');
   };
 
   if (isUserLoading) return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -176,7 +179,7 @@ function TimeTrackingContent() {
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Controle de Ponto</h1>
-          <p className="text-muted-foreground">Gestão de jornada inteligente e transparente.</p>
+          <p className="text-muted-foreground">Sua jornada registrada com transparência e agilidade.</p>
         </div>
         <div className="bg-primary/10 border border-primary/20 p-4 rounded-lg text-center min-w-[200px]">
           <div className="text-3xl font-bold font-mono text-primary">{format(currentTime, 'HH:mm:ss')}</div>
@@ -200,7 +203,7 @@ function TimeTrackingContent() {
               <CardHeader className="bg-primary/5 border-b border-primary/10">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Camera className="h-5 w-5 text-primary" /> 
-                  Identificação Biométrica
+                  Identificação Facial
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0 relative bg-black aspect-video flex items-center justify-center">
@@ -241,7 +244,9 @@ function TimeTrackingContent() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!todayRecords?.length ? (
+                {recordsLoading ? (
+                  <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                ) : todayRecords.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed rounded-lg text-muted-foreground italic">
                     <p className="text-sm">Nenhum registro ainda hoje.</p>
                   </div>
@@ -258,10 +263,10 @@ function TimeTrackingContent() {
                           </div>
                           <div className="flex flex-col">
                             <span className="text-sm font-semibold">{getAttendanceTypeLabel(record.type)}</span>
-                            <span className="text-xs text-muted-foreground">{format(record.timestamp.toDate(), 'HH:mm:ss')}</span>
+                            <span className="text-xs text-muted-foreground">{formatRecordTime(record)}</span>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-200">OK</Badge>
+                        <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-200 uppercase">Salvo</Badge>
                       </div>
                     ))}
                   </div>
@@ -270,7 +275,7 @@ function TimeTrackingContent() {
               <CardFooter className="flex flex-col items-start gap-2 border-t pt-4">
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                   <AlertCircle className="h-3 w-3 text-primary" />
-                  <span>Horário sincronizado com servidor oficial.</span>
+                  <span>Sincronização biométrica ativa.</span>
                 </div>
               </CardFooter>
             </Card>
@@ -283,14 +288,14 @@ function TimeTrackingContent() {
               <CardTitle className="flex items-center gap-2">
                 <ArrowRightLeft className="h-5 w-5 text-primary" /> Folha de Ponto Mensal
               </CardTitle>
-              <CardDescription>Resumo de todas as marcações de tempo realizadas.</CardDescription>
+              <CardDescription>Consulte aqui todas as suas marcações efetuadas.</CardDescription>
             </CardHeader>
             <CardContent>
-              {historyLoading ? (
+              {recordsLoading ? (
                 <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
               ) : groupedHistory.length === 0 ? (
                 <div className="text-center py-20 border-2 border-dashed rounded-lg text-muted-foreground">
-                  <p>Nenhum histórico de ponto encontrado.</p>
+                  <p>Nenhum histórico de ponto encontrado para este perfil.</p>
                 </div>
               ) : (
                 <div className="rounded-md border overflow-x-auto">
@@ -302,7 +307,7 @@ function TimeTrackingContent() {
                         <TableHead>Saída Almoço</TableHead>
                         <TableHead>Retorno Almoço</TableHead>
                         <TableHead>Saída</TableHead>
-                        <TableHead className="text-right">Total Horas</TableHead>
+                        <TableHead className="text-right">Total do Dia</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -317,14 +322,10 @@ function TimeTrackingContent() {
                             <TableCell className="font-medium">
                               {format(day.date, "dd/MM (eee)", { locale: ptBR })}
                             </TableCell>
-                            <TableCell className={!clockIn ? "text-muted-foreground italic text-xs" : ""}>
-                              {clockIn ? format(clockIn.timestamp.toDate(), 'HH:mm') : 'Falta'}
-                            </TableCell>
-                            <TableCell>{breakStart ? format(breakStart.timestamp.toDate(), 'HH:mm') : '--:--'}</TableCell>
-                            <TableCell>{breakEnd ? format(breakEnd.timestamp.toDate(), 'HH:mm') : '--:--'}</TableCell>
-                            <TableCell className={!clockOut ? "text-muted-foreground italic text-xs" : ""}>
-                              {clockOut ? format(clockOut.timestamp.toDate(), 'HH:mm') : '--:--'}
-                            </TableCell>
+                            <TableCell>{formatRecordTime(clockIn)}</TableCell>
+                            <TableCell>{formatRecordTime(breakStart)}</TableCell>
+                            <TableCell>{formatRecordTime(breakEnd)}</TableCell>
+                            <TableCell>{formatRecordTime(clockOut)}</TableCell>
                             <TableCell className="text-right font-mono font-bold text-primary">
                               {calculateTotalHours(day.records)}
                             </TableCell>
