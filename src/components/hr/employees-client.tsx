@@ -4,7 +4,7 @@ import type { Employee, EmployeeStatus, EmployeeRegime, OvertimePolicy, UserProf
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, MoreHorizontal, Edit, Trash2, UserPlus, Phone, Mail, Building2, Briefcase, FileText, Clock } from 'lucide-react';
+import { PlusCircle, Search, MoreHorizontal, Edit, Trash2, UserPlus, Phone, Mail, Building2, Briefcase, FileText, Clock, UserCog } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
@@ -31,6 +31,7 @@ import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import Link from 'next/link';
 
 const statusConfig: Record<EmployeeStatus, { text: string; variant: "default" | "secondary" | "destructive" }> = {
     active: { text: "Ativo", variant: "default" },
@@ -61,6 +62,7 @@ export function EmployeesClient({ data, isLoading, userProfile }: { data: Employ
   const { toast } = useToast();
 
   const isAdmin = userProfile?.role === 'admin';
+  const canView = !!(isAdmin || userProfile?.permissions?.employees?.view);
   const canCreate = !!(isAdmin || userProfile?.permissions?.employees?.create);
   const canEdit = !!(isAdmin || userProfile?.permissions?.employees?.edit);
   const canDelete = !!(isAdmin || userProfile?.permissions?.employees?.delete);
@@ -198,33 +200,47 @@ export function EmployeesClient({ data, isLoading, userProfile }: { data: Employ
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {(canEdit || canDelete) && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                              {canEdit && (
-                                <DropdownMenuItem onClick={() => handleEdit(employee)}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Editar
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="outline" size="sm" asChild className="h-8 px-2">
+                            <Link href={`/hr/timesheet?id=${employee.id}`}>
+                              <UserCog className="h-4 w-4 mr-1 text-primary" />
+                              <span className="hidden sm:inline">Gestão</span>
+                            </Link>
+                          </Button>
+                          {(canEdit || canDelete) && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/hr/timesheet?id=${employee.id}`}>
+                                    <UserCog className="mr-2 h-4 w-4" />
+                                    Ficha Completa
+                                  </Link>
                                 </DropdownMenuItem>
-                              )}
-                              {canDelete && (
-                                <DropdownMenuItem 
-                                  onClick={() => handleDelete(employee)}
-                                  className="text-red-600 focus:text-red-600"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Excluir
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
+                                {canEdit && (
+                                  <DropdownMenuItem onClick={() => handleEdit(employee)}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Editar Cadastro
+                                  </DropdownMenuItem>
+                                )}
+                                {canDelete && (
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDelete(employee)}
+                                    className="text-red-600 focus:text-red-600"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Excluir Registro
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

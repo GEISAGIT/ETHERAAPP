@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -11,7 +12,7 @@ import { useCollection, useFirestore, useUser, useMemoFirebase, updateDocumentNo
 import { collection, doc, query, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Employee, EmployeeDiscount, TimeAdjustment, CompensationRecord, WorkStatus, EmployeeDocument } from '@/lib/types';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { CalendarIcon, Loader2, Save, Plus, Trash2, Clock, UserCheck, CreditCard, CalendarDays, History, UploadCloud, FileText, Download, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -21,16 +22,26 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
-export default function HRTimesheetPage() {
+function HRTimesheetContent() {
   const firestore = useFirestore();
   const storage = useStorage();
   const { user } = useUser();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Read employee ID from URL if present
+  useEffect(() => {
+    const urlId = searchParams.get('id');
+    if (urlId) {
+      setSelectedEmployeeId(urlId);
+    }
+  }, [searchParams]);
 
   // Fetch employees for selection
   const employeesQuery = useMemoFirebase(() => {
@@ -165,491 +176,501 @@ export default function HRTimesheetPage() {
 
   if (employeesLoading) {
     return (
-      <AppLayout>
-        <div className="flex h-full items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </AppLayout>
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="space-y-8">
-        <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">
-              Controle de Funcionários
-            </h1>
-            <p className="text-muted-foreground">
-              Gestão detalhada de dados cadastrais, contratuais e financeiros.
-            </p>
+    <div className="space-y-8">
+      <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">
+            Controle de Funcionários
+          </h1>
+          <p className="text-muted-foreground">
+            Gestão detalhada de dados cadastrais, contratuais e financeiros.
+          </p>
+        </div>
+        {selectedEmployeeId && (
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Salvar Alterações
+          </Button>
+        )}
+      </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline text-xl flex items-center gap-2">
+            <UserCheck className="h-5 w-5 text-primary" />
+            Seleção de Colaborador
+          </CardTitle>
+          <CardDescription>Escolha o funcionário para gerenciar os dados.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="max-w-sm">
+            <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um colaborador..." />
+              </SelectTrigger>
+              <SelectContent>
+                {employees?.map(emp => (
+                  <SelectItem key={emp.id} value={emp.id}>
+                    {emp.fullName} ({emp.position})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          {selectedEmployeeId && (
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Salvar Alterações
-            </Button>
-          )}
-        </header>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline text-xl flex items-center gap-2">
-              <UserCheck className="h-5 w-5 text-primary" />
-              Seleção de Colaborador
-            </CardTitle>
-            <CardDescription>Escolha o funcionário para gerenciar os dados.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="max-w-sm">
-              <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um colaborador..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees?.map(emp => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {emp.fullName} ({emp.position})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+      {selectedEmployee ? (
+        <Tabs defaultValue="contract" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
+            <TabsTrigger value="contract">Contrato & Docs</TabsTrigger>
+            <TabsTrigger value="experience">Status & Experiência</TabsTrigger>
+            <TabsTrigger value="discounts">Descontos</TabsTrigger>
+            <TabsTrigger value="adjustments">Ajustes & Comp.</TabsTrigger>
+            <TabsTrigger value="documents">Anexos</TabsTrigger>
+          </TabsList>
 
-        {selectedEmployee ? (
-          <Tabs defaultValue="contract" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
-              <TabsTrigger value="contract">Contrato & Docs</TabsTrigger>
-              <TabsTrigger value="experience">Status & Experiência</TabsTrigger>
-              <TabsTrigger value="discounts">Descontos</TabsTrigger>
-              <TabsTrigger value="adjustments">Ajustes & Comp.</TabsTrigger>
-              <TabsTrigger value="documents">Anexos</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="contract">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Datas de Vigência</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Data de Admissão</Label>
-                      <div className="flex gap-2">
-                        <Input 
-                          value={formData.hireDate ? format(formData.hireDate.toDate(), 'dd/MM/yyyy') : ''} 
-                          readOnly 
-                          className="bg-muted"
-                        />
-                        <Badge variant="outline" className="h-10">Fixo no Cadastro</Badge>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Vencimento de Férias</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.vacationExpirationDate && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {formData.vacationExpirationDate ? format(formData.vacationExpirationDate.toDate(), "PPP", { locale: ptBR }) : <span>Definir data...</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={formData.vacationExpirationDate?.toDate()}
-                            onSelect={(date) => handleUpdateField('vacationExpirationDate', date ? Timestamp.fromDate(date) : null)}
-                            initialFocus
-                            locale={ptBR}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Data de Demissão (Opcional)</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.dismissalDate && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {formData.dismissalDate ? format(formData.dismissalDate.toDate(), "PPP", { locale: ptBR }) : <span>Definir data...</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={formData.dismissalDate?.toDate()}
-                            onSelect={(date) => handleUpdateField('dismissalDate', date ? Timestamp.fromDate(date) : null)}
-                            initialFocus
-                            locale={ptBR}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Documentação & Identificação</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Número de Matrícula</Label>
-                        <Input 
-                          placeholder="Ex: 00452" 
-                          value={formData.registrationNumber || ''} 
-                          onChange={(e) => handleUpdateField('registrationNumber', e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>PIS / PASEP</Label>
-                        <Input 
-                          placeholder="000.00000.00-0" 
-                          value={formData.pisPasep || ''} 
-                          onChange={(e) => handleUpdateField('pisPasep', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>RNE / CTPS</Label>
-                      <Input 
-                        placeholder="Número da Carteira de Trabalho" 
-                        value={formData.ctps || ''} 
-                        onChange={(e) => handleUpdateField('ctps', e.target.value)}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="experience">
+          <TabsContent value="contract">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
+                  <CardTitle className="text-lg">Datas de Vigência</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Data de Admissão</Label>
+                    <div className="flex gap-2">
+                      <Input 
+                        value={formData.hireDate ? format(formData.hireDate.toDate(), 'dd/MM/yyyy') : ''} 
+                        readOnly 
+                        className="bg-muted"
+                      />
+                      <Badge variant="outline" className="h-10">Fixo no Cadastro</Badge>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Vencimento de Férias</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.vacationExpirationDate && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.vacationExpirationDate ? format(formData.vacationExpirationDate.toDate(), "PPP", { locale: ptBR }) : <span>Definir data...</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={formData.vacationExpirationDate?.toDate()}
+                          onSelect={(date) => handleUpdateField('vacationExpirationDate', date ? Timestamp.fromDate(date) : null)}
+                          initialFocus
+                          locale={ptBR}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data de Demissão (Opcional)</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.dismissalDate && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.dismissalDate ? format(formData.dismissalDate.toDate(), "PPP", { locale: ptBR }) : <span>Definir data...</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={formData.dismissalDate?.toDate()}
+                          onSelect={(date) => handleUpdateField('dismissalDate', date ? Timestamp.fromDate(date) : null)}
+                          initialFocus
+                          locale={ptBR}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Documentação & Identificação</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Número de Matrícula</Label>
+                      <Input 
+                        placeholder="Ex: 00452" 
+                        value={formData.registrationNumber || ''} 
+                        onChange={(e) => handleUpdateField('registrationNumber', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>PIS / PASEP</Label>
+                      <Input 
+                        placeholder="000.00000.00-0" 
+                        value={formData.pisPasep || ''} 
+                        onChange={(e) => handleUpdateField('pisPasep', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>RNE / CTPS</Label>
+                    <Input 
+                      placeholder="Número da Carteira de Trabalho" 
+                      value={formData.ctps || ''} 
+                      onChange={(e) => handleUpdateField('ctps', e.target.value)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="experience">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" />
+                  Situação do Colaborador
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label>Status de Trabalho</Label>
+                    <Select 
+                      value={formData.workStatus} 
+                      onValueChange={(v: WorkStatus) => handleUpdateField('workStatus', v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="regular">Regular</SelectItem>
+                        <SelectItem value="temporary">Temporário</SelectItem>
+                        <SelectItem value="probation">Em Experiência</SelectItem>
+                        <SelectItem value="inactive">Inativo (Desligado)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Fim do Período de Experiência</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.experienceEndDate && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.experienceEndDate ? format(formData.experienceEndDate.toDate(), "PPP", { locale: ptBR }) : <span>Definir data...</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={formData.experienceEndDate?.toDate()}
+                          onSelect={(date) => handleUpdateField('experienceEndDate', date ? Timestamp.fromDate(date) : null)}
+                          initialFocus
+                          locale={ptBR}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="discounts">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <History className="h-5 w-5 text-primary" />
-                    Situação do Colaborador
+                    <CreditCard className="h-5 w-5 text-primary" />
+                    Configurador de Descontos
                   </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label>Status de Trabalho</Label>
-                      <Select 
-                        value={formData.workStatus} 
-                        onValueChange={(v: WorkStatus) => handleUpdateField('workStatus', v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="regular">Regular</SelectItem>
-                          <SelectItem value="temporary">Temporário</SelectItem>
-                          <SelectItem value="probation">Em Experiência</SelectItem>
-                          <SelectItem value="inactive">Inativo (Desligado)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Fim do Período de Experiência</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.experienceEndDate && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {formData.experienceEndDate ? format(formData.experienceEndDate.toDate(), "PPP", { locale: ptBR }) : <span>Definir data...</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={formData.experienceEndDate?.toDate()}
-                            onSelect={(date) => handleUpdateField('experienceEndDate', date ? Timestamp.fromDate(date) : null)}
-                            initialFocus
-                            locale={ptBR}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="discounts">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <CreditCard className="h-5 w-5 text-primary" />
-                      Configurador de Descontos
-                    </CardTitle>
-                    <CardDescription>Atribua descontos percentuais fixos na folha.</CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={addDiscount}>
-                    <Plus className="h-4 w-4 mr-2" /> Novo Desconto
-                  </Button>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {formData.discounts?.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8 italic">Nenhum desconto configurado.</p>
-                  ) : (
-                    formData.discounts?.map((discount, index) => (
-                      <div key={discount.id} className="flex items-end gap-4 border p-4 rounded-md relative group">
-                        <div className="flex-1 space-y-2">
-                          <Label>Nome do Desconto</Label>
-                          <Input 
-                            placeholder="Ex: Vale Transporte" 
-                            value={discount.name}
-                            onChange={(e) => {
-                              const newDiscounts = [...(formData.discounts || [])];
-                              newDiscounts[index].name = e.target.value;
-                              handleUpdateField('discounts', newDiscounts);
-                            }}
-                          />
-                        </div>
-                        <div className="w-32 space-y-2">
-                          <Label>Percentual (%)</Label>
-                          <Input 
-                            type="number"
-                            placeholder="0.00" 
-                            value={discount.percentage}
-                            onChange={(e) => {
-                              const newDiscounts = [...(formData.discounts || [])];
-                              newDiscounts[index].percentage = parseFloat(e.target.value) || 0;
-                              handleUpdateField('discounts', newDiscounts);
-                            }}
-                          />
-                        </div>
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeDiscount(discount.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="adjustments" className="space-y-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Clock className="h-5 w-5 text-primary" />
-                      Ajustes de Ponto por Período
-                    </CardTitle>
-                    <CardDescription>Configurações excepcionais de horário.</CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={addAdjustment}>
-                    <Plus className="h-4 w-4 mr-2" /> Novo Ajuste
-                  </Button>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {formData.adjustments?.map((adj, index) => (
-                    <div key={adj.id} className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded-md">
-                      <div className="space-y-2">
-                        <Label>Início do Período</Label>
+                  <CardDescription>Atribua descontos percentuais fixos na folha.</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={addDiscount}>
+                  <Plus className="h-4 w-4 mr-2" /> Novo Desconto
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {formData.discounts?.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8 italic">Nenhum desconto configurado.</p>
+                ) : (
+                  formData.discounts?.map((discount, index) => (
+                    <div key={discount.id} className="flex items-end gap-4 border p-4 rounded-md relative group">
+                      <div className="flex-1 space-y-2">
+                        <Label>Nome do Desconto</Label>
                         <Input 
-                          type="date" 
-                          value={format(adj.startDate.toDate(), 'yyyy-MM-dd')}
+                          placeholder="Ex: Vale Transporte" 
+                          value={discount.name}
+                          onChange={(e) => {
+                            const newDiscounts = [...(formData.discounts || [])];
+                            newDiscounts[index].name = e.target.value;
+                            handleUpdateField('discounts', newDiscounts);
+                          }}
+                        />
+                      </div>
+                      <div className="w-32 space-y-2">
+                        <Label>Percentual (%)</Label>
+                        <Input 
+                          type="number"
+                          placeholder="0.00" 
+                          value={discount.percentage}
+                          onChange={(e) => {
+                            const newDiscounts = [...(formData.discounts || [])];
+                            newDiscounts[index].percentage = parseFloat(e.target.value) || 0;
+                            handleUpdateField('discounts', newDiscounts);
+                          }}
+                        />
+                      </div>
+                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeDiscount(discount.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="adjustments" className="space-y-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-primary" />
+                    Ajustes de Ponto por Período
+                  </CardTitle>
+                  <CardDescription>Configurações excepcionais de horário.</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={addAdjustment}>
+                  <Plus className="h-4 w-4 mr-2" /> Novo Ajuste
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {formData.adjustments?.map((adj, index) => (
+                  <div key={adj.id} className="grid grid-cols-1 md:grid-cols-3 gap-4 border p-4 rounded-md">
+                    <div className="space-y-2">
+                      <Label>Início do Período</Label>
+                      <Input 
+                        type="date" 
+                        value={format(adj.startDate.toDate(), 'yyyy-MM-dd')}
+                        onChange={(e) => {
+                          const newAdjs = [...(formData.adjustments || [])];
+                          newAdjs[index].startDate = Timestamp.fromDate(new Date(e.target.value));
+                          handleUpdateField('adjustments', newAdjs);
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Fim do Período</Label>
+                      <Input 
+                        type="date" 
+                        value={format(adj.endDate.toDate(), 'yyyy-MM-dd')}
+                        onChange={(e) => {
+                          const newAdjs = [...(formData.adjustments || [])];
+                          newAdjs[index].endDate = Timestamp.fromDate(new Date(e.target.value));
+                          handleUpdateField('adjustments', newAdjs);
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2 flex items-end gap-2">
+                      <div className="flex-1 space-y-2">
+                        <Label>Motivo / Descrição</Label>
+                        <Input 
+                          placeholder="Ex: Treinamento externo" 
+                          value={adj.reason}
                           onChange={(e) => {
                             const newAdjs = [...(formData.adjustments || [])];
-                            newAdjs[index].startDate = Timestamp.fromDate(new Date(e.target.value));
+                            newAdjs[index].reason = e.target.value;
                             handleUpdateField('adjustments', newAdjs);
                           }}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Fim do Período</Label>
+                      <Button variant="ghost" size="icon" onClick={() => handleUpdateField('adjustments', formData.adjustments?.filter(a => a.id !== adj.id))}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CalendarDays className="h-5 w-5 text-primary" />
+                    Compensações
+                  </CardTitle>
+                  <CardDescription>Atribuir dias de compensação ou folgas.</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => addCompensation('date')}>
+                    Data Única
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => addCompensation('period')}>
+                    Por Período
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {formData.compensations?.map((comp, index) => (
+                  <div key={comp.id} className="flex flex-col md:flex-row items-end gap-4 border p-4 rounded-md">
+                    <div className="flex-1 space-y-2 w-full">
+                      <Label>Descrição da Compensação</Label>
+                      <Input 
+                        placeholder="Ex: Compensação feriado" 
+                        value={comp.description}
+                        onChange={(e) => {
+                          const newComps = [...(formData.compensations || [])];
+                          newComps[index].description = e.target.value;
+                          handleUpdateField('compensations', newComps);
+                        }}
+                      />
+                    </div>
+                    {comp.type === 'date' ? (
+                      <div className="w-full md:w-48 space-y-2">
+                        <Label>Data</Label>
                         <Input 
                           type="date" 
-                          value={format(adj.endDate.toDate(), 'yyyy-MM-dd')}
-                          onChange={(e) => {
-                            const newAdjs = [...(formData.adjustments || [])];
-                            newAdjs[index].endDate = Timestamp.fromDate(new Date(e.target.value));
-                            handleUpdateField('adjustments', newAdjs);
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-2 flex items-end gap-2">
-                        <div className="flex-1 space-y-2">
-                          <Label>Motivo / Descrição</Label>
-                          <Input 
-                            placeholder="Ex: Treinamento externo" 
-                            value={adj.reason}
-                            onChange={(e) => {
-                              const newAdjs = [...(formData.adjustments || [])];
-                              newAdjs[index].reason = e.target.value;
-                              handleUpdateField('adjustments', newAdjs);
-                            }}
-                          />
-                        </div>
-                        <Button variant="ghost" size="icon" onClick={() => handleUpdateField('adjustments', formData.adjustments?.filter(a => a.id !== adj.id))}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <CalendarDays className="h-5 w-5 text-primary" />
-                      Compensações
-                    </CardTitle>
-                    <CardDescription>Atribuir dias de compensação ou folgas.</CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => addCompensation('date')}>
-                      Data Única
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => addCompensation('period')}>
-                      Por Período
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {formData.compensations?.map((comp, index) => (
-                    <div key={comp.id} className="flex flex-col md:flex-row items-end gap-4 border p-4 rounded-md">
-                      <div className="flex-1 space-y-2 w-full">
-                        <Label>Descrição da Compensação</Label>
-                        <Input 
-                          placeholder="Ex: Compensação feriado" 
-                          value={comp.description}
+                          value={comp.date ? format(comp.date.toDate(), 'yyyy-MM-dd') : ''}
                           onChange={(e) => {
                             const newComps = [...(formData.compensations || [])];
-                            newComps[index].description = e.target.value;
+                            newComps[index].date = Timestamp.fromDate(new Date(e.target.value));
                             handleUpdateField('compensations', newComps);
                           }}
                         />
                       </div>
-                      {comp.type === 'date' ? (
-                        <div className="w-full md:w-48 space-y-2">
-                          <Label>Data</Label>
+                    ) : (
+                      <>
+                        <div className="w-full md:w-40 space-y-2">
+                          <Label>Início</Label>
                           <Input 
                             type="date" 
-                            value={comp.date ? format(comp.date.toDate(), 'yyyy-MM-dd') : ''}
+                            value={comp.startDate ? format(comp.startDate.toDate(), 'yyyy-MM-dd') : ''}
                             onChange={(e) => {
                               const newComps = [...(formData.compensations || [])];
-                              newComps[index].date = Timestamp.fromDate(new Date(e.target.value));
+                              newComps[index].startDate = Timestamp.fromDate(new Date(e.target.value));
                               handleUpdateField('compensations', newComps);
                             }}
                           />
                         </div>
-                      ) : (
-                        <>
-                          <div className="w-full md:w-40 space-y-2">
-                            <Label>Início</Label>
-                            <Input 
-                              type="date" 
-                              value={comp.startDate ? format(comp.startDate.toDate(), 'yyyy-MM-dd') : ''}
-                              onChange={(e) => {
-                                const newComps = [...(formData.compensations || [])];
-                                newComps[index].startDate = Timestamp.fromDate(new Date(e.target.value));
-                                handleUpdateField('compensations', newComps);
-                              }}
-                            />
-                          </div>
-                          <div className="w-full md:w-40 space-y-2">
-                            <Label>Fim</Label>
-                            <Input 
-                              type="date" 
-                              value={comp.endDate ? format(comp.endDate.toDate(), 'yyyy-MM-dd') : ''}
-                              onChange={(e) => {
-                                const newComps = [...(formData.compensations || [])];
-                                newComps[index].endDate = Timestamp.fromDate(new Date(e.target.value));
-                                handleUpdateField('compensations', newComps);
-                              }}
-                            />
-                          </div>
-                        </>
-                      )}
-                      <Button variant="ghost" size="icon" onClick={() => handleUpdateField('compensations', formData.compensations?.filter(c => c.id !== comp.id))}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="documents">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Paperclip className="h-5 w-5 text-primary" />
-                      Anexos & Documentos
-                    </CardTitle>
-                    <CardDescription>Armazene documentos importantes do colaborador (Contrato, Identidade, Exames).</CardDescription>
-                  </div>
-                  <div className="relative">
-                    <Input 
-                      type="file" 
-                      className="hidden" 
-                      id="doc-upload" 
-                      onChange={handleFileUpload}
-                      disabled={isUploading}
-                    />
-                    <Button variant="outline" size="sm" asChild disabled={isUploading}>
-                      <label htmlFor="doc-upload" className="cursor-pointer">
-                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
-                        Anexar Novo
-                      </label>
+                        <div className="w-full md:w-40 space-y-2">
+                          <Label>Fim</Label>
+                          <Input 
+                            type="date" 
+                            value={comp.endDate ? format(comp.endDate.toDate(), 'yyyy-MM-dd') : ''}
+                            onChange={(e) => {
+                              const newComps = [...(formData.compensations || [])];
+                              newComps[index].endDate = Timestamp.fromDate(new Date(e.target.value));
+                              handleUpdateField('compensations', newComps);
+                            }}
+                          />
+                        </div>
+                      </>
+                    )}
+                    <Button variant="ghost" size="icon" onClick={() => handleUpdateField('compensations', formData.compensations?.filter(c => c.id !== comp.id))}>
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {formData.documents?.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-                      <FileText className="h-8 w-8 mb-2 opacity-20" />
-                      <p className="italic">Nenhum documento anexado ainda.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {formData.documents?.map((doc) => (
-                        <div key={doc.id} className="flex items-center justify-between p-3 border rounded-md group hover:border-primary transition-colors">
-                          <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="bg-primary/10 p-2 rounded text-primary">
-                              <FileText className="h-5 w-5" />
-                            </div>
-                            <div className="flex flex-col overflow-hidden">
-                              <span className="text-sm font-medium truncate" title={doc.name}>{doc.name}</span>
-                              <span className="text-[10px] text-muted-foreground">
-                                Enviado em {format(doc.uploadedAt.toDate(), 'dd/MM/yy')}
-                              </span>
-                            </div>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="documents">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Paperclip className="h-5 w-5 text-primary" />
+                    Anexos & Documentos
+                  </CardTitle>
+                  <CardDescription>Armazene documentos importantes do colaborador (Contrato, Identidade, Exames).</CardDescription>
+                </div>
+                <div className="relative">
+                  <Input 
+                    type="file" 
+                    className="hidden" 
+                    id="doc-upload" 
+                    onChange={handleFileUpload}
+                    disabled={isUploading}
+                  />
+                  <Button variant="outline" size="sm" asChild disabled={isUploading}>
+                    <label htmlFor="doc-upload" className="cursor-pointer">
+                      {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+                      Anexar Novo
+                    </label>
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {formData.documents?.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+                    <FileText className="h-8 w-8 mb-2 opacity-20" />
+                    <p className="italic">Nenhum documento anexado ainda.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {formData.documents?.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between p-3 border rounded-md group hover:border-primary transition-colors">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="bg-primary/10 p-2 rounded text-primary">
+                            <FileText className="h-5 w-5" />
                           </div>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                              <Link href={doc.url} target="_blank">
-                                <Download className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100" onClick={() => removeDocument(doc.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="text-sm font-medium truncate" title={doc.name}>{doc.name}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              Enviado em {format(doc.uploadedAt.toDate(), 'dd/MM/yy')}
+                            </span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        ) : (
-          <div className="flex h-64 items-center justify-center rounded-lg border-2 border-dashed bg-muted/10">
-            <p className="text-muted-foreground font-medium">Selecione um colaborador acima para começar a gestão dos dados.</p>
-          </div>
-        )}
-      </div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                            <Link href={doc.url} target="_blank">
+                              <Download className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100" onClick={() => removeDocument(doc.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <div className="flex h-64 items-center justify-center rounded-lg border-2 border-dashed bg-muted/10">
+          <p className="text-muted-foreground font-medium">Selecione um colaborador acima para começar a gestão dos dados.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function HRTimesheetPage() {
+  return (
+    <AppLayout>
+      <Suspense fallback={
+        <div className="flex h-full items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      }>
+        <HRTimesheetContent />
+      </Suspense>
     </AppLayout>
   );
 }
