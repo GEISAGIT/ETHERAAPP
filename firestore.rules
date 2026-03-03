@@ -4,7 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ----------------------------------------------------------------------
-    // Helper Functions
+    // Funções Auxiliares de Segurança
     // ----------------------------------------------------------------------
 
     function isSignedIn() {
@@ -15,9 +15,22 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Verifica se o usuário logado tem o papel de 'admin'
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Função genérica para verificar permissões granulares no mapa de permissões
+    // Exemplo: hasPermission('employees', 'create')
+    function hasPermission(module, action) {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             (
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('permissions', {}).get(module, {}).get(action, false) == true
+             );
     }
 
     function isOriginalCreator() {
@@ -31,18 +44,20 @@ service cloud.firestore {
 
 
     // ----------------------------------------------------------------------
-    // Collection Rules
+    // Regras por Coleção
     // ----------------------------------------------------------------------
 
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin() || (
-                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("permissions", {}).get("userManagement", {}).get("view", false) == true
-                   );
-      allow list: if isAdmin();
-      allow create: if isOwner(userId) || isAdmin();
-      allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
+      // Permite leitura se for o dono ou se tiver permissão de gerenciar usuários
+      allow get: if isOwner(userId) || hasPermission('userManagement', 'view');
+      // Apenas administradores ou gestores de usuários podem listar todos
+      allow list: if hasPermission('userManagement', 'view');
+      // Permite criar se for o próprio usuário (autocadastro) ou se tiver permissão de RH/Funcionários/UserManagement
+      allow create: if isOwner(userId) || hasPermission('employees', 'create') || hasPermission('userManagement', 'create');
+      // Permite atualizar se for o dono ou se tiver permissão de edição de usuários
+      allow update: if isOwner(userId) || hasPermission('userManagement', 'edit');
+      // Apenas administradores ou gestores autorizados podem excluir contas
+      allow delete: if hasPermission('userManagement', 'delete');
 
       match /coraTokens/{tokenId} {
         allow read, write: if isOwner(userId);
@@ -56,25 +71,25 @@ service cloud.firestore {
     
     match /incomes/{docId} {
         allow read: if isSignedIn();
-        allow list: if isAdmin();
-        allow create: if isOriginalCreator();
-        allow update: if isExistingDocOwner(docId, 'incomes') || isAdmin();
-        allow delete: if isExistingDocOwner(docId, 'incomes') || isAdmin();
+        allow list: if hasPermission('transactions', 'view') || hasPermission('reports', 'view');
+        allow create: if hasPermission('transactions', 'create');
+        allow update: if hasPermission('transactions', 'edit');
+        allow delete: if hasPermission('transactions', 'delete');
     }
 
     match /expenses/{docId} {
         allow read: if isSignedIn();
-        allow list: if isAdmin();
-        allow create: if isOriginalCreator();
-        allow update: if isExistingDocOwner(docId, 'expenses') || isAdmin();
-        allow delete: if isExistingDocOwner(docId, 'expenses') || isAdmin();
+        allow list: if hasPermission('transactions', 'view') || hasPermission('reports', 'view');
+        allow create: if hasPermission('transactions', 'create');
+        allow update: if hasPermission('transactions', 'edit');
+        allow delete: if hasPermission('transactions', 'delete');
     }
 
     match /budgets/{budgetId} {
-      allow read: if isAdmin() || resource.data.userId == request.auth.uid;
-      allow create: if isOriginalCreator();
-      allow update: if isExistingDocOwner(budgetId, 'budgets') || isAdmin();
-      allow delete: if isExistingDocOwner(budgetId, 'budgets') || isAdmin();
+      allow read: if hasPermission('budgets', 'view') || resource.data.userId == request.auth.uid;
+      allow create: if hasPermission('budgets', 'create');
+      allow update: if hasPermission('budgets', 'edit');
+      allow delete: if hasPermission('budgets', 'delete');
     }
 
     match /incomeCategories/{categoryId} {
@@ -90,16 +105,16 @@ service cloud.firestore {
 
     match /contracts/{contractId} {
       allow read, list: if isSignedIn();
-      allow create: if isOriginalCreator();
-      allow update: if isExistingDocOwner(contractId, 'contracts') || isAdmin();
-      allow delete: if isExistingDocOwner(contractId, 'contracts') || isAdmin();
+      allow create: if hasPermission('transactions', 'create') || hasPermission('settings', 'view');
+      allow update: if hasPermission('transactions', 'edit') || hasPermission('settings', 'view');
+      allow delete: if hasPermission('transactions', 'delete') || hasPermission('settings', 'view');
     }
 
     match /employees/{employeeId} {
-      allow read, list: if isSignedIn();
-      allow create: if isOriginalCreator() || isAdmin();
-      allow update: if isExistingDocOwner(employeeId, 'employees') || isAdmin();
-      allow delete: if isAdmin();
+      allow read, list: if hasPermission('employees', 'view');
+      allow create: if hasPermission('employees', 'create');
+      allow update: if hasPermission('employees', 'edit');
+      allow delete: if hasPermission('employees', 'delete');
     }
   }
 }
