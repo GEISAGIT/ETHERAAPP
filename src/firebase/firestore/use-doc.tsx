@@ -1,4 +1,3 @@
-
 'use client';
     
 import { useState, useEffect } from 'react';
@@ -71,28 +70,30 @@ export function useDoc<T = any>(
           return;
         }
 
-        // Apenas reportamos erro de permissão se realmente houver um usuário logado.
+        // SILENT RETURN se o usuário não estiver logado ou o token ainda não estiver sincronizado.
         if (!auth || !auth.currentUser) {
           setIsLoading(false);
           return;
         }
 
-        const contextualError = new FirestorePermissionError({
-          operation: 'get',
-          path: memoizedDocRef.path,
-        });
+        try {
+          const contextualError = new FirestorePermissionError({
+            operation: 'get',
+            path: memoizedDocRef.path,
+          });
 
-        // Se o erro ainda indicar "auth: null", ignoramos por ser transiente.
-        if (!contextualError.request.auth) {
+          if (!contextualError.request.auth) {
+            setIsLoading(false);
+            return;
+          }
+
+          setError(contextualError);
+          setData(null);
           setIsLoading(false);
-          return;
+          errorEmitter.emit('permission-error', contextualError);
+        } catch (e) {
+          setIsLoading(false);
         }
-
-        setError(contextualError);
-        setData(null);
-        setIsLoading(false);
-
-        errorEmitter.emit('permission-error', contextualError);
       }
     );
 

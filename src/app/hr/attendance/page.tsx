@@ -3,7 +3,7 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase, useStorage } from '@/firebase';
 import { collection, query, where, orderBy, Timestamp, limit } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { Camera, Clock, CheckCircle2, AlertCircle, Loader2, UserCheck, History, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -78,45 +78,50 @@ function TimeTrackingContent() {
     setScanAnimation(true);
 
     try {
-      // 1. Capture Photo
+      // 1. Capture Photo with safety
       let photoUrl = '';
-      if (videoRef.current && canvasRef.current) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        
-        // Ensure video is playing and has dimensions
-        if (video.videoWidth > 0) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      try {
+        if (videoRef.current && canvasRef.current) {
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
           
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          const photoPath = `attendance-photos/${user.uid}/${Date.now()}.jpg`;
-          const storageRef = ref(storage, photoPath);
-          
-          await uploadString(storageRef, dataUrl, 'data_url');
-          photoUrl = await getDownloadURL(storageRef);
+          if (video.videoWidth > 0) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            
+            const photoPath = `attendance-photos/${user.uid}/${Date.now()}.jpg`;
+            const storageRef = ref(storage, photoPath);
+            
+            await uploadBytes(storageRef, blob);
+            photoUrl = await getDownloadURL(storageRef);
+          }
         }
+      } catch (photoErr) {
+        console.warn("Failed to capture or upload photo, continuing without it", photoErr);
       }
 
-      // 2. Get Location (with timeout to prevent infinite hang)
-      let location = undefined;
-      try {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { 
-            enableHighAccuracy: true, 
-            timeout: 5000, 
-            maximumAge: 0 
-          });
-        });
-        location = {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude
-        };
-      } catch (e) {
-        console.warn("Location not available or timed out", e);
-      }
+      // 2. Get Location with strict timeout promise
+      const location = await new Promise<{latitude: number, longitude: number} | undefined>((resolve) => {
+        const timeoutId = setTimeout(() => resolve(undefined), 4000);
+        
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            clearTimeout(timeoutId);
+            resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+          },
+          () => {
+            clearTimeout(timeoutId);
+            resolve(undefined);
+          },
+          { enableHighAccuracy: true, timeout: 3500, maximumAge: 0 }
+        );
+      });
 
       // 3. Save Record
       const record: Omit<AttendanceRecord, 'id'> = {
@@ -136,18 +141,15 @@ function TimeTrackingContent() {
       });
 
     } catch (error: any) {
-      console.error("Erro ao registrar ponto:", error);
+      console.error("Erro crítico ao registrar ponto:", error);
       toast({
         variant: 'destructive',
         title: 'Erro ao Registrar',
-        description: error.message || 'Não foi possível salvar o seu registro de ponto.',
+        description: 'Não foi possível processar o registro. Tente novamente.',
       });
     } finally {
-      // Small delay for the animation
-      setTimeout(() => {
-        setIsRecording(false);
-        setScanAnimation(false);
-      }, 800);
+      setIsRecording(false);
+      setScanAnimation(false);
     }
   };
 
@@ -227,7 +229,7 @@ function TimeTrackingContent() {
                 <div className="max-w-xs space-y-4">
                   <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
                   <h3 className="font-semibold text-lg">Câmera não disponível</h3>
-                  <p className="text-sm text-muted-foreground">Por favor, permita o acesso à câmera nas configurações do seu navegador para continuar.</p>
+                  <p className="text-sm text-muted-foreground">Por favor, permita o acesso à câmera para continuar.</p>
                 </div>
               </div>
             )}
@@ -285,9 +287,9 @@ function TimeTrackingContent() {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <History className="h-5 w-5 text-primary" />
-                Meus Registros de Hoje
+                Registros Recentes
               </CardTitle>
-              <CardDescription>Confira seus últimos batimentos.</CardDescription>
+              <CardDescription>Seus últimos batimentos.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {recordsLoading ? (
@@ -328,7 +330,7 @@ function TimeTrackingContent() {
                <Alert className="bg-primary/5 border-primary/20">
                 <CheckCircle2 className="h-4 w-4 text-primary" />
                 <AlertDescription className="text-[10px] leading-tight">
-                  Seus dados biométricos e localização são processados exclusivamente para fins de registro de jornada de trabalho.
+                  Dados biométricos e localização são usados exclusivamente para fins de registro de ponto.
                 </AlertDescription>
               </Alert>
             </CardFooter>

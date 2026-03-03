@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -87,8 +86,8 @@ export function useCollection<T = any>(
           return;
         }
 
-        // Apenas reportamos erro de permissão se realmente houver um usuário no SDK de Auth.
-        // Se auth.currentUser for null, é um erro transiente de carregamento ou logout.
+        // SILENT RETURN se o usuário não estiver carregado ou o token ainda não estiver sincronizado.
+        // Isso evita que a tela de erro fatal apareça durante condições de corrida no carregamento.
         if (!auth || !auth.currentUser) {
           setIsLoading(false);
           return;
@@ -99,23 +98,26 @@ export function useCollection<T = any>(
             ? (memoizedTargetRefOrQuery as CollectionReference).path
             : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
 
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path,
-        });
+        try {
+          const contextualError = new FirestorePermissionError({
+            operation: 'list',
+            path,
+          });
 
-        // Verificação dupla: se o erro contextual gerado ainda mostrar "auth: null",
-        // significa que o Firestore ainda não sincronizou o token. Ignoramos para evitar crash.
-        if (!contextualError.request.auth) {
+          // Se por algum motivo o construtor do erro ainda não ver o usuário, ignoramos para segurança.
+          if (!contextualError.request.auth) {
+            setIsLoading(false);
+            return;
+          }
+
+          setError(contextualError);
+          setData(null);
           setIsLoading(false);
-          return;
+          errorEmitter.emit('permission-error', contextualError);
+        } catch (e) {
+          // Fallback silencioso para erros na construção da mensagem
+          setIsLoading(false);
         }
-
-        setError(contextualError);
-        setData(null);
-        setIsLoading(false);
-
-        errorEmitter.emit('permission-error', contextualError);
       }
     );
 
