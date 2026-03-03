@@ -107,9 +107,15 @@ function TimeTrackingContent() {
       }
 
       // 2. Get Location with strict timeout promise
-      const location = await new Promise<{latitude: number, longitude: number} | undefined>((resolve) => {
-        const timeoutId = setTimeout(() => resolve(undefined), 4000);
+      const location = await new Promise<{latitude: number, longitude: number} | null>((resolve) => {
+        const timeoutId = setTimeout(() => resolve(null), 4000);
         
+        if (!navigator.geolocation) {
+            clearTimeout(timeoutId);
+            resolve(null);
+            return;
+        }
+
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             clearTimeout(timeoutId);
@@ -117,23 +123,28 @@ function TimeTrackingContent() {
           },
           () => {
             clearTimeout(timeoutId);
-            resolve(undefined);
+            resolve(null);
           },
           { enableHighAccuracy: true, timeout: 3500, maximumAge: 0 }
         );
       });
 
-      // 3. Save Record
+      // 3. Save Record - Use null instead of undefined for Firestore
       const record: Omit<AttendanceRecord, 'id'> = {
         employeeId: user.uid,
         employeeName: user.displayName || 'Usuário',
         timestamp: Timestamp.now(),
         type,
-        photoUrl,
-        location
+        photoUrl: photoUrl || '',
+        location: location || undefined // If null, omit or handle according to schema
       };
 
-      addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), record);
+      // Ensure no undefined properties are sent
+      const cleanedRecord = JSON.parse(JSON.stringify(record));
+      // Re-add timestamp because stringify/parse destroys it
+      cleanedRecord.timestamp = Timestamp.now();
+
+      addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), cleanedRecord);
 
       toast({
         title: 'Ponto Registrado!',
@@ -266,7 +277,7 @@ function TimeTrackingContent() {
               className="h-16 flex flex-col gap-1"
               onClick={() => handleRecordPoint('break_end')}
               disabled={isRecording || !hasCameraPermission}
-            >
+            )
               <UserCheck className="h-5 w-5" />
               <span className="text-xs">Retorno</span>
             </Button>
