@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "User": {
@@ -466,10 +465,16 @@
         "phone": { "type": "string" },
         "position": { "type": "string" },
         "department": { "type": "string" },
-        "hireDate": { "type": "string", "format": "date" },
+        "hireDate": { "type": "string", "format": "date-time" },
+        "dismissalDate": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["active", "inactive", "on_leave"] },
         "regimeType": { "type": "string", "enum": ["CLT", "PJ", "intern", "other"] },
         "overtimePolicy": { "type": "string", "enum": ["overtime", "time_bank"] },
+        "registrationNumber": { "type": "string" },
+        "pisPasep": { "type": "string" },
+        "ctps": { "type": "string" },
+        "workStatus": { "type": "string", "enum": ["regular", "temporary", "probation", "inactive"] },
+        "experienceEndDate": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -489,50 +494,6 @@
         "tokenType": { "type": "string" }
       },
       "required": ["userId", "accessToken", "refreshToken", "expiresAt"]
-    },
-    "CoraPixRequest": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "CoraPixRequest",
-      "type": "object",
-      "description": "Represents a request to generate a dynamic Pix QR code.",
-      "properties": {
-        "amount": {
-          "type": "number",
-          "description": "The value of the Pix charge in cents."
-        },
-        "description": {
-          "type": "string",
-          "description": "A description for the charge that will be visible to the payer."
-        }
-      },
-      "required": [
-        "amount"
-      ]
-    },
-    "CoraPixResponse": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "CoraPixResponse",
-      "type": "object",
-      "description": "Represents the response from a Pix QR code generation.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "The unique ID of the Pix charge."
-        },
-        "qr_code_text": {
-          "type": "string",
-          "description": "The 'Copia e Cola' string for the Pix QR code."
-        },
-        "qr_code_image": {
-          "type": "string",
-          "description": "A Base64 encoded PNG image of the QR code."
-        }
-      },
-      "required": [
-        "id",
-        "qr_code_text",
-        "qr_code_image"
-      ]
     }
   },
   "auth": {
@@ -540,162 +501,5 @@
       "password",
       "anonymous"
     ]
-  },
-  "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profiles. Path-based ownership ensures only the user can access their profile.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/coraTokens/{tokenId}",
-        "definition": {
-          "entityName": "CoraToken",
-          "schema": {
-            "$ref": "#/backend/entities/CoraToken"
-          },
-          "description": "Stores Cora API OAuth tokens for a specific user.",
-          "params": [
-            { "name": "userId", "description": "The unique identifier for the user." },
-            { "name": "tokenId", "description": "The unique identifier for the token record." }
-          ]
-        }
-      },
-      {
-        "path": "/roles/{roleId}",
-        "definition": {
-          "entityName": "Role",
-          "schema": { "$ref": "#/backend/entities/Role" },
-          "description": "Stores role-based permissions. All users can read, but only admins can write.",
-          "params": [
-            { "name": "roleId", "description": "The name of the role ('admin' or 'user')." }
-          ]
-        }
-      },
-      {
-        "path": "/expenseCategoryGroups/{groupId}",
-        "definition": {
-          "entityName": "ExpenseCategoryGroup",
-          "schema": {
-            "$ref": "#/backend/entities/ExpenseCategoryGroup"
-          },
-          "description": "Stores hierarchical expense category groups. Readable by all, writable by admins.",
-           "params": [
-            {
-              "name": "groupId",
-              "description": "The unique identifier for the expense category group."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/incomes/{incomeId}",
-        "definition": {
-          "entityName": "Income",
-          "schema": {
-            "$ref": "#/backend/entities/Income"
-          },
-          "description": "Stores global income records.",
-          "params": [
-            {
-              "name": "incomeId",
-              "description": "The unique identifier for the income record."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/expenses/{expenseId}",
-        "definition": {
-          "entityName": "Expense",
-          "schema": {
-            "$ref": "#/backend/entities/Expense"
-          },
-          "description": "Stores global expense records.",
-          "params": [
-            {
-              "name": "expenseId",
-              "description": "The unique identifier for the expense record."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/budgets/{budgetId}",
-        "definition": {
-          "entityName": "Budget",
-          "schema": {
-            "$ref": "#/backend/entities/Budget"
-          },
-          "description": "Stores global budget records.",
-          "params": [
-            {
-              "name": "budgetId",
-              "description": "The unique identifier for the budget record."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/employees/{employeeId}",
-        "definition": {
-          "entityName": "Employee",
-          "schema": { "$ref": "#/backend/entities/Employee" },
-          "description": "Stores employee records for the clinic.",
-          "params": [
-            { "name": "employeeId", "description": "The unique identifier for the employee." }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/fileUploads/{fileUploadId}",
-        "definition": {
-          "entityName": "FileUpload",
-          "schema": {
-            "$ref": "#/backend/entities/FileUpload"
-          },
-          "description": "Stores file upload records for a specific user. Path-based ownership (nested under the user) ensures only the user can access their file uploads.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "fileUploadId",
-              "description": "The unique identifier for the file upload record."
-            }
-          ]
-        }
-      },
-       {
-        "path": "/contracts/{contractId}",
-        "definition": {
-          "entityName": "Contract",
-          "schema": {
-            "$ref": "#/backend/entities/Contract"
-          },
-          "description": "Stores recurring contracts for the clinic.",
-          "params": [
-            {
-              "name": "contractId",
-              "description": "The unique identifier for the contract record."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability for the ClinicFlow application. The primary strategy employed is denormalization to avoid hierarchical authorization dependencies, as described in the CORE DESIGN PRINCIPLES. Each top-level collection (users, incomes, expenses, budgets, fileUploads, contracts, employees) represents a distinct entity, enabling a homogeneous security posture. User-owned data is nested under `/users/{userId}` ensuring clear ownership. The addition of a top-level `roles` collection allows for centralized management of permissions, which can be read by all users but only written to by admins. This design makes it possible to secure `list` operations without complex filtering in rules.\n\nAuthorization Independence:\nAll subcollections under `/users/{userId}` inherently inherit the user's ID, removing the need for `get()` calls in security rules to verify ownership. For example, access to `/users/{userId}/incomes/{incomeId}` is directly controlled by the `userId` in the path.  This eliminates authorization dependency on the parent document and avoids breaking atomic operations.\n\nQAPs (Rules are not Filters):\nThe structure facilitates secure `list` operations by ensuring that each collection contains documents with the same security requirements. For example, listing incomes under `/users/{userId}/incomes` is secure because all documents in that collection are owned by the specified user. No filtering is needed in the rules, as the path itself defines the authorization context."
   }
 }

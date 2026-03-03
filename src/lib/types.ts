@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Timestamp } from 'firebase/firestore';
@@ -157,6 +156,29 @@ export type Contract = {
 export type EmployeeStatus = 'active' | 'inactive' | 'on_leave';
 export type EmployeeRegime = 'CLT' | 'PJ' | 'intern' | 'other';
 export type OvertimePolicy = 'overtime' | 'time_bank';
+export type WorkStatus = 'regular' | 'temporary' | 'probation' | 'inactive';
+
+export interface EmployeeDiscount {
+  id: string;
+  name: string;
+  percentage: number;
+}
+
+export interface TimeAdjustment {
+  id: string;
+  startDate: Timestamp;
+  endDate: Timestamp;
+  reason: string;
+}
+
+export interface CompensationRecord {
+  id: string;
+  date?: Timestamp;
+  startDate?: Timestamp;
+  endDate?: Timestamp;
+  type: 'date' | 'period';
+  description: string;
+}
 
 export type Employee = {
   id: string;
@@ -168,11 +190,22 @@ export type Employee = {
   position?: string;
   department?: string;
   hireDate?: Timestamp;
+  dismissalDate?: Timestamp;
   status: EmployeeStatus;
   regimeType: EmployeeRegime;
   overtimePolicy: OvertimePolicy;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  
+  // Novas propriedades de Folha/Ponto
+  registrationNumber?: string;
+  pisPasep?: string;
+  ctps?: string;
+  workStatus?: WorkStatus;
+  discounts?: EmployeeDiscount[];
+  experienceEndDate?: Timestamp;
+  adjustments?: TimeAdjustment[];
+  compensations?: CompensationRecord[];
 };
 
 export type CoraToken = {
