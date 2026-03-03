@@ -53,32 +53,41 @@ function UserAccessControlPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [permissions, setPermissions] = useState<Permissions | null>(null);
 
-  // Reference to the user being edited. It now depends on `user` being loaded.
-  const userDocRef = useMemoFirebase(() => {
-    // Wait until the admin user is loaded and confirmed before creating the reference
-    if (!firestore || !userId || !user) return null;
+  // Reference to the user being edited.
+  const targetUserRef = useMemoFirebase(() => {
+    if (!firestore || !userId) return null;
     return doc(firestore, 'users', userId);
-  }, [firestore, userId, user]);
+  }, [firestore, userId]);
   
-  const { data: targetUser, isLoading: isTargetUserLoading } = useDoc<UserProfile>(userDocRef);
+  const { data: targetUser, isLoading: isTargetUserLoading } = useDoc<UserProfile>(targetUserRef);
+
+  // Viewer's own profile to check if they can be here
+  const viewerRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: viewerProfile, isLoading: isViewerLoading } = useDoc<UserProfile>(viewerRef);
 
   // Initialize local permissions state once target user data is loaded
   useEffect(() => {
     if (targetUser) {
         const userPerms = targetUser.permissions || defaultPermissions.user;
-        const mergedPerms = JSON.parse(JSON.stringify(defaultPermissions.user));
+        const basePerms = JSON.parse(JSON.stringify(defaultPermissions.user));
 
-        for (const page in mergedPerms) {
-            if (userPerms[page as keyof Permissions]) {
-                for (const action in mergedPerms[page as keyof Permissions]) {
-                    const pageKey = page as keyof Permissions;
-                    const actionKey = action as keyof Permissions[typeof pageKey];
-                    if (typeof userPerms[pageKey]?.[actionKey] === 'boolean') {
-                        (mergedPerms[pageKey] as any)[actionKey] = userPerms[pageKey]?.[actionKey];
-                    }
-                }
+        // Deep merge perms to ensure no missing keys
+        const mergedPerms = { ...basePerms };
+        Object.keys(allPermissionsConfig).forEach(() => {
+            // This is just to ensure we iterate all possible keys from config
+        });
+
+        allPermissionsConfig.forEach(config => {
+            const key = config.key;
+            if (userPerms[key]) {
+                mergedPerms[key] = { ...mergedPerms[key], ...userPerms[key] };
             }
-        }
+        });
+
         setPermissions(mergedPerms);
     }
   }, [targetUser]);
@@ -117,7 +126,7 @@ function UserAccessControlPage() {
     }, 500);
   };
 
-  const pageLoading = isUserLoading || isTargetUserLoading;
+  const pageLoading = isUserLoading || isTargetUserLoading || isViewerLoading;
 
   if (pageLoading) {
     return (
@@ -149,6 +158,18 @@ function UserAccessControlPage() {
     );
   }
   
+  // Security check: Only admins or users with userManagement permission can view this
+  const canView = viewerProfile?.role === 'admin' || viewerProfile?.permissions?.userManagement?.edit;
+  if (!canView) {
+      return (
+          <AppLayout>
+              <div className="flex h-full w-full items-center justify-center">
+                  <p className="text-muted-foreground">Você não tem permissão para gerenciar acessos de usuários.</p>
+              </div>
+          </AppLayout>
+      );
+  }
+
   if (!targetUser) {
     notFound();
   }
