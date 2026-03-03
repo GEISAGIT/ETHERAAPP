@@ -23,40 +23,24 @@ service cloud.firestore {
     }
 
     // Função genérica para verificar permissões granulares no mapa de permissões
-    // Exemplo: hasPermission('employees', 'create')
     function hasPermission(module, action) {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             (
-               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('permissions', {}).get(module, {}).get(action, false) == true
-             );
+      if (!isSignedIn()) return false;
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      if (!exists(userPath)) return false;
+      let userData = get(userPath).data;
+      return userData.role == 'admin' || userData.get('permissions', {}).get(module, {}).get(action, false) == true;
     }
-
-    function isOriginalCreator() {
-      return isSignedIn() && request.auth.uid == request.resource.data.userId;
-    }
-    
-    function isExistingDocOwner(docId, collectionName) {
-      return isSignedIn() && exists(/databases/$(database)/documents/$(collectionName)/$(docId)) &&
-             get(/databases/$(database)/documents/$(collectionName)/$(docId)).data.userId == request.auth.uid;
-    }
-
 
     // ----------------------------------------------------------------------
     // Regras por Coleção
     // ----------------------------------------------------------------------
 
     match /users/{userId} {
-      // Permite leitura se for o dono ou se tiver permissão de gerenciar usuários
       allow get: if isOwner(userId) || hasPermission('userManagement', 'view');
-      // Apenas administradores ou gestores de usuários podem listar todos
       allow list: if hasPermission('userManagement', 'view');
-      // Permite criar se for o próprio usuário (autocadastro) ou se tiver permissão de RH/Funcionários/UserManagement
+      // Permite criar perfil se for RH ou Admin (necessário para cadastro de funcionários)
       allow create: if isOwner(userId) || hasPermission('employees', 'create') || hasPermission('userManagement', 'create');
-      // Permite atualizar se for o dono ou se tiver permissão de edição de usuários
       allow update: if isOwner(userId) || hasPermission('userManagement', 'edit');
-      // Apenas administradores ou gestores autorizados podem excluir contas
       allow delete: if hasPermission('userManagement', 'delete');
 
       match /coraTokens/{tokenId} {

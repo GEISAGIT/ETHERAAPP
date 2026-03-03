@@ -42,7 +42,6 @@ const actionLabels: Record<string, string> = {
     delete: 'Excluir'
 }
 
-
 function UserAccessControlPage() {
   const params = useParams();
   const userId = params.userId as string;
@@ -53,7 +52,6 @@ function UserAccessControlPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [permissions, setPermissions] = useState<Permissions | null>(null);
 
-  // Reference to the user being edited.
   const targetUserRef = useMemoFirebase(() => {
     if (!firestore || !userId) return null;
     return doc(firestore, 'users', userId);
@@ -61,7 +59,6 @@ function UserAccessControlPage() {
   
   const { data: targetUser, isLoading: isTargetUserLoading } = useDoc<UserProfile>(targetUserRef);
 
-  // Viewer's own profile to check if they can be here
   const viewerRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
@@ -69,18 +66,13 @@ function UserAccessControlPage() {
 
   const { data: viewerProfile, isLoading: isViewerLoading } = useDoc<UserProfile>(viewerRef);
 
-  // Initialize local permissions state once target user data is loaded
   useEffect(() => {
     if (targetUser) {
+        // Deep merge logic to ensure UI has all keys even if missing in DB
         const userPerms = targetUser.permissions || defaultPermissions.user;
         const basePerms = JSON.parse(JSON.stringify(defaultPermissions.user));
 
-        // Deep merge perms to ensure no missing keys
         const mergedPerms = { ...basePerms };
-        Object.keys(allPermissionsConfig).forEach(() => {
-            // This is just to ensure we iterate all possible keys from config
-        });
-
         allPermissionsConfig.forEach(config => {
             const key = config.key;
             if (userPerms[key]) {
@@ -91,7 +83,6 @@ function UserAccessControlPage() {
         setPermissions(mergedPerms);
     }
   }, [targetUser]);
-
 
   const handlePermissionChange = (
     page: keyof Permissions,
@@ -132,35 +123,18 @@ function UserAccessControlPage() {
     return (
       <AppLayout>
         <div className="space-y-8">
-            <header>
-                <Skeleton className="h-9 w-80" />
-                <Skeleton className="h-5 w-96 mt-2" />
-            </header>
-            <Card>
-                <CardHeader>
-                    <Skeleton className="h-8 w-64" />
-                    <Skeleton className="h-5 w-80 mt-2" />
-                </CardHeader>
+            <header><Skeleton className="h-9 w-80" /><Skeleton className="h-5 w-96 mt-2" /></header>
+            <Card><CardHeader><Skeleton className="h-8 w-64" /></CardHeader>
                 <CardContent className="space-y-4">
-                    {[...Array(8)].map((_, i) => (
-                        <div key={i} className="flex items-center space-x-2">
-                            <Skeleton className="h-4 w-4" />
-                            <Skeleton className="h-4 w-40" />
-                        </div>
-                    ))}
+                    {[...Array(8)].map((_, i) => (<div key={i} className="flex items-center space-x-2"><Skeleton className="h-4 w-4" /><Skeleton className="h-4 w-40" /></div>))}
                 </CardContent>
-                <CardFooter>
-                    <Skeleton className="h-10 w-32" />
-                </CardFooter>
             </Card>
         </div>
       </AppLayout>
     );
   }
   
-  // Security check: Only admins or users with userManagement permission can view this
-  const canView = viewerProfile?.role === 'admin' || viewerProfile?.permissions?.userManagement?.edit;
-  if (!canView) {
+  if (!viewerProfile || (viewerProfile.role !== 'admin' && !viewerProfile.permissions?.userManagement?.edit)) {
       return (
           <AppLayout>
               <div className="flex h-full w-full items-center justify-center">
@@ -170,7 +144,8 @@ function UserAccessControlPage() {
       );
   }
 
-  if (!targetUser) {
+  // Only throw notFound if loading is finished and we definitely have no data
+  if (!isTargetUserLoading && !targetUser) {
     notFound();
   }
 
@@ -180,16 +155,14 @@ function UserAccessControlPage() {
         <header>
           <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Controle de Acesso</h1>
           <p className="text-muted-foreground">
-            Defina quais páginas <span className="font-semibold text-foreground">{targetUser.displayName}</span> pode acessar.
+            Defina quais páginas <span className="font-semibold text-foreground">{targetUser?.displayName}</span> pode acessar.
           </p>
         </header>
 
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Permissões de Acesso</CardTitle>
-            <CardDescription>
-              Selecione as ações que este usuário pode realizar em cada página.
-            </CardDescription>
+            <CardDescription>Selecione as ações que este usuário pode realizar.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
              {allPermissionsConfig.map(permissionInfo => (
@@ -202,7 +175,7 @@ function UserAccessControlPage() {
                                     id={`${permissionInfo.key}-${action}`}
                                     checked={permissions?.[permissionInfo.key]?.[action as keyof typeof permissions[typeof permissionInfo.key]] ?? false}
                                     onCheckedChange={(checked) => handlePermissionChange(permissionInfo.key, action, !!checked)}
-                                    disabled={targetUser.role === 'admin' && (permissionInfo.key === 'userManagement' || permissionInfo.key === 'home')}
+                                    disabled={targetUser?.role === 'admin' && (permissionInfo.key === 'userManagement' || permissionInfo.key === 'home')}
                                 />
                                 <Label htmlFor={`${permissionInfo.key}-${action}`} className="font-normal capitalize">
                                     {actionLabels[action] || action}

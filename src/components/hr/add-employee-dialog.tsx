@@ -40,9 +40,8 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, Timestamp, serverTimestamp, doc, setDoc } from 'firebase/firestore';
-import { initializeApp, getApps } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
-import { firebaseConfig } from '@/firebase/config';
 import { defaultPermissions } from '@/lib/data';
 import type { UserProfile } from '@/lib/types';
 
@@ -95,11 +94,17 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
     if (!adminUser || !firestore) return;
 
     try {
-      // 1. Initialize a secondary Firebase Auth instance to create the user without logging out the admin
-      const secondaryApp = getApps().find(app => app.name === 'secondary') || initializeApp(firebaseConfig, 'secondary');
+      // Get the configuration from the already initialized main app
+      // This ensures we use the correct project/API key in production/App Hosting
+      const mainApp = getApp();
+      const config = mainApp.options;
+
+      // 1. Initialize or get secondary app with EXACT SAME config as main app
+      const secondaryApp = getApps().find(app => app.name === 'secondary') || initializeApp(config, 'secondary');
       const secondaryAuth = getAuth(secondaryApp);
 
       // 2. Create the user in Firebase Auth
+      // If this fails with "email-already-in-use", the user definitely exists in the Auth tab of console
       const userCredential = await createUserWithEmailAndPassword(secondaryAuth, values.email, values.tempPassword);
       const newUser = userCredential.user;
 
@@ -118,13 +123,15 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
         status: 'active',
         createdAt: serverTimestamp() as any,
         permissions: defaultPermissions.user,
-        mustChangePassword: true, // Key flag for the password change flow
+        mustChangePassword: true,
       };
+      
+      // Save user profile
       await setDoc(doc(firestore, 'users', newUser.uid), userProfile);
 
       // 5. Create the Employee Record
       const employeeData = {
-        id: newUser.uid, // Use same UID for consistency
+        id: newUser.uid,
         fullName: values.fullName,
         cpf: values.cpf,
         email: values.email,
@@ -134,14 +141,14 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
         status: values.status,
         regimeType: values.regimeType,
         overtimePolicy: values.overtimePolicy,
-        userId: adminUser.uid, // Admin who created it
+        userId: adminUser.uid,
         hireDate: values.hireDate ? Timestamp.fromDate(values.hireDate) : null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
       await setDoc(doc(firestore, 'employees', newUser.uid), employeeData);
 
-      // 6. Sign out the secondary instance
+      // 6. Sign out the secondary instance to clean up
       await signOut(secondaryAuth);
 
       toast({ 
@@ -150,12 +157,16 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
       });
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Erro ao cadastrar funcionário:", error);
+      console.error("Erro detalhado ao cadastrar funcionário:", error);
       let message = 'Ocorreu um erro ao criar a conta do funcionário.';
+      
       if (error.code === 'auth/email-already-in-use') {
-        message = 'Este e-mail já está em uso por outro usuário.';
+        message = 'Este e-mail já está em uso no sistema de autenticação. Verifique se o usuário já não possui acesso.';
+      } else if (error.code === 'permission-denied') {
+        message = 'Erro de permissão no banco de dados. Verifique suas autorizações.';
       }
-      toast({ variant: 'destructive', title: 'Erro no Cadastro', description: message });
+      
+      toast({ variant: 'destructive', title: 'Falha no Cadastro', description: message });
     }
   };
 
