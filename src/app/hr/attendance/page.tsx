@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -39,24 +40,28 @@ function TimeTrackingContent() {
   const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
   const [isClearAllOpen, setIsClearAllOpen] = useState(false);
 
-  // Perfil do usuário para checar se é admin
+  // Perfil do usuário para checar permissões
   const userDocRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
 
-  const { data: userProfile } = useDoc<UserProfile>(userDocRef);
+  const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userDocRef);
+  
   const isAdmin = userProfile?.role === 'admin';
+  const canView = isAdmin || userProfile?.permissions?.timeTracking?.view;
+  const canCreate = isAdmin || userProfile?.permissions?.timeTracking?.create;
+  const canDelete = isAdmin || userProfile?.permissions?.timeTracking?.delete;
 
-  // Consulta todos os registros para filtrar em memória
+  // Consulta todos os registros do funcionário
   const recordsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || !canView) return null;
     return query(
       collection(firestore, 'attendanceRecords'),
       where('employeeId', '==', user.uid),
       limit(500)
     );
-  }, [firestore, user]);
+  }, [firestore, user, canView]);
 
   const { data: allRecords, isLoading: recordsLoading } = useCollection<AttendanceRecord>(recordsQuery);
 
@@ -90,13 +95,13 @@ function TimeTrackingContent() {
         console.warn("Câmera indisponível");
       }
     };
-    startCamera();
+    if (canView) startCamera();
     return () => {
       if (videoRef.current?.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
       }
     };
-  }, []);
+  }, [canView]);
 
   // Determina o próximo tipo de ponto baseado na sequência do dia
   const nextPointType = useMemo((): { type: AttendanceType; label: string } => {
@@ -113,6 +118,11 @@ function TimeTrackingContent() {
   const handleRegisterPoint = () => {
     if (!user || !firestore) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
+      return;
+    }
+
+    if (!canCreate) {
+      toast({ variant: 'destructive', title: 'Acesso Negado', description: 'Você não tem permissão para registrar pontos.' });
       return;
     }
     
@@ -212,7 +222,17 @@ function TimeTrackingContent() {
     return format(date, 'HH:mm');
   };
 
-  if (isUserLoading) return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (isUserLoading || profileLoading) return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+
+  if (!canView) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center p-4">
+        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-2xl font-bold">Acesso Restrito</h2>
+        <p className="text-muted-foreground mt-2">Você não tem permissão para visualizar o Controle de Ponto.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
@@ -296,10 +316,10 @@ function TimeTrackingContent() {
                   size="lg" 
                   className="h-20 px-12 text-xl font-headline gap-4 shadow-xl shadow-primary/20"
                   onClick={handleRegisterPoint}
-                  disabled={isRecording}
+                  disabled={isRecording || !canCreate}
                 >
                   {isRecording ? <Loader2 className="h-6 w-6 animate-spin" /> : <Fingerprint className="h-8 w-8" />}
-                  {nextPointType.label}
+                  {!canCreate ? 'Acesso Bloqueado' : nextPointType.label}
                 </Button>
               </CardFooter>
             </Card>
@@ -334,7 +354,7 @@ function TimeTrackingContent() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {isAdmin && (
+                          {canDelete && (
                             <Button 
                               variant="ghost" 
                               size="icon" 
@@ -370,7 +390,7 @@ function TimeTrackingContent() {
                 </CardTitle>
                 <CardDescription>Confira seus horários e total de horas trabalhadas.</CardDescription>
               </div>
-              {isAdmin && allRecords && allRecords.length > 0 && (
+              {canDelete && allRecords && allRecords.length > 0 && (
                 <Button variant="outline" size="sm" className="text-destructive border-destructive/20 hover:bg-destructive/10" onClick={() => setIsClearAllOpen(true)}>
                   <Eraser className="h-4 w-4 mr-2" />
                   Limpar Histórico
@@ -395,7 +415,7 @@ function TimeTrackingContent() {
                         <TableHead>Retorno</TableHead>
                         <TableHead>Saída</TableHead>
                         <TableHead className="text-right">Horas Líquidas</TableHead>
-                        {isAdmin && <TableHead className="w-[50px]"></TableHead>}
+                        {canDelete && <TableHead className="w-[50px]"></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -417,13 +437,17 @@ function TimeTrackingContent() {
                             <TableCell className="text-right font-mono font-bold text-primary">
                               {calculateTotalHours(day.records)}
                             </TableCell>
-                            {isAdmin && (
+                            {canDelete && (
                               <TableCell>
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
                                   className="h-8 w-8 text-destructive"
-                                  onClick={() => setIsClearAllOpen(true)}
+                                  onClick={() => {
+                                      // Exclui todos os registros desse dia específico
+                                      day.records.forEach(r => deleteDocumentNonBlocking(doc(firestore!, 'attendanceRecords', r.id)));
+                                      toast({ title: 'Dia Limpo' });
+                                  }}
                                   title="Limpar dia"
                                 >
                                   <Trash2 className="h-4 w-4" />

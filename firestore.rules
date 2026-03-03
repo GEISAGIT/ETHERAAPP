@@ -114,8 +114,13 @@ service cloud.firestore {
         (resource == null || resource.data.employeeId == request.auth.uid) || 
         hasPermission('timeTracking', 'view')
       );
-      allow create: if isSignedIn(); // Qualquer um logado pode registrar o próprio ponto
-      allow update, delete: if isAdmin();
+      // Qualquer um logado pode registrar o próprio ponto se tiver permissão de criação
+      // RH/Admin pode registrar ponto para qualquer um (necessário para ajuste manual)
+      allow create: if isSignedIn() && (
+        (request.resource.data.employeeId == request.auth.uid && hasPermission('timeTracking', 'create')) || 
+        hasPermission('hrTimesheet', 'create')
+      );
+      allow update, delete: if isAdmin() || hasPermission('hrTimesheet', 'edit');
     }
   }
 }
