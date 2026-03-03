@@ -98,5 +98,12 @@ service cloud.firestore {
       allow update: if isExistingDocOwner(contractId, 'contracts') || isAdmin();
       allow delete: if isExistingDocOwner(contractId, 'contracts') || isAdmin();
     }
+
+    match /employees/{employeeId} {
+      allow read, list: if isSignedIn();
+      allow create: if isOriginalCreator();
+      allow update: if isExistingDocOwner(employeeId, 'employees') || isAdmin();
+      allow delete: if isAdmin();
+    }
   }
 }

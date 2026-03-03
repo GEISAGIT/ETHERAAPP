@@ -1,3 +1,4 @@
+
 import type { Permissions, ExpenseCategoryGroup } from './types';
 
 // This is now deprecated and will be replaced by the hierarchical structure.
@@ -56,6 +57,7 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     profile: { view: true, edit: true },
     settings: { view: true },
     hrTimesheet: { view: true, create: true, edit: true, delete: true },
+    employees: { view: true, create: true, edit: true, delete: true },
   },
   user: {
     home: { view: true },
@@ -69,6 +71,7 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     profile: { view: true, edit: true },
     settings: { view: true },
     hrTimesheet: { view: true, create: true, edit: true, delete: true },
+    employees: { view: true, create: true, edit: true, delete: true },
   },
 };
 

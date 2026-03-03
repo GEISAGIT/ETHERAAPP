@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Timestamp } from 'firebase/firestore';
@@ -103,6 +104,7 @@ export type Permissions = {
   profile: ViewEditActions;
   settings: ViewOnlyActions;
   hrTimesheet: CrudActions;
+  employees: CrudActions;
 };
 
 
@@ -149,6 +151,23 @@ export type Contract = {
     category: string;
     description: string;
   }
+};
+
+export type EmployeeStatus = 'active' | 'inactive' | 'on_leave';
+
+export type Employee = {
+  id: string;
+  userId: string; // Creator
+  fullName: string;
+  cpf: string;
+  email?: string;
+  phone?: string;
+  position?: string;
+  department?: string;
+  hireDate?: Timestamp;
+  status: EmployeeStatus;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 };
 
 export type CoraToken = {

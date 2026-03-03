@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -48,6 +49,7 @@ const financialMenuItems = [
 ];
 
 const hrMenuItems = [
+  { key: 'employees' as MenuItemKey, href: '/hr/employees', label: 'Funcionários', icon: Users },
   { key: 'hrTimesheet' as MenuItemKey, href: '/hr/timesheet', label: 'Controle de Folha Ponto', icon: Clock },
 ];
 

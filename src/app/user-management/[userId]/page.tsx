@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -30,6 +31,7 @@ const allPermissionsConfig: {
   { key: 'userManagement', label: 'Gerenciar Usuários', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'profile', label: 'Perfil', actions: ['view', 'edit'] },
   { key: 'settings', label: 'Configurações', actions: ['view'] },
+  { key: 'employees', label: 'Funcionários', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'hrTimesheet', label: 'Folha Ponto', actions: ['view', 'create', 'edit', 'delete'] },
 ];
 
