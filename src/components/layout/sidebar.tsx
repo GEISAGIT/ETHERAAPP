@@ -23,7 +23,8 @@ import {
   Banknote,
   Briefcase,
   Clock,
-  Wallet
+  Wallet,
+  ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -31,6 +32,7 @@ import { useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { MenuItemKey, UserProfile, Permissions } from '@/lib/types';
 import { useMemo } from 'react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // Items definitions by group
 const dashboardItem = { key: 'dashboard' as MenuItemKey, href: '/dashboard', label: 'Painel', icon: LayoutDashboard };
@@ -109,8 +111,8 @@ export function AppSidebar() {
           <span className="font-headline text-xl font-semibold text-primary">Ethera</span>
         </div>
       </SidebarHeader>
-      <SidebarContent className="p-2 space-y-4">
-        {/* Principal Group */}
+      <SidebarContent className="p-2 space-y-2">
+        {/* Principal Group - Always visible as it is the main entry point */}
         <SidebarGroup>
           <SidebarMenu>
             {dashboardVisible && (
@@ -132,113 +134,141 @@ export function AppSidebar() {
 
         {/* Financeiro Group */}
         {financialItems.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px]">
-              <Wallet className="h-3 w-3" />
-              Financeiro
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {financialItems.map(({ href, label, icon: Icon }) => (
-                  <SidebarMenuItem key={href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive(href)}
-                      tooltip={{ children: label, side: 'right' }}
-                    >
-                      <Link href={href}>
-                        <Icon />
-                        <span>{label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <Collapsible asChild defaultOpen={false} className="group/collapsible">
+            <SidebarGroup>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-1">
+                  <Wallet className="h-3 w-3" />
+                  <span>Financeiro</span>
+                  <ChevronRight className="ml-auto h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {financialItems.map(({ href, label, icon: Icon }) => (
+                      <SidebarMenuItem key={href}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive(href)}
+                          tooltip={{ children: label, side: 'right' }}
+                        >
+                          <Link href={href}>
+                            <Icon />
+                            <span>{label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
         )}
 
         {/* Recursos Humanos Group */}
         {hrItems.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px]">
-              <Briefcase className="h-3 w-3" />
-              Recursos Humanos
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {hrItems.map(({ href, label, icon: Icon }) => (
-                  <SidebarMenuItem key={href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive(href)}
-                      tooltip={{ children: label, side: 'right' }}
-                    >
-                      <Link href={href}>
-                        <Icon />
-                        <span>{label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <Collapsible asChild defaultOpen={false} className="group/collapsible">
+            <SidebarGroup>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-1">
+                  <Briefcase className="h-3 w-3" />
+                  <span>Recursos Humanos</span>
+                  <ChevronRight className="ml-auto h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {hrItems.map(({ href, label, icon: Icon }) => (
+                      <SidebarMenuItem key={href}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive(href)}
+                          tooltip={{ children: label, side: 'right' }}
+                        >
+                          <Link href={href}>
+                            <Icon />
+                            <span>{label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
         )}
 
         {/* Gestão e Administração Group */}
         {managementItems.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px]">
-              <Settings className="h-3 w-3" />
-              Administração
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {managementItems.map(({ href, label, icon: Icon }) => (
-                  <SidebarMenuItem key={href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive(href)}
-                      tooltip={{ children: label, side: 'right' }}
-                    >
-                      <Link href={href}>
-                        <Icon />
-                        <span>{label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          <Collapsible asChild defaultOpen={false} className="group/collapsible">
+            <SidebarGroup>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-1">
+                  <Settings className="h-3 w-3" />
+                  <span>Administração</span>
+                  <ChevronRight className="ml-auto h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {managementItems.map(({ href, label, icon: Icon }) => (
+                      <SidebarMenuItem key={href}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive(href)}
+                          tooltip={{ children: label, side: 'right' }}
+                        >
+                          <Link href={href}>
+                            <Icon />
+                            <span>{label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
         )}
 
         {/* User Group */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px]">
-            <User className="h-3 w-3" />
-            Usuário
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {userItems.map(({ href, label, icon: Icon }) => (
-                <SidebarMenuItem key={href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(href)}
-                    tooltip={{ children: label, side: 'right' }}
-                  >
-                    <Link href={href}>
-                      <Icon />
-                      <span>{label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <Collapsible asChild defaultOpen={false} className="group/collapsible">
+          <SidebarGroup>
+            <SidebarGroupLabel asChild>
+              <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-1">
+                <User className="h-3 w-3" />
+                <span>Usuário</span>
+                <ChevronRight className="ml-auto h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              </CollapsibleTrigger>
+            </SidebarGroupLabel>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {userItems.map(({ href, label, icon: Icon }) => (
+                    <SidebarMenuItem key={href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive(href)}
+                        tooltip={{ children: label, side: 'right' }}
+                      >
+                        <Link href={href}>
+                          <Icon />
+                          <span>{label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
       </SidebarContent>
     </>
   );
