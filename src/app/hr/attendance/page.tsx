@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfDay, endOfDay, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,10 +25,13 @@ function TimeTrackingContent() {
   const [isRecording, setIsRecording] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Consulta para os registros de HOJE para determinar o próximo tipo de ponto
-  const todayStart = startOfDay(new Date());
-  const todayEnd = endOfDay(new Date());
+  // Datas de referência para hoje (estabilizadas via useMemo)
+  const { todayStart, todayEnd } = useMemo(() => ({
+    todayStart: startOfDay(new Date()),
+    todayEnd: endOfDay(new Date())
+  }), []);
 
+  // Consulta para os registros de HOJE para determinar o próximo tipo de ponto
   const todayQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
@@ -38,7 +41,7 @@ function TimeTrackingContent() {
       where('timestamp', '<=', Timestamp.fromDate(todayEnd)),
       orderBy('timestamp', 'asc')
     );
-  }, [firestore, user]);
+  }, [firestore, user, todayStart, todayEnd]);
 
   const { data: todayRecords } = useCollection<AttendanceRecord>(todayQuery);
 
@@ -49,7 +52,7 @@ function TimeTrackingContent() {
       collection(firestore, 'attendanceRecords'),
       where('employeeId', '==', user.uid),
       orderBy('timestamp', 'desc'),
-      limit(50)
+      limit(100) // Aumentado para cobrir mais dias
     );
   }, [firestore, user]);
 
@@ -101,7 +104,7 @@ function TimeTrackingContent() {
       type: nextPointType.type,
     };
 
-    // Salvamento instantâneo (non-blocking)
+    // Salvamento instantâneo
     addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), recordData);
     
     toast({ 
@@ -109,7 +112,8 @@ function TimeTrackingContent() {
       description: `Sua ${getAttendanceTypeLabel(nextPointType.type)} foi gravada às ${format(new Date(), 'HH:mm:ss')}.` 
     });
 
-    setTimeout(() => setIsRecording(false), 800);
+    // Pequeno delay visual para feedback
+    setTimeout(() => setIsRecording(false), 1000);
   };
 
   const getAttendanceTypeLabel = (type: AttendanceType) => {
@@ -129,16 +133,41 @@ function TimeTrackingContent() {
     const groups: Record<string, AttendanceRecord[]> = {};
     
     historyRecords.forEach(record => {
-      const dateKey = format(record.timestamp.toDate(), 'yyyy-MM-dd');
+      // Garante que timestamp é um objeto do Firestore antes de converter
+      const date = record.timestamp instanceof Timestamp ? record.timestamp.toDate() : new Date(record.timestamp);
+      const dateKey = format(date, 'yyyy-MM-dd');
+      
       if (!groups[dateKey]) groups[dateKey] = [];
       groups[dateKey].push(record);
     });
 
     return Object.entries(groups).map(([date, records]) => ({
-      date: new Date(date),
+      date: new Date(date + 'T12:00:00'), // T12 para evitar problemas de fuso no format
       records: records.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis())
     })).sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [historyRecords]);
+
+  const calculateTotalHours = (records: AttendanceRecord[]) => {
+    const clockIn = records.find(r => r.type === 'clock_in')?.timestamp.toDate();
+    const breakStart = records.find(r => r.type === 'break_start')?.timestamp.toDate();
+    const breakEnd = records.find(r => r.type === 'break_end')?.timestamp.toDate();
+    const clockOut = records.find(r => r.type === 'clock_out')?.timestamp.toDate();
+
+    if (!clockIn || !clockOut) return "--:--";
+
+    let totalMinutes = differenceInMinutes(clockOut, clockIn);
+    
+    // Subtrai intervalo se houver
+    if (breakStart && breakEnd) {
+      const breakMinutes = differenceInMinutes(breakEnd, breakStart);
+      totalMinutes -= breakMinutes;
+    }
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
 
   if (isUserLoading) return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
@@ -147,7 +176,7 @@ function TimeTrackingContent() {
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Controle de Ponto</h1>
-          <p className="text-muted-foreground">Gestão de jornada e histórico de frequência.</p>
+          <p className="text-muted-foreground">Gestão de jornada inteligente e transparente.</p>
         </div>
         <div className="bg-primary/10 border border-primary/20 p-4 rounded-lg text-center min-w-[200px]">
           <div className="text-3xl font-bold font-mono text-primary">{format(currentTime, 'HH:mm:ss')}</div>
@@ -158,10 +187,10 @@ function TimeTrackingContent() {
       <Tabs defaultValue="register" className="w-full">
         <TabsList className="grid w-full grid-cols-2 max-w-md mb-8">
           <TabsTrigger value="register" className="gap-2">
-            <Fingerprint className="h-4 w-4" /> Registrar
+            <Fingerprint className="h-4 w-4" /> Registrar Ponto
           </TabsTrigger>
           <TabsTrigger value="timesheet" className="gap-2">
-            <CalendarDays className="h-4 w-4" /> Folha de Ponto
+            <CalendarDays className="h-4 w-4" /> Minha Folha
           </TabsTrigger>
         </TabsList>
 
@@ -169,7 +198,10 @@ function TimeTrackingContent() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <Card className="lg:col-span-2 overflow-hidden border-primary/20 shadow-lg">
               <CardHeader className="bg-primary/5 border-b border-primary/10">
-                <CardTitle className="text-lg flex items-center gap-2"><Camera className="h-5 w-5 text-primary" /> Identificação Facial</CardTitle>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Camera className="h-5 w-5 text-primary" /> 
+                  Identificação Biométrica
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-0 relative bg-black aspect-video flex items-center justify-center">
                 <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
@@ -184,7 +216,7 @@ function TimeTrackingContent() {
                   <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center">
                     <div className="text-center space-y-2">
                       <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
-                      <p className="text-white font-medium">Validando...</p>
+                      <p className="text-white font-medium">Validando Identidade...</p>
                     </div>
                   </div>
                 )}
@@ -235,11 +267,11 @@ function TimeTrackingContent() {
                   </div>
                 )}
               </CardContent>
-              <CardFooter>
-                <AlertCircle className="h-4 w-4 text-primary mr-2" />
-                <p className="text-[10px] text-muted-foreground leading-tight">
-                  Horário sincronizado com servidor oficial da Ethera.
-                </p>
+              <CardFooter className="flex flex-col items-start gap-2 border-t pt-4">
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <AlertCircle className="h-3 w-3 text-primary" />
+                  <span>Horário sincronizado com servidor oficial.</span>
+                </div>
               </CardFooter>
             </Card>
           </div>
@@ -251,7 +283,7 @@ function TimeTrackingContent() {
               <CardTitle className="flex items-center gap-2">
                 <ArrowRightLeft className="h-5 w-5 text-primary" /> Folha de Ponto Mensal
               </CardTitle>
-              <CardDescription>Visualização detalhada de todas as batidas realizadas.</CardDescription>
+              <CardDescription>Resumo de todas as marcações de tempo realizadas.</CardDescription>
             </CardHeader>
             <CardContent>
               {historyLoading ? (
@@ -261,7 +293,7 @@ function TimeTrackingContent() {
                   <p>Nenhum histórico de ponto encontrado.</p>
                 </div>
               ) : (
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
@@ -285,12 +317,16 @@ function TimeTrackingContent() {
                             <TableCell className="font-medium">
                               {format(day.date, "dd/MM (eee)", { locale: ptBR })}
                             </TableCell>
-                            <TableCell>{clockIn ? format(clockIn.timestamp.toDate(), 'HH:mm') : '--:--'}</TableCell>
+                            <TableCell className={!clockIn ? "text-muted-foreground italic text-xs" : ""}>
+                              {clockIn ? format(clockIn.timestamp.toDate(), 'HH:mm') : 'Falta'}
+                            </TableCell>
                             <TableCell>{breakStart ? format(breakStart.timestamp.toDate(), 'HH:mm') : '--:--'}</TableCell>
                             <TableCell>{breakEnd ? format(breakEnd.timestamp.toDate(), 'HH:mm') : '--:--'}</TableCell>
-                            <TableCell>{clockOut ? format(clockOut.timestamp.toDate(), 'HH:mm') : '--:--'}</TableCell>
-                            <TableCell className="text-right font-mono">
-                              {clockIn && clockOut ? "08:00" : "--:--"}
+                            <TableCell className={!clockOut ? "text-muted-foreground italic text-xs" : ""}>
+                              {clockOut ? format(clockOut.timestamp.toDate(), 'HH:mm') : '--:--'}
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-bold text-primary">
+                              {calculateTotalHours(day.records)}
                             </TableCell>
                           </TableRow>
                         );
