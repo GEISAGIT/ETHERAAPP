@@ -10,8 +10,6 @@ import {
   CollectionReference,
   collectionGroup,
 } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { getApp } from 'firebase/app';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useFirestore, useUser, useAuth } from '@/firebase/provider';
@@ -54,10 +52,12 @@ export function useCollection<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const { user } = useUser();
   const auth = useAuth();
 
   useEffect(() => {
-    if (!memoizedTargetRefOrQuery) {
+    // Só inicia a escuta se a query e o usuário estiverem prontos
+    if (!memoizedTargetRefOrQuery || !user) {
       setData(null);
       setIsLoading(false);
       setError(null);
@@ -79,16 +79,15 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        // Apenas processamos erros de permissão negada para o overlay de erro customizado.
         if (err.code !== 'permission-denied') {
           setIsLoading(false);
           setError(err);
           return;
         }
 
-        // SILENT RETURN se o usuário não estiver carregado ou o token ainda não estiver sincronizado.
-        // Isso evita que a tela de erro fatal apareça durante condições de corrida no carregamento.
-        if (!auth || !auth.currentUser) {
+        // Se o erro for de permissão mas o usuário acabou de logar,
+        // ignoramos o erro fatal e apenas paramos o loading para tentar no próximo ciclo de auth.
+        if (!auth.currentUser) {
           setIsLoading(false);
           return;
         }
@@ -104,7 +103,6 @@ export function useCollection<T = any>(
             path,
           });
 
-          // Se por algum motivo o construtor do erro ainda não ver o usuário, ignoramos para segurança.
           if (!contextualError.request.auth) {
             setIsLoading(false);
             return;
@@ -115,14 +113,13 @@ export function useCollection<T = any>(
           setIsLoading(false);
           errorEmitter.emit('permission-error', contextualError);
         } catch (e) {
-          // Fallback silencioso para erros na construção da mensagem
           setIsLoading(false);
         }
       }
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery, auth]);
+  }, [memoizedTargetRefOrQuery, auth, user]); // Re-estabelece a escuta se o usuário mudar
 
   return { data, isLoading, error };
 }

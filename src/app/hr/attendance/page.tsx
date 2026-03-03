@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { format, startOfDay, endOfDay, differenceInMinutes, isSameDay } from 'date-fns';
+import { format, differenceInMinutes, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,13 +25,13 @@ function TimeTrackingContent() {
   const [isRecording, setIsRecording] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Consulta simplificada para evitar erros de índice (ordenação feita em memória)
+  // Consulta todos os registros para filtrar em memória (mais resiliente a erros de permissão temporários)
   const recordsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
       collection(firestore, 'attendanceRecords'),
       where('employeeId', '==', user.uid),
-      limit(150)
+      limit(200)
     );
   }, [firestore, user]);
 
@@ -64,7 +64,7 @@ function TimeTrackingContent() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (e) {
-        console.error("Camera access denied or unavailable");
+        console.warn("Câmera indisponível");
       }
     };
     startCamera();
@@ -83,12 +83,15 @@ function TimeTrackingContent() {
       case 1: return { type: 'break_start', label: 'Iniciar Almoço' };
       case 2: return { type: 'break_end', label: 'Retornar do Almoço' };
       case 3: return { type: 'clock_out', label: 'Registrar Saída' };
-      default: return { type: 'clock_in', label: 'Ponto Extra' };
+      default: return { type: 'clock_in', label: 'Registrar Extra' };
     }
   }, [todayRecords]);
 
   const handleRegisterPoint = () => {
-    if (!user || !firestore) return;
+    if (!user || !firestore) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Usuário não autenticado.' });
+      return;
+    }
     
     setIsRecording(true);
 
@@ -103,12 +106,12 @@ function TimeTrackingContent() {
     addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), recordData);
     
     toast({ 
-      title: 'Ponto Enviado!', 
-      description: `Sua marcação de ${getAttendanceTypeLabel(nextPointType.type)} foi registrada com sucesso.` 
+      title: 'Ponto Registrado!', 
+      description: `${getAttendanceTypeLabel(nextPointType.type)} às ${format(new Date(), 'HH:mm')}.` 
     });
 
-    // Feedback visual breve
-    setTimeout(() => setIsRecording(false), 800);
+    // Feedback visual breve para garantir fluidez
+    setTimeout(() => setIsRecording(false), 600);
   };
 
   const getAttendanceTypeLabel = (type: AttendanceType) => {
@@ -203,7 +206,7 @@ function TimeTrackingContent() {
               <CardHeader className="bg-primary/5 border-b border-primary/10">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Camera className="h-5 w-5 text-primary" /> 
-                  Identificação Facial
+                  Identificação Visual
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0 relative bg-black aspect-video flex items-center justify-center">
@@ -219,7 +222,7 @@ function TimeTrackingContent() {
                   <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center">
                     <div className="text-center space-y-2">
                       <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
-                      <p className="text-white font-medium">Validando Identidade...</p>
+                      <p className="text-white font-medium">Processando...</p>
                     </div>
                   </div>
                 )}
@@ -240,7 +243,7 @@ function TimeTrackingContent() {
             <Card className="h-full">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <History className="h-5 w-5 text-primary" /> Registros de Hoje
+                  <History className="h-5 w-5 text-primary" /> Batidas de Hoje
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -248,7 +251,7 @@ function TimeTrackingContent() {
                   <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                 ) : todayRecords.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed rounded-lg text-muted-foreground italic">
-                    <p className="text-sm">Nenhum registro ainda hoje.</p>
+                    <p className="text-sm">Nenhum registro hoje.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -266,7 +269,7 @@ function TimeTrackingContent() {
                             <span className="text-xs text-muted-foreground">{formatRecordTime(record)}</span>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-200 uppercase">Salvo</Badge>
+                        <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-200 uppercase">Sincronizado</Badge>
                       </div>
                     ))}
                   </div>
@@ -275,7 +278,7 @@ function TimeTrackingContent() {
               <CardFooter className="flex flex-col items-start gap-2 border-t pt-4">
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                   <AlertCircle className="h-3 w-3 text-primary" />
-                  <span>Sincronização biométrica ativa.</span>
+                  <span>Registros protegidos e criptografados.</span>
                 </div>
               </CardFooter>
             </Card>
@@ -288,14 +291,14 @@ function TimeTrackingContent() {
               <CardTitle className="flex items-center gap-2">
                 <ArrowRightLeft className="h-5 w-5 text-primary" /> Folha de Ponto Mensal
               </CardTitle>
-              <CardDescription>Consulte aqui todas as suas marcações efetuadas.</CardDescription>
+              <CardDescription>Confira seus horários e total de horas trabalhadas.</CardDescription>
             </CardHeader>
             <CardContent>
               {recordsLoading ? (
                 <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
               ) : groupedHistory.length === 0 ? (
                 <div className="text-center py-20 border-2 border-dashed rounded-lg text-muted-foreground">
-                  <p>Nenhum histórico de ponto encontrado para este perfil.</p>
+                  <p>Nenhum histórico encontrado para este mês.</p>
                 </div>
               ) : (
                 <div className="rounded-md border overflow-x-auto">
@@ -304,10 +307,10 @@ function TimeTrackingContent() {
                       <TableRow className="bg-muted/50">
                         <TableHead className="w-[150px]">Data</TableHead>
                         <TableHead>Entrada</TableHead>
-                        <TableHead>Saída Almoço</TableHead>
-                        <TableHead>Retorno Almoço</TableHead>
+                        <TableHead>Almoço</TableHead>
+                        <TableHead>Retorno</TableHead>
                         <TableHead>Saída</TableHead>
-                        <TableHead className="text-right">Total do Dia</TableHead>
+                        <TableHead className="text-right">Horas Líquidas</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

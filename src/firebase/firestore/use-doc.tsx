@@ -8,11 +8,9 @@ import {
   FirestoreError,
   DocumentSnapshot,
 } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { getApp } from 'firebase/app';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { useAuth } from '@/firebase/provider';
+import { useAuth, useUser } from '@/firebase/provider';
 
 /** Utility type to add an 'id' field to a given type T. */
 type WithId<T> = T & { id: string };
@@ -38,10 +36,11 @@ export function useDoc<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const { user } = useUser();
   const auth = useAuth();
 
   useEffect(() => {
-    if (!memoizedDocRef) {
+    if (!memoizedDocRef || !user) {
       setData(null);
       setIsLoading(false);
       setError(null);
@@ -63,15 +62,13 @@ export function useDoc<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        // Apenas processamos erros de permissão negada para o overlay de erro customizado.
         if (err.code !== 'permission-denied') {
           setIsLoading(false);
           setError(err);
           return;
         }
 
-        // SILENT RETURN se o usuário não estiver logado ou o token ainda não estiver sincronizado.
-        if (!auth || !auth.currentUser) {
+        if (!auth.currentUser) {
           setIsLoading(false);
           return;
         }
@@ -98,7 +95,7 @@ export function useDoc<T = any>(
     );
 
     return () => unsubscribe();
-  }, [memoizedDocRef, auth]);
+  }, [memoizedDocRef, auth, user]);
 
   return { data, isLoading, error };
 }
