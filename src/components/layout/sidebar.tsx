@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -121,9 +122,10 @@ export function AppSidebar() {
                   asChild
                   isActive={isActive(dashboardItem.href)}
                   tooltip={{ children: dashboardItem.label, side: 'right' }}
+                  className={isActive(dashboardItem.href) ? 'text-primary' : ''}
                 >
                   <Link href={dashboardItem.href}>
-                    <dashboardItem.icon />
+                    <dashboardItem.icon className={isActive(dashboardItem.href) ? 'text-primary' : ''} />
                     <span>{dashboardItem.label}</span>
                   </Link>
                 </SidebarMenuButton>
@@ -137,10 +139,10 @@ export function AppSidebar() {
           <Collapsible asChild defaultOpen={false} className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-1">
-                  <Wallet className="h-3 w-3" />
+                <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">
+                  <Wallet className="h-3.5 w-3.5 text-primary" />
                   <span>Financeiro</span>
-                  <ChevronRight className="ml-auto h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 text-primary" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>
               <CollapsibleContent>
@@ -152,9 +154,10 @@ export function AppSidebar() {
                           asChild
                           isActive={isActive(href)}
                           tooltip={{ children: label, side: 'right' }}
+                          className={isActive(href) ? 'text-primary font-medium' : ''}
                         >
                           <Link href={href}>
-                            <Icon />
+                            <Icon className={isActive(href) ? 'text-primary' : ''} />
                             <span>{label}</span>
                           </Link>
                         </SidebarMenuButton>
@@ -172,10 +175,10 @@ export function AppSidebar() {
           <Collapsible asChild defaultOpen={false} className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-1">
-                  <Briefcase className="h-3 w-3" />
+                <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">
+                  <Briefcase className="h-3.5 w-3.5 text-primary" />
                   <span>Recursos Humanos</span>
-                  <ChevronRight className="ml-auto h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 text-primary" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>
               <CollapsibleContent>
@@ -187,9 +190,10 @@ export function AppSidebar() {
                           asChild
                           isActive={isActive(href)}
                           tooltip={{ children: label, side: 'right' }}
+                          className={isActive(href) ? 'text-primary font-medium' : ''}
                         >
                           <Link href={href}>
-                            <Icon />
+                            <Icon className={isActive(href) ? 'text-primary' : ''} />
                             <span>{label}</span>
                           </Link>
                         </SidebarMenuButton>
@@ -207,10 +211,10 @@ export function AppSidebar() {
           <Collapsible asChild defaultOpen={false} className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-1">
-                  <Settings className="h-3 w-3" />
+                <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">
+                  <Settings className="h-3.5 w-3.5 text-primary" />
                   <span>Administração</span>
-                  <ChevronRight className="ml-auto h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 text-primary" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>
               <CollapsibleContent>
@@ -222,9 +226,10 @@ export function AppSidebar() {
                           asChild
                           isActive={isActive(href)}
                           tooltip={{ children: label, side: 'right' }}
+                          className={isActive(href) ? 'text-primary font-medium' : ''}
                         >
                           <Link href={href}>
-                            <Icon />
+                            <Icon className={isActive(href) ? 'text-primary' : ''} />
                             <span>{label}</span>
                           </Link>
                         </SidebarMenuButton>
@@ -241,10 +246,10 @@ export function AppSidebar() {
         <Collapsible asChild defaultOpen={false} className="group/collapsible">
           <SidebarGroup>
             <SidebarGroupLabel asChild>
-              <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-1">
-                <User className="h-3 w-3" />
+              <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">
+                <User className="h-3.5 w-3.5 text-primary" />
                 <span>Usuário</span>
-                <ChevronRight className="ml-auto h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 text-primary" />
               </CollapsibleTrigger>
             </SidebarGroupLabel>
             <CollapsibleContent>
@@ -256,9 +261,10 @@ export function AppSidebar() {
                         asChild
                         isActive={isActive(href)}
                         tooltip={{ children: label, side: 'right' }}
+                        className={isActive(href) ? 'text-primary font-medium' : ''}
                       >
                         <Link href={href}>
-                          <Icon />
+                          <Icon className={isActive(href) ? 'text-primary' : ''} />
                           <span>{label}</span>
                         </Link>
                       </SidebarMenuButton>
