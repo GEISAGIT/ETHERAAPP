@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -68,10 +69,10 @@ interface EditTransactionDialogProps {
 }
 
 export function EditTransactionDialog({ open, onOpenChange, transaction }: EditTransactionDialogProps) {
-  const [isDatePickerOpen, setDatePickerOpen] = useState(false);
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [manualEntry, setManualEntry] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [dateInput, setDateInput] = useState("");
   const { toast } = useToast();
   const firestore = useFirestore();
   const storage = useStorage();
@@ -84,9 +85,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
   const transactionType = useWatch({ control: form.control, name: 'type' });
   const selectedGroup = useWatch({ control: form.control, name: "group" });
   const selectedCategory = useWatch({ control: form.control, name: "category" });
+  const dateValue = form.watch("date");
 
-
-  // --- Data Fetching ---
   const incomeCategoriesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'incomeCategories'));
@@ -99,7 +99,6 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
 
   const { data: incomeCategories } = useCollection<IncomeCategory>(incomeCategoriesQuery);
   const { data: expenseCategoryGroups } = useCollection<ExpenseCategoryGroup>(expenseCategoryGroupsQuery);
-
 
   useEffect(() => {
     if (transaction && open) {
@@ -120,11 +119,32 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
        setManualEntry(false);
     } else if (!open) {
       form.reset();
+      setDateInput("");
     }
   }, [transaction, open, form]);
 
+  useEffect(() => {
+    if (dateValue) {
+      setDateInput(format(dateValue, "dd/MM/yyyy"));
+    }
+  }, [dateValue]);
 
-  // --- Memoized Select Options ---
+  const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setDateInput(val);
+    
+    const parts = val.split("/");
+    if (parts.length === 3 && parts[2].length === 4) {
+      const d = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const y = parseInt(parts[2], 10);
+      const date = new Date(y, m, d);
+      if (!isNaN(date.getTime()) && y > 1900 && d === date.getDate()) {
+        form.setValue("date", date, { shouldValidate: true });
+      }
+    }
+  };
+
   const incomeCategoryOptions = useMemo(() => {
     return incomeCategories?.map(c => c.name).sort() ?? [];
   }, [incomeCategories]);
@@ -171,52 +191,24 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
   }
 
   const onSubmit = async (values: FormValues) => {
-    if (!user || !transaction || !storage) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: 'Não foi possível atualizar a transação. Tente novamente.',
-      });
-      return;
-    }
-    
+    if (!user || !transaction || !storage) return;
     setIsUploading(true);
 
     const isExpense = values.type === 'expense';
     let receiptUrl: string | undefined = isExpense ? (transaction as ExpenseTransaction).receiptUrl : undefined;
 
-    // Handle receipt upload/update
-    if (isExpense && values.receipt) {
-      if (values.receipt instanceof File) {
-          // If there's an old receipt, delete it first
-          if (receiptUrl) {
-              try {
-                  const oldReceiptRef = ref(storage, receiptUrl);
-                  await deleteObject(oldReceiptRef);
-              } catch (error: any) {
-                  // Don't block update if old receipt deletion fails, just log it
-                  console.warn("Could not delete old receipt:", error);
-              }
-          }
-          // Upload new receipt
-          try {
-            const newReceiptRef = ref(storage, `receipts/${user.uid}/${Date.now()}_${values.receipt.name}`);
-            const snapshot = await uploadBytes(newReceiptRef, values.receipt);
-            receiptUrl = await getDownloadURL(snapshot.ref);
-          } catch (error) {
-             console.error("Erro no upload do comprovante:", error);
-             toast({ variant: 'destructive', title: 'Erro de Upload', description: 'Não foi possível enviar o novo comprovante.' });
-             setIsUploading(false);
-             return;
-          }
-      } else {
-        // It's a string, so it's the existing URL
-        receiptUrl = values.receipt;
+    if (isExpense && values.receipt instanceof File) {
+      if (receiptUrl) {
+          try { await deleteObject(ref(storage, receiptUrl)); } catch (e) {}
       }
+      try {
+        const newReceiptRef = ref(storage, `receipts/${user.uid}/${Date.now()}_${values.receipt.name}`);
+        const snapshot = await uploadBytes(newReceiptRef, values.receipt);
+        receiptUrl = await getDownloadURL(snapshot.ref);
+      } catch (e) {}
     }
 
-
-    const baseTransactionData: Record<string, any> = {
+    const baseData: Record<string, any> = {
       date: Timestamp.fromDate(values.date),
       description: values.description,
       amount: values.amount,
@@ -226,72 +218,36 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
     };
 
     if (isExpense) {
-        if (!values.group || !values.category || !values.description) {
-            toast({
-                variant: 'destructive',
-                title: 'Classificação Incompleta',
-                description: 'Por favor, selecione ou preencha a classificação de despesa completa.',
-            });
-            setIsUploading(false);
-            return;
-        }
-        baseTransactionData.costType = values.costType;
-        baseTransactionData.category = values.category; // Legacy
-        baseTransactionData.receiptUrl = receiptUrl;
-        baseTransactionData.fullCategoryPath = {
+        baseData.costType = values.costType;
+        baseData.category = values.category;
+        baseData.receiptUrl = receiptUrl;
+        baseData.fullCategoryPath = {
             group: values.group,
             category: values.category,
             description: values.description,
         };
     } else {
-      if (!values.category) {
-         toast({ variant: 'destructive', title: 'Categoria de Receita', description: 'Por favor, selecione uma categoria.' });
-         setIsUploading(false);
-         return;
-      }
-      baseTransactionData.category = values.category;
+      baseData.category = values.category;
     }
     
     if (values.type !== transaction.type) {
-        const oldCollectionName = transaction.type === 'income' ? 'incomes' : 'expenses';
-        const oldDocRef = doc(firestore, oldCollectionName, transaction.id);
-        deleteDocumentNonBlocking(oldDocRef);
-
-        const newCollectionName = values.type === 'income' ? 'incomes' : 'expenses';
-        const newCollectionRef = collection(firestore, newCollectionName);
-        const newTransactionData = { ...baseTransactionData, userId: transaction.userId, createdByName: transaction.createdByName };
-        addDocumentNonBlocking(newCollectionRef, newTransactionData);
-
+        deleteDocumentNonBlocking(doc(firestore, transaction.type === 'income' ? 'incomes' : 'expenses', transaction.id));
+        addDocumentNonBlocking(collection(firestore, values.type === 'income' ? 'incomes' : 'expenses'), { ...baseData, userId: transaction.userId, createdByName: transaction.createdByName });
     } else {
-        const collectionName = values.type === 'income' ? 'incomes' : 'expenses';
-        const docRef = doc(firestore, collectionName, transaction.id);
-        updateDocumentNonBlocking(docRef, baseTransactionData);
+        updateDocumentNonBlocking(doc(firestore, values.type === 'income' ? 'incomes' : 'expenses', transaction.id), baseData);
     }
     
-    toast({
-      title: 'Transação Atualizada',
-      description: 'Sua transação foi atualizada com sucesso.',
-    });
-    
+    toast({ title: 'Transação Atualizada' });
     setIsUploading(false);
     onOpenChange(false);
   };
-  
-    const handleTypeChange = (value: string) => {
-        form.setValue('type', value as 'income' | 'expense');
-        form.resetField('description');
-        form.resetField('category');
-        form.resetField('group');
-    }
 
   return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-headline">Editar Transação</DialogTitle>
-            <DialogDescription>
-              Atualize os detalhes da sua transação.
-            </DialogDescription>
+            <DialogDescription>Ajuste os detalhes do lançamento.</DialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -301,12 +257,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tipo</FormLabel>
-                    <Select onValueChange={handleTypeChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o tipo de transação" />
-                        </SelectTrigger>
-                      </FormControl>
+                    <Select onValueChange={(v) => { field.onChange(v); form.resetField('description'); form.resetField('category'); }} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="expense">Despesa</SelectItem>
                         <SelectItem value="income">Receita</SelectItem>
@@ -324,9 +276,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Valor</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="0,00" {...field} />
-                      </FormControl>
+                      <FormControl><Input type="number" placeholder="0,00" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -336,39 +286,36 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                   name="date"
                   render={({ field }) => (
                     <FormItem className="flex flex-col pt-2">
-                      <FormLabel>Data da Transação</FormLabel>
-                      <Popover open={isDatePickerOpen} onOpenChange={setDatePickerOpen}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, "PPP", { locale: ptBR })
-                              ) : (
-                                <span>Escolha uma data</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={(date) => {
-                                if (date) field.onChange(date)
-                                setDatePickerOpen(false)
-                            }}
-                            initialFocus
-                            locale={ptBR}
+                      <FormLabel>Data</FormLabel>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input 
+                            placeholder="DD/MM/AAAA"
+                            value={dateInput}
+                            onChange={handleDateInputChange}
+                            className="flex-1"
                           />
-                        </PopoverContent>
-                      </Popover>
+                        </FormControl>
+                        <Popover modal>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="icon" className="shrink-0">
+                              <CalendarIcon className="h-4 w-4 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="end">
+                            <Calendar 
+                              mode="single" 
+                              selected={field.value} 
+                              onSelect={(date) => {
+                                field.onChange(date);
+                                if (date) setDateInput(format(date, "dd/MM/yyyy"));
+                              }} 
+                              initialFocus 
+                              locale={ptBR} 
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -383,9 +330,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Descrição</FormLabel>
-                        <FormControl>
-                          <Input placeholder="ex: Consulta Dr. João" {...field} />
-                        </FormControl>
+                        <FormControl><Input placeholder="..." {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -397,17 +342,9 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                        <FormItem>
                         <FormLabel>Categoria</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione uma categoria" />
-                            </SelectTrigger>
-                          </FormControl>
+                          <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                           <SelectContent>
-                            {incomeCategoryOptions.map((cat) => (
-                              <SelectItem key={cat} value={cat}>
-                                {cat}
-                              </SelectItem>
-                            ))}
+                            {incomeCategoryOptions.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -418,17 +355,12 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
               ) : (
                 <div className="space-y-4 rounded-md border p-4">
                   <div className="flex items-center justify-between">
-                     <h4 className="font-medium text-sm">Classificação da Despesa</h4>
+                     <h4 className="font-medium text-sm">Classificação</h4>
                       <div className="flex items-center space-x-2">
-                        <Label htmlFor="manual-entry-switch" className="text-sm font-normal">Entrada Manual</Label>
-                        <Switch
-                          id="manual-entry-switch"
-                          checked={manualEntry}
-                          onCheckedChange={setManualEntry}
-                        />
+                        <Label htmlFor="manual-edit" className="text-sm font-normal">Manual</Label>
+                        <Switch id="manual-edit" checked={manualEntry} onCheckedChange={setManualEntry} />
                       </div>
                   </div>
-
                   {manualEntry ? (
                     <div className="space-y-4">
                        <FormField
@@ -437,10 +369,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Grupo</FormLabel>
-                              <Select onValueChange={(value) => { field.onChange(value); form.resetField('category'); form.resetField('description'); }} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
-                                </FormControl>
+                              <Select onValueChange={(v) => { field.onChange(v); form.resetField('category'); form.resetField('description'); }} value={field.value}>
+                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                                 <SelectContent>
                                   {groupOptions.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
                                 </SelectContent>
@@ -455,10 +385,8 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Categoria</FormLabel>
-                              <Select onValueChange={(value) => { field.onChange(value); form.resetField('description'); }} value={field.value} disabled={!selectedGroup}>
-                                <FormControl>
-                                  <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
-                                </FormControl>
+                              <Select onValueChange={(v) => { field.onChange(v); form.resetField('description'); }} value={field.value} disabled={!selectedGroup}>
+                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                                 <SelectContent>
                                   {categoryOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                                 </SelectContent>
@@ -474,9 +402,7 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                             <FormItem>
                               <FormLabel>Descrição</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCategory}>
-                                <FormControl>
-                                  <SelectTrigger><SelectValue placeholder="Selecione a descrição final" /></SelectTrigger>
-                                </FormControl>
+                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                                 <SelectContent>
                                   {descriptionOptions.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                                 </SelectContent>
@@ -485,45 +411,6 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                             </FormItem>
                           )}
                         />
-                         <div className="space-y-2">
-                          <Label className='text-xs text-muted-foreground'>Ou use a busca para preencher</Label>
-                          <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  className="w-full justify-between font-normal"
-                                >
-                                  Pesquisar classificação...
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                              <Command>
-                                <CommandInput placeholder="Pesquisar classificação..." />
-                                <CommandList>
-                                  <CommandEmpty>Nenhuma classificação encontrada.</CommandEmpty>
-                                  <CommandGroup>
-                                    {expenseClassificationOptions.map((option) => (
-                                      <CommandItem
-                                        value={option.value}
-                                        key={option.value}
-                                        onSelect={handleExpenseSelection}
-                                      >
-                                        <Check
-                                          className="mr-2 h-4 w-4 opacity-0"
-                                        />
-                                        {option.label}
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
-                        </div>
                     </div>
                   ) : (
                     <FormField
@@ -531,54 +418,26 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                       name="description"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
-                           <FormLabel>Classificação da Despesa</FormLabel>
+                           <FormLabel>Classificação</FormLabel>
                           <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
                             <PopoverTrigger asChild>
                               <FormControl>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  className={cn(
-                                    "w-full justify-between",
-                                    !field.value && "text-muted-foreground"
-                                  )}
-                                >
-                                  {field.value
-                                    ? field.value
-                                    : "Selecione uma classificação"}
+                                <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                                  {field.value ? field.value : "Selecione..."}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </FormControl>
                             </PopoverTrigger>
                             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                              <Command
-                                filter={(value, search) => {
-                                  const option = expenseClassificationOptions.find(opt => opt.value === value);
-                                  if (option) {
-                                    if (option.label.toLowerCase().includes(search.toLowerCase())) return 1;
-                                  }
-                                  return 0;
-                                }}
-                              >
-                                <CommandInput placeholder="Pesquisar descrição..." />
+                              <Command>
+                                <CommandInput placeholder="Pesquisar..." />
                                 <CommandList>
-                                  <CommandEmpty>Nenhuma descrição encontrada.</CommandEmpty>
+                                  <CommandEmpty>Não encontrado.</CommandEmpty>
                                   <CommandGroup>
-                                    {expenseClassificationOptions.map((option) => (
-                                      <CommandItem
-                                        value={option.value}
-                                        key={option.value}
-                                        onSelect={handleExpenseSelection}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            field.value === option.value
-                                              ? "opacity-100"
-                                              : "opacity-0"
-                                          )}
-                                        />
-                                        {option.label}
+                                    {expenseClassificationOptions.map((opt) => (
+                                      <CommandItem value={opt.value} key={opt.value} onSelect={handleExpenseSelection}>
+                                        <Check className={cn("mr-2 h-4 w-4", field.value === opt.value ? "opacity-100" : "opacity-0")} />
+                                        {opt.label}
                                       </CommandItem>
                                     ))}
                                   </CommandGroup>
@@ -602,14 +461,10 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                         <FormItem>
                         <FormLabel>Tipo de Custo</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Fixo ou Variável" />
-                            </SelectTrigger>
-                            </FormControl>
+                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                             <SelectContent>
-                            <SelectItem value="fixed">Custo Fixo</SelectItem>
-                            <SelectItem value="variable">Custo Variável</SelectItem>
+                            <SelectItem value="fixed">Fixo</SelectItem>
+                            <SelectItem value="variable">Variável</SelectItem>
                             </SelectContent>
                         </Select>
                         <FormMessage />
@@ -624,24 +479,14 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                           <FormLabel>Comprovante</FormLabel>
                           <FormControl>
                               <div className="flex items-center gap-2">
-                                  <label
-                                      htmlFor="receipt-upload-edit"
-                                      className="flex-1 cursor-pointer items-center gap-2 rounded-md border border-input bg-background p-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground flex"
-                                  >
-                                      <UploadCloud className="mr-2 inline h-4 w-4" />
-                                      {typeof value === 'string' ? 'Substituir comprovante' : value?.name || 'Selecionar arquivo'}
+                                  <label htmlFor="receipt-edit" className="flex-1 cursor-pointer items-center gap-2 rounded-md border border-input bg-background p-2 text-sm text-muted-foreground hover:bg-accent flex">
+                                      <UploadCloud className="mr-2 h-4 w-4" /> {typeof value === 'string' ? 'Substituir' : value?.name || 'Selecionar'}
                                   </label>
-                                  <Input 
-                                      id="receipt-upload-edit"
-                                      type="file" 
-                                      className="sr-only"
-                                      onChange={e => onChange(e.target.files?.[0])}
-                                      {...rest}
-                                  />
+                                  <Input id="receipt-edit" type="file" className="sr-only" onChange={e => onChange(e.target.files?.[0])} {...rest} />
                               </div>
                           </FormControl>
                           {typeof value === 'string' && value && (
-                            <p className='text-xs text-muted-foreground'>Arquivo atual: <a href={value} target='_blank' rel='noopener noreferrer' className='underline'>{value.split('%2F').pop()?.split('?')[0]}</a></p>
+                            <p className='text-xs text-muted-foreground'>Arquivo atual: <a href={value} target='_blank' rel='noopener noreferrer' className='underline'>Ver arquivo</a></p>
                           )}
                           <FormMessage />
                       </FormItem>
@@ -650,32 +495,23 @@ export function EditTransactionDialog({ open, onOpenChange, transaction }: EditT
                 </>
               )}
 
-
               <FormField
                 control={form.control}
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Observação (Opcional)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Adicione uma nota ou detalhe extra sobre a transação..."
-                        className="resize-none"
-                        {...field}
-                      />
-                    </FormControl>
+                    <FormLabel>Observação</FormLabel>
+                    <FormControl><Textarea placeholder="..." className="resize-none" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
               <DialogFooter className="pt-4">
-                <DialogClose asChild>
-                  <Button type="button" variant="ghost">Cancelar</Button>
-                </DialogClose>
+                <DialogClose asChild><Button type="button" variant="ghost">Cancelar</Button></DialogClose>
                 <Button type="submit" disabled={isUploading || form.formState.isSubmitting}>
                   {(isUploading || form.formState.isSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Salvar Alterações
+                  Salvar
                 </Button>
               </DialogFooter>
             </form>

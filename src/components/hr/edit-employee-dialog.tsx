@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -40,7 +40,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { updateDocumentNonBlocking, useFirestore } from '@/firebase';
 import { doc, Timestamp, serverTimestamp } from 'firebase/firestore';
-import type { Employee, EmployeeStatus, EmployeeRegime, OvertimePolicy } from '@/lib/types';
+import type { Employee } from '@/lib/types';
 
 const formSchema = z.object({
   fullName: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres.'),
@@ -60,10 +60,13 @@ type FormValues = z.infer<typeof formSchema>;
 export function EditEmployeeDialog({ open, onOpenChange, employee }: { open: boolean, onOpenChange: (open: boolean) => void, employee: Employee | null }) {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const [hireDateInput, setHireDateInput] = useState("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
   });
+
+  const hireDateValue = form.watch("hireDate");
 
   useEffect(() => {
     if (employee && open) {
@@ -81,6 +84,30 @@ export function EditEmployeeDialog({ open, onOpenChange, employee }: { open: boo
       });
     }
   }, [employee, open, form]);
+
+  useEffect(() => {
+    if (hireDateValue) {
+      setHireDateInput(format(hireDateValue, "dd/MM/yyyy"));
+    } else {
+      setHireDateInput("");
+    }
+  }, [hireDateValue]);
+
+  const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setHireDateInput(val);
+    
+    const parts = val.split("/");
+    if (parts.length === 3 && parts[2].length === 4) {
+      const d = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const y = parseInt(parts[2], 10);
+      const date = new Date(y, m, d);
+      if (!isNaN(date.getTime()) && y > 1900 && d === date.getDate()) {
+        form.setValue("hireDate", date, { shouldValidate: true });
+      }
+    }
+  };
 
   const onSubmit = async (values: FormValues) => {
     if (!employee || !firestore) return;
@@ -222,19 +249,35 @@ export function EditEmployeeDialog({ open, onOpenChange, employee }: { open: boo
                 render={({ field }) => (
                   <FormItem className="flex flex-col pt-2">
                     <FormLabel>Data de Contratação</FormLabel>
-                    <Popover modal>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                            {field.value ? format(field.value, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    <div className="flex gap-2">
+                      <FormControl>
+                        <Input 
+                          placeholder="DD/MM/AAAA"
+                          value={hireDateInput}
+                          onChange={handleDateInputChange}
+                          className="flex-1"
+                        />
+                      </FormControl>
+                      <Popover modal>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="icon" className="shrink-0">
+                            <CalendarIcon className="h-4 w-4 opacity-50" />
                           </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={ptBR} />
-                      </PopoverContent>
-                    </Popover>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar 
+                            mode="single" 
+                            selected={field.value} 
+                            onSelect={(date) => {
+                              field.onChange(date);
+                              if (date) setHireDateInput(format(date, "dd/MM/yyyy"));
+                            }} 
+                            initialFocus 
+                            locale={ptBR} 
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -66,6 +66,7 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
   const firestore = useFirestore();
   const { user: adminUser } = useUser();
   const [showPassword, setShowPassword] = useState(false);
+  const [hireDateInput, setHireDateInput] = useState("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -83,38 +84,55 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
     },
   });
 
+  const hireDateValue = form.watch("hireDate");
+
   useEffect(() => {
     if (!open) {
       form.reset();
       setShowPassword(false);
+      setHireDateInput("");
     }
   }, [open, form]);
+
+  useEffect(() => {
+    if (hireDateValue) {
+      setHireDateInput(format(hireDateValue, "dd/MM/yyyy"));
+    }
+  }, [hireDateValue]);
+
+  const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setHireDateInput(val);
+    
+    const parts = val.split("/");
+    if (parts.length === 3 && parts[2].length === 4) {
+      const d = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const y = parseInt(parts[2], 10);
+      const date = new Date(y, m, d);
+      if (!isNaN(date.getTime()) && y > 1900 && d === date.getDate()) {
+        form.setValue("hireDate", date, { shouldValidate: true });
+      }
+    }
+  };
 
   const onSubmit = async (values: FormValues) => {
     if (!adminUser || !firestore) return;
 
     try {
-      // Get the configuration from the already initialized main app
-      // This ensures we use the correct project/API key in production/App Hosting
       const mainApp = getApp();
       const config = mainApp.options;
-
-      // 1. Initialize or get secondary app with EXACT SAME config as main app
       const secondaryApp = getApps().find(app => app.name === 'secondary') || initializeApp(config, 'secondary');
       const secondaryAuth = getAuth(secondaryApp);
 
-      // 2. Create the user in Firebase Auth
-      // If this fails with "email-already-in-use", the user definitely exists in the Auth tab of console
       const userCredential = await createUserWithEmailAndPassword(secondaryAuth, values.email, values.tempPassword);
       const newUser = userCredential.user;
 
-      // 3. Set display name for the new user
       await updateProfile(newUser, { 
         displayName: values.fullName,
         photoURL: 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media&token=c68144ba-c10e-4921-8fe7-eb791d34eebe'
       });
 
-      // 4. Create the User Profile in Firestore
       const userProfile: UserProfile = {
         uid: newUser.uid,
         displayName: values.fullName,
@@ -126,10 +144,8 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
         mustChangePassword: true,
       };
       
-      // Save user profile
       await setDoc(doc(firestore, 'users', newUser.uid), userProfile);
 
-      // 5. Create the Employee Record
       const employeeData = {
         id: newUser.uid,
         fullName: values.fullName,
@@ -148,7 +164,6 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
       };
       await setDoc(doc(firestore, 'employees', newUser.uid), employeeData);
 
-      // 6. Sign out the secondary instance to clean up
       await signOut(secondaryAuth);
 
       toast({ 
@@ -161,9 +176,7 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
       let message = 'Ocorreu um erro ao criar a conta do funcionário.';
       
       if (error.code === 'auth/email-already-in-use') {
-        message = 'Este e-mail já está em uso no sistema de autenticação. Verifique se o usuário já não possui acesso.';
-      } else if (error.code === 'permission-denied') {
-        message = 'Erro de permissão no banco de dados. Verifique suas autorizações.';
+        message = 'Este e-mail já está em uso no sistema de autenticação.';
       }
       
       toast({ variant: 'destructive', title: 'Falha no Cadastro', description: message });
@@ -331,19 +344,35 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
                 render={({ field }) => (
                   <FormItem className="flex flex-col pt-2">
                     <FormLabel>Data de Contratação</FormLabel>
-                    <Popover modal>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                            {field.value ? format(field.value, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    <div className="flex gap-2">
+                      <FormControl>
+                        <Input 
+                          placeholder="DD/MM/AAAA"
+                          value={hireDateInput}
+                          onChange={handleDateInputChange}
+                          className="flex-1"
+                        />
+                      </FormControl>
+                      <Popover modal>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="icon" className="shrink-0">
+                            <CalendarIcon className="h-4 w-4 opacity-50" />
                           </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={ptBR} />
-                      </PopoverContent>
-                    </Popover>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar 
+                            mode="single" 
+                            selected={field.value} 
+                            onSelect={(date) => {
+                              field.onChange(date);
+                              if (date) setHireDateInput(format(date, "dd/MM/yyyy"));
+                            }} 
+                            initialFocus 
+                            locale={ptBR} 
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
