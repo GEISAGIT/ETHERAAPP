@@ -1,10 +1,10 @@
 
 'use client';
-import type { Employee, EmployeeStatus, UserProfile } from '@/lib/types';
+import type { Employee, EmployeeStatus, EmployeeRegime, OvertimePolicy, UserProfile } from '@/lib/types';
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, MoreHorizontal, Edit, Trash2, UserPlus, Phone, Mail, Building2, Briefcase } from 'lucide-react';
+import { PlusCircle, Search, MoreHorizontal, Edit, Trash2, UserPlus, Phone, Mail, Building2, Briefcase, FileText, Clock } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
@@ -36,6 +36,18 @@ const statusConfig: Record<EmployeeStatus, { text: string; variant: "default" | 
     active: { text: "Ativo", variant: "default" },
     inactive: { text: "Inativo", variant: "destructive" },
     on_leave: { text: "Afastado", variant: "secondary" }
+};
+
+const regimeLabels: Record<EmployeeRegime, string> = {
+    CLT: 'CLT',
+    PJ: 'PJ',
+    intern: 'Estágio',
+    other: 'Outro'
+};
+
+const overtimeLabels: Record<OvertimePolicy, string> = {
+    overtime: 'Hora Extra',
+    time_bank: 'Banco de Horas'
 };
 
 export function EmployeesClient({ data, isLoading, userProfile }: { data: Employee[], isLoading: boolean, userProfile: UserProfile | null | undefined }) {
@@ -135,7 +147,7 @@ export function EmployeesClient({ data, isLoading, userProfile }: { data: Employ
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Cargo / Depto</TableHead>
-                  <TableHead>Contato</TableHead>
+                  <TableHead>Regime / Compensação</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -169,19 +181,15 @@ export function EmployeesClient({ data, isLoading, userProfile }: { data: Employ
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col text-sm">
-                          {employee.email && (
-                            <div className="flex items-center gap-1 text-muted-foreground">
-                              <Mail className="h-3 w-3" />
-                              <span className="truncate max-w-[150px]">{employee.email}</span>
-                            </div>
-                          )}
-                          {employee.phone && (
-                            <div className="flex items-center gap-1 text-muted-foreground">
-                              <Phone className="h-3 w-3" />
-                              <span>{employee.phone}</span>
-                            </div>
-                          )}
+                        <div className="flex flex-col text-sm gap-1">
+                          <div className="flex items-center gap-1 text-primary">
+                            <FileText className="h-3 w-3" />
+                            <span className="font-medium">{regimeLabels[employee.regimeType] || 'N/A'}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            <span>{overtimeLabels[employee.overtimePolicy] || 'N/A'}</span>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>

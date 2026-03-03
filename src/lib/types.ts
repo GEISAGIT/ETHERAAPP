@@ -154,6 +154,8 @@ export type Contract = {
 };
 
 export type EmployeeStatus = 'active' | 'inactive' | 'on_leave';
+export type EmployeeRegime = 'CLT' | 'PJ' | 'intern' | 'other';
+export type OvertimePolicy = 'overtime' | 'time_bank';
 
 export type Employee = {
   id: string;
@@ -166,6 +168,8 @@ export type Employee = {
   department?: string;
   hireDate?: Timestamp;
   status: EmployeeStatus;
+  regimeType: EmployeeRegime;
+  overtimePolicy: OvertimePolicy;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };

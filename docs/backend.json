@@ -468,10 +468,12 @@
         "department": { "type": "string" },
         "hireDate": { "type": "string", "format": "date" },
         "status": { "type": "string", "enum": ["active", "inactive", "on_leave"] },
+        "regimeType": { "type": "string", "enum": ["CLT", "PJ", "intern", "other"] },
+        "overtimePolicy": { "type": "string", "enum": ["overtime", "time_bank"] },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "userId", "fullName", "cpf", "status", "createdAt", "updatedAt"]
+      "required": ["id", "userId", "fullName", "cpf", "status", "regimeType", "overtimePolicy", "createdAt", "updatedAt"]
     },
     "CoraToken": {
       "$schema": "http://json-schema.org/draft-07/schema#",

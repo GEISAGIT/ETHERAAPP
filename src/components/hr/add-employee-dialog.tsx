@@ -40,7 +40,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { addDocumentNonBlocking, useFirestore, useUser } from '@/firebase';
 import { collection, Timestamp, serverTimestamp } from 'firebase/firestore';
-import type { EmployeeStatus } from '@/lib/types';
+import type { EmployeeStatus, EmployeeRegime, OvertimePolicy } from '@/lib/types';
 
 const formSchema = z.object({
   fullName: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres.'),
@@ -51,6 +51,8 @@ const formSchema = z.object({
   department: z.string().optional(),
   hireDate: z.date().optional(),
   status: z.enum(['active', 'inactive', 'on_leave'] as const),
+  regimeType: z.enum(['CLT', 'PJ', 'intern', 'other'] as const),
+  overtimePolicy: z.enum(['overtime', 'time_bank'] as const),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -70,6 +72,8 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
       position: '',
       department: '',
       status: 'active',
+      regimeType: 'CLT',
+      overtimePolicy: 'overtime',
     },
   });
 
@@ -96,7 +100,7 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-headline">Cadastrar Funcionário</DialogTitle>
           <DialogDescription>Insira as informações do novo colaborador.</DialogDescription>
@@ -173,6 +177,46 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
                 )}
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="regimeType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Regime</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="CLT">CLT</SelectItem>
+                        <SelectItem value="PJ">PJ</SelectItem>
+                        <SelectItem value="intern">Estagiário</SelectItem>
+                        <SelectItem value="other">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="overtimePolicy"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Compensação</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="overtime">Hora Extra</SelectItem>
+                        <SelectItem value="time_bank">Banco de Horas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
