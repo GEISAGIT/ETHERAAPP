@@ -22,7 +22,8 @@ import {
   Users, 
   Banknote,
   Briefcase,
-  Clock
+  Clock,
+  Wallet
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -31,22 +32,29 @@ import { doc } from 'firebase/firestore';
 import type { MenuItemKey, UserProfile, Permissions } from '@/lib/types';
 import { useMemo } from 'react';
 
-const allMenuItems = [
-  { key: 'dashboard' as MenuItemKey, href: '/dashboard', label: 'Painel', icon: LayoutDashboard },
+// Items definitions by group
+const dashboardItem = { key: 'dashboard' as MenuItemKey, href: '/dashboard', label: 'Painel', icon: LayoutDashboard };
+
+const financialMenuItems = [
   { key: 'transactions' as MenuItemKey, href: '/transactions', label: 'Transações', icon: ArrowRightLeft },
   { key: 'budgets' as MenuItemKey, href: '/budgets', label: 'Orçamentos', icon: PiggyBank },
   { key: 'reports' as MenuItemKey, href: '/reports', label: 'Relatórios', icon: BarChart3 },
-  { key: 'upload' as MenuItemKey, href: '/upload', label: 'Upload', icon: Upload },
   { key: 'apiBank' as MenuItemKey, href: '/api-bank', label: 'API BANK (BETA)', icon: Banknote },
-  { key: 'userManagement' as MenuItemKey, href: '/user-management', label: 'Gerenciar Usuários', icon: Users, adminOnly: true },
-  { key: 'profile' as MenuItemKey, href: '/profile', label: 'Perfil', icon: User },
-  { key: 'settings' as MenuItemKey, href: '/settings', label: 'Configurações', icon: Settings },
 ];
 
 const hrMenuItems = [
   { key: 'hrTimesheet' as MenuItemKey, href: '/hr/timesheet', label: 'Controle de Folha Ponto', icon: Clock },
 ];
 
+const managementMenuItems = [
+  { key: 'upload' as MenuItemKey, href: '/upload', label: 'Upload', icon: Upload },
+  { key: 'userManagement' as MenuItemKey, href: '/user-management', label: 'Gerenciar Usuários', icon: Users, adminOnly: true },
+];
+
+const userMenuItems = [
+  { key: 'profile' as MenuItemKey, href: '/profile', label: 'Perfil', icon: User },
+  { key: 'settings' as MenuItemKey, href: '/settings', label: 'Configurações', icon: Settings },
+];
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -61,34 +69,30 @@ export function AppSidebar() {
 
   const { data: userProfile } = useDoc<UserProfile>(userDocRef);
   
-  const filterMenuItems = (items: typeof allMenuItems) => {
+  const filterMenuItems = (items: any[]) => {
     const isAdmin = userProfile?.role === 'admin';
 
-    // If profile hasn't loaded, return a minimal safe set.
     if (!userProfile) {
         return items.filter(item => !item.adminOnly && (item.key === 'profile' || item.key === 'dashboard'));
     }
 
-    // Now we know userProfile exists.
     return items.filter(item => {
-        // Admin sees all.
         if (isAdmin) return true;
-        
-        // For non-admins:
         if (item.adminOnly) return false;
 
         const pagePermissions = userProfile.permissions?.[item.key as keyof Permissions];
-        
         if (pagePermissions && 'view' in pagePermissions) {
           return pagePermissions.view;
         }
-
         return false;
     });
   };
 
-  const menuItems = useMemo(() => filterMenuItems(allMenuItems), [userProfile]);
+  const dashboardVisible = useMemo(() => filterMenuItems([dashboardItem]).length > 0, [userProfile]);
+  const financialItems = useMemo(() => filterMenuItems(financialMenuItems), [userProfile]);
   const hrItems = useMemo(() => filterMenuItems(hrMenuItems), [userProfile]);
+  const managementItems = useMemo(() => filterMenuItems(managementMenuItems), [userProfile]);
+  const userItems = useMemo(() => filterMenuItems(userMenuItems), [userProfile]);
 
   const isActive = (href: string) => {
     if (href === '/settings') {
@@ -106,25 +110,55 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2 space-y-4">
+        {/* Principal Group */}
         <SidebarGroup>
           <SidebarMenu>
-            {menuItems.map(({ href, label, icon: Icon }) => (
-              <SidebarMenuItem key={href}>
+            {dashboardVisible && (
+              <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  isActive={isActive(href)}
-                  tooltip={{ children: label, side: 'right' }}
+                  isActive={isActive(dashboardItem.href)}
+                  tooltip={{ children: dashboardItem.label, side: 'right' }}
                 >
-                  <Link href={href}>
-                    <Icon />
-                    <span>{label}</span>
+                  <Link href={dashboardItem.href}>
+                    <dashboardItem.icon />
+                    <span>{dashboardItem.label}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            ))}
+            )}
           </SidebarMenu>
         </SidebarGroup>
 
+        {/* Financeiro Group */}
+        {financialItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="flex items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px]">
+              <Wallet className="h-3 w-3" />
+              Financeiro
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {financialItems.map(({ href, label, icon: Icon }) => (
+                  <SidebarMenuItem key={href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(href)}
+                      tooltip={{ children: label, side: 'right' }}
+                    >
+                      <Link href={href}>
+                        <Icon />
+                        <span>{label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Recursos Humanos Group */}
         {hrItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="flex items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px]">
@@ -151,6 +185,60 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+
+        {/* Gestão e Administração Group */}
+        {managementItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="flex items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px]">
+              <Settings className="h-3 w-3" />
+              Administração
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {managementItems.map(({ href, label, icon: Icon }) => (
+                  <SidebarMenuItem key={href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(href)}
+                      tooltip={{ children: label, side: 'right' }}
+                    >
+                      <Link href={href}>
+                        <Icon />
+                        <span>{label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* User Group */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="flex items-center gap-2 px-2 text-primary font-semibold uppercase tracking-wider text-[10px]">
+            <User className="h-3 w-3" />
+            Usuário
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {userItems.map(({ href, label, icon: Icon }) => (
+                <SidebarMenuItem key={href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(href)}
+                    tooltip={{ children: label, side: 'right' }}
+                  >
+                    <Link href={href}>
+                      <Icon />
+                      <span>{label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
     </>
   );
