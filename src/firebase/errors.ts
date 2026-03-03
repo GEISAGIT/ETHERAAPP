@@ -1,7 +1,8 @@
+
 'use client';
 import { type User } from 'firebase/auth';
-import { getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import * as firebaseApp from 'firebase/app';
+import * as firebaseAuth from 'firebase/auth';
 
 export type SecurityRuleContext = {
   path: string;
@@ -63,16 +64,17 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
   
   try {
-    const apps = getApps();
+    // Uso defensivo de getApps para evitar TypeError em bundlers
+    const apps = typeof firebaseApp.getApps === 'function' ? firebaseApp.getApps() : [];
     if (apps.length > 0) {
-      const app = getApp();
-      const auth = getAuth(app);
+      const app = firebaseApp.getApp();
+      const auth = firebaseAuth.getAuth(app);
       if (auth.currentUser) {
         authObject = buildAuthObject(auth.currentUser);
       }
     }
   } catch (e) {
-    // Falha silenciosa se o Firebase ainda não estiver pronto
+    // Falha silenciosa
   }
 
   return {

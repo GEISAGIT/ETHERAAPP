@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -10,7 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, type User, updateProfile, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
 import { defaultPermissions } from '@/lib/data';
 
@@ -28,18 +29,15 @@ export function LoginForm() {
   const handleUserDocument = async (user: User, isNewUser: boolean = false) => {
     if (!firestore) return null;
     const userDocRef = doc(firestore, 'users', user.uid);
-    const isAdmin = user.email === 'grupodallax@gmail.com';
+    const isAdminEmail = user.email === 'grupodallax@gmail.com';
     const defaultPhotoUrl = 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media&token=c68144ba-c10e-4921-8fe7-eb791d34eebe';
-
 
     try {
       const docSnap = await getDoc(userDocRef);
 
       if (!docSnap.exists()) {
-        // If the user document doesn't exist, create it.
-        // This handles signup and first-time login for the admin on a clean DB.
-        const initialStatus = isAdmin ? 'active' : 'pending';
-        const initialRole = isAdmin ? 'admin' : 'user';
+        const initialStatus = isAdminEmail ? 'active' : 'pending';
+        const initialRole = isAdminEmail ? 'admin' : 'user';
 
         if (isNewUser) {
            await updateProfile(user, { photoURL: defaultPhotoUrl });
@@ -58,23 +56,36 @@ export function LoginForm() {
         await setDoc(userDocRef, newUserProfile);
         
         if (isNewUser) {
-          if (isAdmin) {
-             toast({
-              title: "Bem-vindo Administrador!",
-              description: "Sua conta de administrador foi criada e está ativa.",
-            });
+          if (isAdminEmail) {
+             toast({ title: "Bem-vindo Administrador!", description: "Sua conta de administrador foi criada e está ativa." });
           } else {
-            toast({
-              title: "Cadastro realizado com sucesso!",
-              description: "Sua conta foi criada e está pendente de aprovação.",
-            });
+            toast({ title: "Cadastro realizado com sucesso!", description: "Sua conta foi criada e está pendente de aprovação." });
           }
         }
         return newUserProfile;
       } else {
-        // If the document exists, just return its data.
-        await user.getIdToken(true); // Refresh token to get latest claims if any
-        return docSnap.data() as UserProfile;
+        // MIGRAÇÃO / REPARO: Se o documento existe mas faltam campos essenciais (comum em produção)
+        const currentData = docSnap.data() as UserProfile;
+        const updates: Partial<UserProfile> = {};
+        
+        // Garante que o Angelo sempre seja Admin se o e-mail bater
+        if (isAdminEmail && currentData.role !== 'admin') {
+          updates.role = 'admin';
+          updates.status = 'active';
+          updates.permissions = defaultPermissions.admin;
+        }
+
+        // Garante que o campo de permissões exista
+        if (!currentData.permissions) {
+          updates.permissions = defaultPermissions[currentData.role || 'user'];
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await updateDoc(userDocRef, updates);
+          return { ...currentData, ...updates };
+        }
+
+        return currentData;
       }
 
     } catch (error) {
@@ -82,20 +93,16 @@ export function LoginForm() {
       toast({
         variant: "destructive",
         title: "Erro de Banco de Dados",
-        description: "Não foi possível criar ou verificar suas informações de usuário.",
+        description: "Não foi possível verificar suas informações. Tente novamente.",
       });
-      throw error; // Propagate error to be caught by handleAuthAction
+      throw error;
     }
   };
 
   const handleAuthAction = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!auth || !email || !password || (isSignUp && !name)) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Por favor, preencha todos os campos.",
-      });
+      toast({ variant: "destructive", title: "Erro", description: "Por favor, preencha todos os campos." });
       return;
     }
     setIsLoading(true);
@@ -104,11 +111,9 @@ export function LoginForm() {
       if (isSignUp) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
-        // The user document is created, and a toast is shown inside handleUserDocument
         await handleUserDocument(userCredential.user, true);
-        setIsSignUp(false); // Switch to login view after successful signup
+        setIsSignUp(false);
       } else {
-        // Handle Login
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const userProfile = await handleUserDocument(userCredential.user, false);
 
@@ -117,40 +122,25 @@ export function LoginForm() {
             ? 'Sua conta está pendente de aprovação. Contate o administrador.'
             : 'Sua conta foi rejeitada. Contate o administrador.';
           
-          await signOut(auth); // Sign the user out
-          
-          toast({
-            variant: "destructive",
-            title: "Acesso Negado",
-            description: message,
-          });
-
+          await signOut(auth);
+          toast({ variant: "destructive", title: "Acesso Negado", description: message });
         } else {
-           router.push('/'); // Redirect to home, which will then go to the dashboard
+           router.push('/');
         }
       }
     } catch (error: any) {
+      console.error(error);
       let message = "Ocorreu um erro. Tente novamente.";
       if (error.code) {
         switch (error.code) {
-            case 'auth/email-already-in-use':
-                message = "Este email já está em uso. Tente fazer login.";
-                break;
+            case 'auth/email-already-in-use': message = "Este email já está em uso."; break;
             case 'auth/wrong-password':
             case 'auth/user-not-found':
-            case 'auth/invalid-credential':
-                message = "Email ou senha inválidos.";
-                break;
-            case 'auth/weak-password':
-                message = "A senha deve ter pelo menos 6 caracteres.";
-                break;
+            case 'auth/invalid-credential': message = "Email ou senha inválidos."; break;
+            case 'auth/weak-password': message = "A senha deve ter pelo menos 6 caracteres."; break;
         }
       }
-      toast({
-        variant: "destructive",
-        title: isSignUp ? "Erro no Cadastro" : "Erro de Login",
-        description: message,
-      });
+      toast({ variant: "destructive", title: isSignUp ? "Erro no Cadastro" : "Erro de Login", description: message });
     } finally {
       setIsLoading(false);
     }
@@ -158,35 +148,19 @@ export function LoginForm() {
   
   const handlePasswordReset = async () => {
     if (!auth || !email) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Por favor, insira seu email para redefinir a senha.",
-      });
+      toast({ variant: "destructive", title: "Erro", description: "Insira seu email para redefinir a senha." });
       return;
     }
     setIsLoading(true);
     try {
       await sendPasswordResetEmail(auth, email);
-      toast({
-        title: "Email de redefinição enviado",
-        description: "Verifique sua caixa de entrada e pasta de spam para redefinir sua senha.",
-      });
+      toast({ title: "Email de redefinição enviado", description: "Verifique sua caixa de entrada." });
     } catch (error: any) {
-      let message = "Não foi possível enviar o email de redefinição.";
-      if (error.code === 'auth/user-not-found') {
-        message = "Este email não está cadastrado. Verifique o email digitado.";
-      }
-      toast({
-        variant: "destructive",
-        title: "Erro ao enviar email",
-        description: message,
-      });
+      toast({ variant: "destructive", title: "Erro", description: "Não foi possível enviar o email." });
     } finally {
       setIsLoading(false);
     }
   };
-
 
   return (
     <Card className="bg-card/80 backdrop-blur-sm border-border/50">
@@ -203,40 +177,16 @@ export function LoginForm() {
           {isSignUp && (
             <div className="space-y-2">
               <Label htmlFor="name">Nome</Label>
-              <Input 
-                id="name" 
-                type="text" 
-                placeholder="Seu nome completo" 
-                required 
-                disabled={isLoading} 
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+              <Input id="name" type="text" placeholder="Seu nome completo" required disabled={isLoading} value={name} onChange={(e) => setName(e.target.value)} />
             </div>
           )}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input 
-              id="email" 
-              type="email"
-              placeholder="email@exemplo.com" 
-              required 
-              disabled={isLoading} 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <Input id="email" type="email" placeholder="email@exemplo.com" required disabled={isLoading} value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Senha</Label>
-            <Input 
-              id="password" 
-              type="password" 
-              placeholder="••••••••"
-              required 
-              disabled={isLoading} 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <Input id="password" type="password" placeholder="••••••••" required disabled={isLoading} value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           {!isSignUp && (
              <div className="text-right">

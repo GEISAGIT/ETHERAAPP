@@ -15,11 +15,16 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Busca o documento do usuário logado
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
     // Verifica se o usuário logado tem o papel de 'admin'
     function isAdmin() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      if (!isSignedIn()) return false;
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(userPath) && get(userPath).data.role == 'admin';
     }
 
     // Função genérica para verificar permissões granulares no mapa de permissões
@@ -28,7 +33,9 @@ service cloud.firestore {
       let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
       if (!exists(userPath)) return false;
       let userData = get(userPath).data;
-      return userData.role == 'admin' || userData.get('permissions', {}).get(module, {}).get(action, false) == true;
+      
+      return userData.role == 'admin' || 
+             (userData.get('permissions', {}).get(module, {}).get(action, false) == true);
     }
 
     // ----------------------------------------------------------------------
@@ -102,7 +109,11 @@ service cloud.firestore {
     }
 
     match /attendanceRecords/{recordId} {
-      allow read: if hasPermission('timeTracking', 'view') || resource.data.employeeId == request.auth.uid;
+      // Dono sempre pode ler seus próprios pontos. Admin/RH podem ler tudo se tiverem permissão.
+      allow read: if isSignedIn() && (
+        (resource == null || resource.data.employeeId == request.auth.uid) || 
+        hasPermission('timeTracking', 'view')
+      );
       allow create: if isSignedIn(); // Qualquer um logado pode registrar o próprio ponto
       allow update, delete: if isAdmin();
     }
