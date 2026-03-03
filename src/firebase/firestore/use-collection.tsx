@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -14,7 +15,7 @@ import { getAuth } from 'firebase/auth';
 import { getApp } from 'firebase/app';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { useFirestore, useUser } from '@/firebase/provider';
+import { useFirestore, useUser, useAuth } from '@/firebase/provider';
 
 /** Utility type to add an 'id' field to a given type T. */
 export type WithId<T> = T & { id: string };
@@ -54,6 +55,7 @@ export function useCollection<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const auth = useAuth();
 
   useEffect(() => {
     if (!memoizedTargetRefOrQuery) {
@@ -78,11 +80,16 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        // Se não houver usuário logado no SDK no momento do erro, 
-        // provavelmente é um erro transiente de carregamento ou logout.
-        // Não emitimos o erro globalmente para evitar o travamento da tela.
-        const auth = getAuth(getApp());
-        if (!auth.currentUser) {
+        // Apenas processamos erros de permissão negada para o overlay de erro customizado.
+        if (err.code !== 'permission-denied') {
+          setIsLoading(false);
+          setError(err);
+          return;
+        }
+
+        // Apenas reportamos erro de permissão se realmente houver um usuário no SDK de Auth.
+        // Se auth.currentUser for null, é um erro transiente de carregamento ou logout.
+        if (!auth || !auth.currentUser) {
           setIsLoading(false);
           return;
         }
@@ -95,18 +102,25 @@ export function useCollection<T = any>(
         const contextualError = new FirestorePermissionError({
           operation: 'list',
           path,
-        })
+        });
 
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
+        // Verificação dupla: se o erro contextual gerado ainda mostrar "auth: null",
+        // significa que o Firestore ainda não sincronizou o token. Ignoramos para evitar crash.
+        if (!contextualError.request.auth) {
+          setIsLoading(false);
+          return;
+        }
+
+        setError(contextualError);
+        setData(null);
+        setIsLoading(false);
 
         errorEmitter.emit('permission-error', contextualError);
       }
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]);
+  }, [memoizedTargetRefOrQuery, auth]);
 
   return { data, isLoading, error };
 }

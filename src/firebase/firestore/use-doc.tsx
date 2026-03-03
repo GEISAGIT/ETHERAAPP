@@ -1,3 +1,4 @@
+
 'use client';
     
 import { useState, useEffect } from 'react';
@@ -12,6 +13,7 @@ import { getAuth } from 'firebase/auth';
 import { getApp } from 'firebase/app';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useAuth } from '@/firebase/provider';
 
 /** Utility type to add an 'id' field to a given type T. */
 type WithId<T> = T & { id: string };
@@ -37,6 +39,7 @@ export function useDoc<T = any>(
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  const auth = useAuth();
 
   useEffect(() => {
     if (!memoizedDocRef) {
@@ -61,8 +64,15 @@ export function useDoc<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        const auth = getAuth(getApp());
-        if (!auth.currentUser) {
+        // Apenas processamos erros de permissão negada para o overlay de erro customizado.
+        if (err.code !== 'permission-denied') {
+          setIsLoading(false);
+          setError(err);
+          return;
+        }
+
+        // Apenas reportamos erro de permissão se realmente houver um usuário logado.
+        if (!auth || !auth.currentUser) {
           setIsLoading(false);
           return;
         }
@@ -70,18 +80,24 @@ export function useDoc<T = any>(
         const contextualError = new FirestorePermissionError({
           operation: 'get',
           path: memoizedDocRef.path,
-        })
+        });
 
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
+        // Se o erro ainda indicar "auth: null", ignoramos por ser transiente.
+        if (!contextualError.request.auth) {
+          setIsLoading(false);
+          return;
+        }
+
+        setError(contextualError);
+        setData(null);
+        setIsLoading(false);
 
         errorEmitter.emit('permission-error', contextualError);
       }
     );
 
     return () => unsubscribe();
-  }, [memoizedDocRef]);
+  }, [memoizedDocRef, auth]);
 
   return { data, isLoading, error };
 }
