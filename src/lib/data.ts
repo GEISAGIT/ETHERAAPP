@@ -45,6 +45,7 @@ export const defaultIncomeCategories = [
 
 export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
   admin: {
+    home: { view: true },
     dashboard: { view: true },
     transactions: { view: true, create: true, edit: true, delete: true },
     budgets: { view: true, create: true, edit: true, delete: true },
@@ -57,6 +58,7 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     hrTimesheet: { view: true, create: true, edit: true, delete: true },
   },
   user: {
+    home: { view: true },
     dashboard: { view: true },
     transactions: { view: true, create: true, edit: true, delete: true },
     budgets: { view: true, create: true, edit: true, delete: true },

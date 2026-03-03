@@ -35,18 +35,12 @@ export default function Home() {
     // If user and profile are loaded, decide where to go.
     if (user && userProfile) {
        if (userProfile.status === 'active') {
-        router.replace('/dashboard');
+        router.replace('/home');
       } else {
          // This is now handled by the login form, which shows a toast and signs the user out.
-         // As a fallback, we keep a check here to prevent access. 
-         // We avoid auto-signing out here to prevent loops if there's a Firestore delay.
-         // If a non-active user lands here, they will just see the spinner.
-         // They will be properly signed out on their next login attempt.
       }
     } else if (user && !userProfile && !isProfileLoading) {
-        // This case can happen right after signup if Firestore creation is slow.
-        // The login form is now responsible for creating the document.
-        // We'll just wait here, showing the loader, for the document to become available.
+        // Wait for profile document creation.
     }
 
   }, [user, userProfile, isUserLoading, isProfileLoading, router, auth]);

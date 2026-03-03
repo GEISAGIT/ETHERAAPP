@@ -92,6 +92,7 @@ export type ViewOnlyActions = {
 }
 
 export type Permissions = {
+  home: ViewOnlyActions;
   dashboard: ViewOnlyActions;
   transactions: CrudActions;
   budgets: CrudActions;

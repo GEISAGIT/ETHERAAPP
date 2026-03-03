@@ -1,4 +1,3 @@
-
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -21,6 +20,7 @@ const allPermissionsConfig: {
   label: string;
   actions: (keyof (CrudActions | ViewEditActions | ViewOnlyActions))[];
 }[] = [
+  { key: 'home', label: 'Início', actions: ['view'] },
   { key: 'dashboard', label: 'Painel', actions: ['view'] },
   { key: 'transactions', label: 'Transações', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'budgets', label: 'Orçamentos', actions: ['view', 'create', 'edit', 'delete'] },
@@ -30,6 +30,7 @@ const allPermissionsConfig: {
   { key: 'userManagement', label: 'Gerenciar Usuários', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'profile', label: 'Perfil', actions: ['view', 'edit'] },
   { key: 'settings', label: 'Configurações', actions: ['view'] },
+  { key: 'hrTimesheet', label: 'Folha Ponto', actions: ['view', 'create', 'edit', 'delete'] },
 ];
 
 const actionLabels: Record<string, string> = {
@@ -154,7 +155,7 @@ function UserAccessControlPage() {
     <AppLayout>
       <div className="space-y-8">
         <header>
-          <h1 className="font-headline text-3xl font-bold tracking-tight">Controle de Acesso</h1>
+          <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Controle de Acesso</h1>
           <p className="text-muted-foreground">
             Defina quais páginas <span className="font-semibold text-foreground">{targetUser.displayName}</span> pode acessar.
           </p>
@@ -170,15 +171,15 @@ function UserAccessControlPage() {
           <CardContent className="space-y-6">
              {allPermissionsConfig.map(permissionInfo => (
                 <div key={permissionInfo.key}>
-                    <h3 className="font-semibold mb-3">{permissionInfo.label}</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pl-2 border-l-2 ml-2">
+                    <h3 className="font-semibold mb-3 text-primary">{permissionInfo.label}</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pl-2 border-l-2 border-primary/20 ml-2">
                         {permissionInfo.actions.map(action => (
                             <div key={action} className="flex items-center space-x-2">
                                 <Checkbox
                                     id={`${permissionInfo.key}-${action}`}
                                     checked={permissions?.[permissionInfo.key]?.[action as keyof typeof permissions[typeof permissionInfo.key]] ?? false}
                                     onCheckedChange={(checked) => handlePermissionChange(permissionInfo.key, action, !!checked)}
-                                    disabled={targetUser.role === 'admin' && permissionInfo.key === 'userManagement'}
+                                    disabled={targetUser.role === 'admin' && (permissionInfo.key === 'userManagement' || permissionInfo.key === 'home')}
                                 />
                                 <Label htmlFor={`${permissionInfo.key}-${action}`} className="font-normal capitalize">
                                     {actionLabels[action] || action}

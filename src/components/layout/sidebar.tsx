@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -25,7 +24,8 @@ import {
   Briefcase,
   Clock,
   Wallet,
-  ChevronRight
+  ChevronRight,
+  Home
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -35,8 +35,10 @@ import type { MenuItemKey, UserProfile, Permissions } from '@/lib/types';
 import { useMemo } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-// Items definitions by group
-const dashboardItem = { key: 'dashboard' as MenuItemKey, href: '/dashboard', label: 'Painel', icon: LayoutDashboard };
+// Primary items
+const homeItem = { key: 'home' as MenuItemKey, href: '/home', label: 'Início', icon: Home };
+
+const dashboardItem = { key: 'dashboard' as MenuItemKey, href: '/dashboard', label: 'Painel Geral', icon: LayoutDashboard };
 
 const financialMenuItems = [
   { key: 'transactions' as MenuItemKey, href: '/transactions', label: 'Transações', icon: ArrowRightLeft },
@@ -76,7 +78,7 @@ export function AppSidebar() {
     const isAdmin = userProfile?.role === 'admin';
 
     if (!userProfile) {
-        return items.filter(item => !item.adminOnly && (item.key === 'profile' || item.key === 'dashboard'));
+        return items.filter(item => !item.adminOnly && (item.key === 'profile' || item.key === 'home'));
     }
 
     return items.filter(item => {
@@ -91,6 +93,7 @@ export function AppSidebar() {
     });
   };
 
+  const homeVisible = useMemo(() => filterMenuItems([homeItem]).length > 0, [userProfile]);
   const dashboardVisible = useMemo(() => filterMenuItems([dashboardItem]).length > 0, [userProfile]);
   const financialItems = useMemo(() => filterMenuItems(financialMenuItems), [userProfile]);
   const hrItems = useMemo(() => filterMenuItems(hrMenuItems), [userProfile]);
@@ -113,16 +116,31 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2 space-y-2">
-        {/* Principal Group - Always visible as it is the main entry point */}
+        {/* Main Links - Fixed */}
         <SidebarGroup>
           <SidebarMenu>
+            {homeVisible && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive(homeItem.href)}
+                  tooltip={{ children: homeItem.label, side: 'right' }}
+                  className={isActive(homeItem.href) ? 'text-primary font-bold' : 'text-primary'}
+                >
+                  <Link href={homeItem.href}>
+                    <homeItem.icon className={isActive(homeItem.href) ? 'text-primary' : ''} />
+                    <span>{homeItem.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
             {dashboardVisible && (
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
                   isActive={isActive(dashboardItem.href)}
                   tooltip={{ children: dashboardItem.label, side: 'right' }}
-                  className={isActive(dashboardItem.href) ? 'text-primary' : ''}
+                  className={isActive(dashboardItem.href) ? 'text-primary font-bold' : 'text-primary'}
                 >
                   <Link href={dashboardItem.href}>
                     <dashboardItem.icon className={isActive(dashboardItem.href) ? 'text-primary' : ''} />
@@ -154,7 +172,7 @@ export function AppSidebar() {
                           asChild
                           isActive={isActive(href)}
                           tooltip={{ children: label, side: 'right' }}
-                          className={isActive(href) ? 'text-primary font-medium' : ''}
+                          className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}
                         >
                           <Link href={href}>
                             <Icon className={isActive(href) ? 'text-primary' : ''} />
@@ -190,7 +208,7 @@ export function AppSidebar() {
                           asChild
                           isActive={isActive(href)}
                           tooltip={{ children: label, side: 'right' }}
-                          className={isActive(href) ? 'text-primary font-medium' : ''}
+                          className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}
                         >
                           <Link href={href}>
                             <Icon className={isActive(href) ? 'text-primary' : ''} />
@@ -226,7 +244,7 @@ export function AppSidebar() {
                           asChild
                           isActive={isActive(href)}
                           tooltip={{ children: label, side: 'right' }}
-                          className={isActive(href) ? 'text-primary font-medium' : ''}
+                          className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}
                         >
                           <Link href={href}>
                             <Icon className={isActive(href) ? 'text-primary' : ''} />
@@ -261,7 +279,7 @@ export function AppSidebar() {
                         asChild
                         isActive={isActive(href)}
                         tooltip={{ children: label, side: 'right' }}
-                        className={isActive(href) ? 'text-primary font-medium' : ''}
+                        className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}
                       >
                         <Link href={href}>
                           <Icon className={isActive(href) ? 'text-primary' : ''} />
