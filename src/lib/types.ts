@@ -180,6 +180,13 @@ export interface CompensationRecord {
   description: string;
 }
 
+export interface EmployeeDocument {
+  id: string;
+  name: string;
+  url: string;
+  uploadedAt: Timestamp;
+}
+
 export type Employee = {
   id: string;
   userId: string; // Creator
@@ -206,6 +213,8 @@ export type Employee = {
   experienceEndDate?: Timestamp;
   adjustments?: TimeAdjustment[];
   compensations?: CompensationRecord[];
+  vacationExpirationDate?: Timestamp;
+  documents?: EmployeeDocument[];
 };
 
 export type CoraToken = {

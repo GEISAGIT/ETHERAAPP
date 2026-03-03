@@ -7,11 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useCollection, useFirestore, useUser, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore, useUser, useMemoFirebase, updateDocumentNonBlocking, useStorage } from '@/firebase';
 import { collection, doc, query, Timestamp, serverTimestamp } from 'firebase/firestore';
-import type { Employee, EmployeeDiscount, TimeAdjustment, CompensationRecord, WorkStatus } from '@/lib/types';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import type { Employee, EmployeeDiscount, TimeAdjustment, CompensationRecord, WorkStatus, EmployeeDocument } from '@/lib/types';
 import { useState, useMemo, useEffect } from 'react';
-import { CalendarIcon, Loader2, Save, Plus, Trash2, Clock, UserCheck, CreditCard, CalendarDays, History } from 'lucide-react';
+import { CalendarIcon, Loader2, Save, Plus, Trash2, Clock, UserCheck, CreditCard, CalendarDays, History, UploadCloud, FileText, Download, Paperclip } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -19,14 +20,17 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 export default function HRTimesheetPage() {
   const firestore = useFirestore();
+  const storage = useStorage();
   const { user } = useUser();
   const { toast } = useToast();
   
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Fetch employees for selection
   const employeesQuery = useMemoFirebase(() => {
@@ -53,9 +57,11 @@ export default function HRTimesheetPage() {
         hireDate: selectedEmployee.hireDate,
         dismissalDate: selectedEmployee.dismissalDate,
         experienceEndDate: selectedEmployee.experienceEndDate,
+        vacationExpirationDate: selectedEmployee.vacationExpirationDate,
         discounts: selectedEmployee.discounts || [],
         adjustments: selectedEmployee.adjustments || [],
         compensations: selectedEmployee.compensations || [],
+        documents: selectedEmployee.documents || [],
       });
     } else {
       setFormData({});
@@ -83,6 +89,52 @@ export default function HRTimesheetPage() {
       });
       setIsSaving(false);
     }, 500);
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !storage || !selectedEmployeeId) return;
+
+    setIsUploading(true);
+    try {
+      const storagePath = `employee-docs/${selectedEmployeeId}/${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, storagePath);
+      
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      const newDoc: EmployeeDocument = {
+        id: crypto.randomUUID(),
+        name: file.name,
+        url: downloadURL,
+        uploadedAt: Timestamp.now(),
+      };
+
+      const updatedDocs = [...(formData.documents || []), newDoc];
+      handleUpdateField('documents', updatedDocs);
+      
+      // Auto-save documents change
+      const employeeRef = doc(firestore!, 'employees', selectedEmployeeId);
+      updateDocumentNonBlocking(employeeRef, { documents: updatedDocs, updatedAt: serverTimestamp() });
+
+      toast({ title: 'Documento Anexado', description: 'O arquivo foi enviado com sucesso.' });
+    } catch (error) {
+      console.error(error);
+      toast({ variant: 'destructive', title: 'Erro no Upload', description: 'Não foi possível enviar o documento.' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeDocument = (docId: string) => {
+    const updatedDocs = formData.documents?.filter(d => d.id !== docId);
+    handleUpdateField('documents', updatedDocs);
+    
+    // Auto-save removal
+    if (selectedEmployeeId && firestore) {
+        const employeeRef = doc(firestore, 'employees', selectedEmployeeId);
+        updateDocumentNonBlocking(employeeRef, { documents: updatedDocs, updatedAt: serverTimestamp() });
+    }
   };
 
   const addDiscount = () => {
@@ -169,11 +221,12 @@ export default function HRTimesheetPage() {
 
         {selectedEmployee ? (
           <Tabs defaultValue="contract" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
               <TabsTrigger value="contract">Contrato & Docs</TabsTrigger>
               <TabsTrigger value="experience">Status & Experiência</TabsTrigger>
               <TabsTrigger value="discounts">Descontos</TabsTrigger>
-              <TabsTrigger value="adjustments">Ajustes & Compensação</TabsTrigger>
+              <TabsTrigger value="adjustments">Ajustes & Comp.</TabsTrigger>
+              <TabsTrigger value="documents">Anexos</TabsTrigger>
             </TabsList>
 
             <TabsContent value="contract">
@@ -193,6 +246,26 @@ export default function HRTimesheetPage() {
                         />
                         <Badge variant="outline" className="h-10">Fixo no Cadastro</Badge>
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Vencimento de Férias</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.vacationExpirationDate && "text-muted-foreground")}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.vacationExpirationDate ? format(formData.vacationExpirationDate.toDate(), "PPP", { locale: ptBR }) : <span>Definir data...</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={formData.vacationExpirationDate?.toDate()}
+                            onSelect={(date) => handleUpdateField('vacationExpirationDate', date ? Timestamp.fromDate(date) : null)}
+                            initialFocus
+                            locale={ptBR}
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="space-y-2">
                       <Label>Data de Demissão (Opcional)</Label>
@@ -313,7 +386,7 @@ export default function HRTimesheetPage() {
                       <CreditCard className="h-5 w-5 text-primary" />
                       Configurador de Descontos
                     </CardTitle>
-                    <CardDescription>Atribua descontos percentuais fixos na folha (ex: Vale Transporte, Convênio).</CardDescription>
+                    <CardDescription>Atribua descontos percentuais fixos na folha.</CardDescription>
                   </div>
                   <Button variant="outline" size="sm" onClick={addDiscount}>
                     <Plus className="h-4 w-4 mr-2" /> Novo Desconto
@@ -368,7 +441,7 @@ export default function HRTimesheetPage() {
                       <Clock className="h-5 w-5 text-primary" />
                       Ajustes de Ponto por Período
                     </CardTitle>
-                    <CardDescription>Configurações excepcionais de horário para períodos específicos.</CardDescription>
+                    <CardDescription>Configurações excepcionais de horário.</CardDescription>
                   </div>
                   <Button variant="outline" size="sm" onClick={addAdjustment}>
                     <Plus className="h-4 w-4 mr-2" /> Novo Ajuste
@@ -430,7 +503,7 @@ export default function HRTimesheetPage() {
                       <CalendarDays className="h-5 w-5 text-primary" />
                       Compensações
                     </CardTitle>
-                    <CardDescription>Atribuir dias de compensação ou folgas por banco de horas.</CardDescription>
+                    <CardDescription>Atribuir dias de compensação ou folgas.</CardDescription>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => addCompensation('date')}>
@@ -502,6 +575,71 @@ export default function HRTimesheetPage() {
                       </Button>
                     </div>
                   ))}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="documents">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Paperclip className="h-5 w-5 text-primary" />
+                      Anexos & Documentos
+                    </CardTitle>
+                    <CardDescription>Armazene documentos importantes do colaborador (Contrato, Identidade, Exames).</CardDescription>
+                  </div>
+                  <div className="relative">
+                    <Input 
+                      type="file" 
+                      className="hidden" 
+                      id="doc-upload" 
+                      onChange={handleFileUpload}
+                      disabled={isUploading}
+                    />
+                    <Button variant="outline" size="sm" asChild disabled={isUploading}>
+                      <label htmlFor="doc-upload" className="cursor-pointer">
+                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+                        Anexar Novo
+                      </label>
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {formData.documents?.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+                      <FileText className="h-8 w-8 mb-2 opacity-20" />
+                      <p className="italic">Nenhum documento anexado ainda.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {formData.documents?.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between p-3 border rounded-md group hover:border-primary transition-colors">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="bg-primary/10 p-2 rounded text-primary">
+                              <FileText className="h-5 w-5" />
+                            </div>
+                            <div className="flex flex-col overflow-hidden">
+                              <span className="text-sm font-medium truncate" title={doc.name}>{doc.name}</span>
+                              <span className="text-[10px] text-muted-foreground">
+                                Enviado em {format(doc.uploadedAt.toDate(), 'dd/MM/yy')}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                              <Link href={doc.url} target="_blank">
+                                <Download className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100" onClick={() => removeDocument(doc.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

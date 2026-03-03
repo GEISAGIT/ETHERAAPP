@@ -25,5 +25,10 @@ service firebase.storage {
         allow read; // Permite leitura pública
         allow write: if request.auth != null && request.auth.uid == userId; // Apenas o usuário dono pode escrever
     }
+
+    // Documentos de funcionários
+    match /employee-docs/{employeeId}/{allPaths=**} {
+      allow read, write: if request.auth != null; // Permitir para usuários autenticados (Idealmente checar role RH/Admin)
+    }
   }
 }

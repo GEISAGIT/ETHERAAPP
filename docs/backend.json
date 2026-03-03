@@ -54,9 +54,9 @@
       "properties": {
         "uid": { "type": "string" },
         "displayName": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "role": { "type": "string", "enum": ["admin", "user"] },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "email": { "type": "string", format: "email" },
+        "role": { "type": "string", enum: ["admin", "user"] },
+        "createdAt": { "type": "string", format: "date-time" }
       }
     },
     "Role": {
@@ -475,6 +475,19 @@
         "ctps": { "type": "string" },
         "workStatus": { "type": "string", "enum": ["regular", "temporary", "probation", "inactive"] },
         "experienceEndDate": { "type": "string", "format": "date-time" },
+        "vacationExpirationDate": { "type": "string", "format": "date-time" },
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "url": { "type": "string" },
+              "uploadedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
