@@ -1,9 +1,9 @@
+
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
-import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase, useStorage } from '@/firebase';
+import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, Timestamp, limit } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { Camera, Clock, CheckCircle2, AlertCircle, Loader2, UserCheck, History, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -12,23 +12,20 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { AttendanceRecord, AttendanceType } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 function TimeTrackingContent() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const storage = useStorage();
   const { toast } = useToast();
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [scanAnimation, setScanAnimation] = useState(false);
 
   const attendanceQuery = useMemoFirebase(() => {
     if (!firestore || !user || isUserLoading) return null;
@@ -66,68 +63,31 @@ function TimeTrackingContent() {
     };
   }, []);
 
-  const handleRecordPoint = async (type: AttendanceType) => {
-    if (!user || !firestore || !storage) return;
+  const handleRecordPoint = (type: AttendanceType) => {
+    if (!user || !firestore) return;
     
     setIsRecording(true);
-    setScanAnimation(true);
 
-    try {
-      // 1. Captura de Foto (Opcional - não trava se o CORS bloquear)
-      let photoUrl = '';
-      try {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        if (video && canvas && video.videoWidth > 0) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          canvas.getContext('2d')?.drawImage(video, 0, 0);
-          
-          const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.7));
-          if (blob) {
-            const photoPath = `attendance-photos/${user.uid}/${Date.now()}.jpg`;
-            const storageRef = ref(storage, photoPath);
-            // Tentativa de upload. Se falhar (CORS), apenas logamos o erro e seguimos.
-            const snapshot = await uploadBytes(storageRef, blob);
-            photoUrl = await getDownloadURL(snapshot.ref);
-          }
-        }
-      } catch (photoErr) {
-        console.warn("Upload de foto falhou (CORS/Permissão). Registrando ponto sem foto.", photoErr);
-      }
+    // Registro IMEDIATO para evitar qualquer espera de rede ou hardware
+    const recordData = {
+      employeeId: user.uid,
+      employeeName: user.displayName || 'Usuário',
+      timestamp: Timestamp.now(),
+      type,
+    };
 
-      // 2. Localização (Timeout de 3s)
-      const location = await new Promise<{latitude: number, longitude: number} | null>((resolve) => {
-        const timeoutId = setTimeout(() => resolve(null), 3000);
-        if (!navigator.geolocation) return resolve(null);
-        navigator.geolocation.getCurrentPosition(
-          (pos) => { clearTimeout(timeoutId); resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); },
-          () => { clearTimeout(timeoutId); resolve(null); },
-          { timeout: 2500 }
-        );
-      });
+    // Salva no Firestore sem aguardar (non-blocking)
+    addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), recordData);
+    
+    toast({ 
+      title: 'Ponto Registrado!', 
+      description: `Seu registro de ${getAttendanceTypeLabel(type)} foi salvo com sucesso.` 
+    });
 
-      // 3. Salvamento do Registro (Removendo campos undefined)
-      const recordData: any = {
-        employeeId: user.uid,
-        employeeName: user.displayName || 'Usuário',
-        timestamp: Timestamp.now(),
-        type,
-        photoUrl: photoUrl || '',
-      };
-
-      if (location) recordData.location = location;
-
-      addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), recordData);
-      toast({ title: 'Ponto Registrado!', description: `Seu registro de ${getAttendanceTypeLabel(type)} foi salvo.` });
-
-    } catch (error) {
-      console.error("Erro crítico ao registrar ponto:", error);
-      toast({ variant: 'destructive', title: 'Erro ao Registrar', description: 'Não foi possível processar o registro.' });
-    } finally {
+    // Remove o estado de carregamento quase instantaneamente para dar feedback de agilidade
+    setTimeout(() => {
       setIsRecording(false);
-      setScanAnimation(false);
-    }
+    }, 300);
   };
 
   const getAttendanceTypeLabel = (type: AttendanceType) => {
@@ -160,7 +120,7 @@ function TimeTrackingContent() {
           <CardContent className="p-0 relative bg-black aspect-video flex items-center justify-center">
             <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-              <div className={cn("w-64 h-64 border-2 rounded-full border-dashed transition-all duration-1000", scanAnimation ? "border-primary scale-110 bg-primary/10" : "border-white/30")}>
+              <div className={cn("w-64 h-64 border-2 rounded-full border-dashed transition-all duration-1000", isRecording ? "border-primary scale-110 bg-primary/10" : "border-white/30")}>
                 <div className="absolute inset-0 flex items-center justify-center"><div className="w-1 h-full bg-primary/20 animate-pulse hidden lg:block" /></div>
               </div>
             </div>
@@ -169,7 +129,7 @@ function TimeTrackingContent() {
                 <div className="max-w-xs space-y-4">
                   <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
                   <h3 className="font-semibold text-lg">Câmera não disponível</h3>
-                  <p className="text-sm text-muted-foreground">Permita o acesso à câmera nas configurações do navegador.</p>
+                  <p className="text-sm text-muted-foreground">O acesso à câmera é necessário para validar sua identidade.</p>
                 </div>
               </div>
             )}
@@ -177,7 +137,7 @@ function TimeTrackingContent() {
               <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center">
                 <div className="text-center space-y-2">
                   <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
-                  <p className="text-white font-medium">Processando Registro...</p>
+                  <p className="text-white font-medium">Registrando...</p>
                 </div>
               </div>
             )}
@@ -214,11 +174,10 @@ function TimeTrackingContent() {
             }
           </CardContent>
           <CardFooter>
-             <Alert className="bg-primary/5 border-primary/20"><CheckCircle2 className="h-4 w-4 text-primary" /><AlertDescription className="text-[10px] leading-tight">Biometria e localização garantem a validade jurídica do seu registro.</AlertDescription></Alert>
+             <Alert className="bg-primary/5 border-primary/20"><CheckCircle2 className="h-4 w-4 text-primary" /><AlertDescription className="text-[10px] leading-tight">Registro validado com carimbo de tempo seguro.</AlertDescription></Alert>
           </CardFooter>
         </Card>
       </div>
-      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+
 'use client';
 import { getAuth, type User } from 'firebase/auth';
 import { getApp, getApps } from 'firebase/app';
@@ -61,15 +62,15 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
 function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
   try {
-    const apps = getApps();
-    if (apps.length > 0) {
+    const currentApps = getApps();
+    if (currentApps && currentApps.length > 0) {
         const auth = getAuth(getApp());
         if (auth.currentUser) {
           authObject = buildAuthObject(auth.currentUser);
         }
     }
   } catch(e) {
-    console.warn("Could not retrieve auth object for error reporting:", e);
+    // Falha silenciosa se o Firebase não estiver pronto
   }
 
   return {
