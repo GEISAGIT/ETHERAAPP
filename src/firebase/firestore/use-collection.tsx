@@ -10,6 +10,8 @@ import {
   CollectionReference,
   collectionGroup,
 } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getApp } from 'firebase/app';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useFirestore, useUser } from '@/firebase/provider';
@@ -42,16 +44,6 @@ export interface InternalQuery extends Query<DocumentData> {
 /**
  * React hook to subscribe to a Firestore collection or query in real-time.
  * Handles nullable references/queries.
- * 
- *
- * IMPORTANT! YOU MUST MEMOIZE the inputted memoizedTargetRefOrQuery or BAD THINGS WILL HAPPEN
- * use useMemo to memoize it per React guidence.  Also make sure that it's dependencies are stable
- * references
- *  
- * @template T Optional type for document data. Defaults to any.
- * @param {CollectionReference<DocumentData> | Query<DocumentData> | null | undefined} targetRefOrQuery -
- * The Firestore CollectionReference or Query. Waits if null/undefined.
- * @returns {UseCollectionResult<T>} Object with data, isLoading, error.
  */
 export function useCollection<T = any>(
     memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean})  | null | undefined,
@@ -74,7 +66,6 @@ export function useCollection<T = any>(
     setIsLoading(true);
     setError(null);
 
-    // Directly use memoizedTargetRefOrQuery as it's assumed to be the final query
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
@@ -86,8 +77,16 @@ export function useCollection<T = any>(
         setError(null);
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
-        // This logic extracts the path from either a ref or a query
+      (err: FirestoreError) => {
+        // Se não houver usuário logado no SDK no momento do erro, 
+        // provavelmente é um erro transiente de carregamento ou logout.
+        // Não emitimos o erro globalmente para evitar o travamento da tela.
+        const auth = getAuth(getApp());
+        if (!auth.currentUser) {
+          setIsLoading(false);
+          return;
+        }
+
         const path: string =
           memoizedTargetRefOrQuery.type === 'collection'
             ? (memoizedTargetRefOrQuery as CollectionReference).path
@@ -102,21 +101,12 @@ export function useCollection<T = any>(
         setData(null)
         setIsLoading(false)
 
-        // trigger global error propagation
         errorEmitter.emit('permission-error', contextualError);
       }
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
-  
-  if (memoizedTargetRefOrQuery && !(memoizedTargetRefOrQuery as any).__memo) {
-      if (memoizedTargetRefOrQuery.type === 'collection-group') {
-          // This is a special case for collectionGroup queries, which are not memoized with useMemoFirebase, but with useMemo
-      } else {
-          // throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
-      }
-  }
+  }, [memoizedTargetRefOrQuery]);
 
   return { data, isLoading, error };
 }

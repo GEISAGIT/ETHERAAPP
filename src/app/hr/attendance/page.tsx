@@ -1,4 +1,3 @@
-
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -15,9 +14,10 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { AttendanceRecord, AttendanceType } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 function TimeTrackingContent() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const storage = useStorage();
   const { toast } = useToast();
@@ -31,15 +31,16 @@ function TimeTrackingContent() {
   const [scanAnimation, setScanAnimation] = useState(false);
 
   // Fetch recent attendance for the current user
+  // Adicionamos uma verificação extra para garantir que o usuário e o firestore estão prontos
   const attendanceQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || isUserLoading) return null;
     return query(
       collection(firestore, 'attendanceRecords'),
       where('employeeId', '==', user.uid),
       orderBy('timestamp', 'desc'),
       limit(5)
     );
-  }, [firestore, user]);
+  }, [firestore, user, isUserLoading]);
 
   const { data: recentRecords, isLoading: recordsLoading } = useCollection<AttendanceRecord>(attendanceQuery);
 
@@ -95,12 +96,11 @@ function TimeTrackingContent() {
         const photoPath = `attendance-photos/${user.uid}/${Date.now()}.jpg`;
         const storageRef = ref(storage, photoPath);
         
-        // Upload photo string
         await uploadString(storageRef, dataUrl, 'data_url');
         photoUrl = await getDownloadURL(storageRef);
       }
 
-      // 2. Get Location (Optional but recommended for point)
+      // 2. Get Location (Optional)
       let location = undefined;
       try {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -128,7 +128,7 @@ function TimeTrackingContent() {
 
       toast({
         title: 'Ponto Registrado!',
-        description: `Seu registro de ${type === 'clock_in' ? 'entrada' : 'saída'} foi salvo com sucesso.`,
+        description: `Seu registro de ${getAttendanceTypeLabel(type).toLowerCase()} foi salvo com sucesso.`,
       });
 
     } catch (error) {
@@ -155,6 +155,22 @@ function TimeTrackingContent() {
     };
     return labels[type];
   };
+
+  if (isUserLoading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <p className="text-muted-foreground">Por favor, faça login para acessar o controle de ponto.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
@@ -322,11 +338,6 @@ function TimeTrackingContent() {
       <canvas ref={canvasRef} className="hidden" />
     </div>
   );
-}
-
-// Utility function used in the component
-function cn(...inputs: (string | undefined | boolean)[]) {
-  return inputs.filter(Boolean).join(' ');
 }
 
 export default function TimeTrackingPage() {
