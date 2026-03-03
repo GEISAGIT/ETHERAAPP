@@ -1,10 +1,10 @@
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
-import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, Timestamp, limit } from 'firebase/firestore';
+import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase, useDoc, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, Timestamp, limit, doc } from 'firebase/firestore';
 import { useState, useRef, useEffect, Suspense, useMemo } from 'react';
-import { Camera, Clock, Loader2, History, Fingerprint, CalendarDays, ArrowRightLeft, AlertCircle } from 'lucide-react';
+import { Camera, Clock, Loader2, History, Fingerprint, CalendarDays, ArrowRightLeft, AlertCircle, Trash2, Eraser } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,17 @@ import { format, differenceInMinutes, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { AttendanceRecord, AttendanceType } from '@/lib/types';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import type { AttendanceRecord, AttendanceType, UserProfile } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 function TimeTrackingContent() {
@@ -24,14 +34,27 @@ function TimeTrackingContent() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Estado para exclusão
+  const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
+  const [isClearAllOpen, setIsClearAllOpen] = useState(false);
 
-  // Consulta todos os registros para filtrar em memória (mais resiliente a erros de permissão temporários)
+  // Perfil do usuário para checar se é admin
+  const userDocRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile } = useDoc<UserProfile>(userDocRef);
+  const isAdmin = userProfile?.role === 'admin';
+
+  // Consulta todos os registros para filtrar em memória
   const recordsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
       collection(firestore, 'attendanceRecords'),
       where('employeeId', '==', user.uid),
-      limit(200)
+      limit(500)
     );
   }, [firestore, user]);
 
@@ -102,7 +125,6 @@ function TimeTrackingContent() {
       type: nextPointType.type,
     };
 
-    // Salvamento instantâneo no Firebase
     addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), recordData);
     
     toast({ 
@@ -110,7 +132,6 @@ function TimeTrackingContent() {
       description: `${getAttendanceTypeLabel(nextPointType.type)} às ${format(new Date(), 'HH:mm')}.` 
     });
 
-    // Feedback visual breve para garantir fluidez
     setTimeout(() => setIsRecording(false), 600);
   };
 
@@ -122,6 +143,22 @@ function TimeTrackingContent() {
       break_end: 'Retorno Almoço'
     };
     return labels[type] || 'Ponto';
+  };
+
+  const handleConfirmDelete = () => {
+    if (!firestore || !recordToDelete) return;
+    deleteDocumentNonBlocking(doc(firestore, 'attendanceRecords', recordToDelete));
+    toast({ title: 'Registro Removido', description: 'O ponto selecionado foi excluído.' });
+    setRecordToDelete(null);
+  };
+
+  const handleConfirmClearAll = () => {
+    if (!firestore || !allRecords) return;
+    allRecords.forEach(record => {
+      deleteDocumentNonBlocking(doc(firestore, 'attendanceRecords', record.id));
+    });
+    toast({ title: 'Histórico Limpo', description: 'Todos os seus registros de ponto foram removidos.' });
+    setIsClearAllOpen(false);
   };
 
   // Agrupa o histórico por dia para a Folha de Ponto
@@ -179,6 +216,33 @@ function TimeTrackingContent() {
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
+      {/* Diálogos de Confirmação */}
+      <AlertDialog open={!!recordToDelete} onOpenChange={(open) => !open && setRecordToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir registro de ponto?</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação removerá permanentemente esta batida do sistema.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isClearAllOpen} onOpenChange={setIsClearAllOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar todo o histórico?</AlertDialogTitle>
+            <AlertDialogDescription>Você está prestes a excluir TODOS os seus registros de ponto. Esta ação é irreversível.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmClearAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Limpar Tudo</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Controle de Ponto</h1>
@@ -256,7 +320,7 @@ function TimeTrackingContent() {
                 ) : (
                   <div className="space-y-3">
                     {todayRecords.map((record) => (
-                      <div key={record.id} className="flex items-center justify-between p-3 border rounded-md bg-card">
+                      <div key={record.id} className="flex items-center justify-between p-3 border rounded-md bg-card group">
                         <div className="flex items-center gap-3">
                           <div className={cn("p-2 rounded-full", 
                             record.type === 'clock_in' ? "bg-emerald-500/10 text-emerald-600" : 
@@ -269,7 +333,19 @@ function TimeTrackingContent() {
                             <span className="text-xs text-muted-foreground">{formatRecordTime(record)}</span>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-200 uppercase">Sincronizado</Badge>
+                        <div className="flex items-center gap-2">
+                          {isAdmin && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => setRecordToDelete(record.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-200 uppercase">Sincronizado</Badge>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -287,11 +363,19 @@ function TimeTrackingContent() {
 
         <TabsContent value="timesheet">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ArrowRightLeft className="h-5 w-5 text-primary" /> Folha de Ponto Mensal
-              </CardTitle>
-              <CardDescription>Confira seus horários e total de horas trabalhadas.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ArrowRightLeft className="h-5 w-5 text-primary" /> Folha de Ponto Mensal
+                </CardTitle>
+                <CardDescription>Confira seus horários e total de horas trabalhadas.</CardDescription>
+              </div>
+              {isAdmin && allRecords && allRecords.length > 0 && (
+                <Button variant="outline" size="sm" className="text-destructive border-destructive/20 hover:bg-destructive/10" onClick={() => setIsClearAllOpen(true)}>
+                  <Eraser className="h-4 w-4 mr-2" />
+                  Limpar Histórico
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {recordsLoading ? (
@@ -311,6 +395,7 @@ function TimeTrackingContent() {
                         <TableHead>Retorno</TableHead>
                         <TableHead>Saída</TableHead>
                         <TableHead className="text-right">Horas Líquidas</TableHead>
+                        {isAdmin && <TableHead className="w-[50px]"></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -332,6 +417,19 @@ function TimeTrackingContent() {
                             <TableCell className="text-right font-mono font-bold text-primary">
                               {calculateTotalHours(day.records)}
                             </TableCell>
+                            {isAdmin && (
+                              <TableCell>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-8 w-8 text-destructive"
+                                  onClick={() => setIsClearAllOpen(true)}
+                                  title="Limpar dia"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })}
