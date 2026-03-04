@@ -106,6 +106,7 @@ export type Permissions = {
   hrTimesheet: CrudActions;
   employees: CrudActions;
   timeTracking: CrudActions;
+  timeCard: CrudActions;
 };
 
 
@@ -234,6 +235,15 @@ export type AttendanceRecord = {
     longitude: number;
   };
 };
+
+export type TimeClockEntry = {
+  id: string;
+  userId: string;
+  userName: string;
+  timestamp: Timestamp;
+  type: 'entrada' | 'saida_almoco' | 'volta_almoco' | 'saida';
+  dateStr: string; // YYYY-MM-DD
+}
 
 export type CoraToken = {
     userId: string;

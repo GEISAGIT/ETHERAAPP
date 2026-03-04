@@ -59,6 +59,7 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     hrTimesheet: { view: true, create: true, edit: true, delete: true },
     employees: { view: true, create: true, edit: true, delete: true },
     timeTracking: { view: true, create: true, edit: true, delete: true },
+    timeCard: { view: true, create: true, edit: true, delete: true },
   },
   user: {
     home: { view: true },
@@ -73,7 +74,8 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     settings: { view: false },
     hrTimesheet: { view: false, create: false, edit: false, delete: false },
     employees: { view: false, create: false, edit: false, delete: false },
-    timeTracking: { view: true, create: true, edit: false, delete: false }, // Usuário comum pode bater ponto
+    timeTracking: { view: true, create: true, edit: false, delete: false },
+    timeCard: { view: true, create: true, edit: false, delete: false },
   },
 };
 

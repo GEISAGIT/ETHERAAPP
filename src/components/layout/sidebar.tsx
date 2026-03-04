@@ -27,7 +27,8 @@ import {
   Wallet,
   ChevronRight,
   Home,
-  UserCheck
+  UserCheck,
+  ClipboardList
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -50,9 +51,10 @@ const financialMenuItems = [
 ];
 
 const hrMenuItems = [
-  { key: 'timeTracking' as MenuItemKey, href: '/hr/attendance', label: 'Controle de Ponto', icon: UserCheck },
+  { key: 'timeCard' as MenuItemKey, href: '/hr/time-card', label: 'Cartão de Ponto', icon: UserCheck },
+  { key: 'timeTracking' as MenuItemKey, href: '/hr/attendance', label: 'Controle de Ponto (Beta)', icon: Clock },
   { key: 'employees' as MenuItemKey, href: '/hr/employees', label: 'Cadastro de Funcionários', icon: Users },
-  { key: 'hrTimesheet' as MenuItemKey, href: '/hr/timesheet', label: 'Controle de Funcionários', icon: Clock },
+  { key: 'hrTimesheet' as MenuItemKey, href: '/hr/timesheet', label: 'Gestão de Horários', icon: ClipboardList },
 ];
 
 const managementMenuItems = [
