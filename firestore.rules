@@ -15,23 +15,30 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Verifica se o usuário logado tem o papel de 'admin'
-    // Adicionada verificação direta por e-mail para garantir acesso do administrador principal em produção
-    function isAdmin() {
-      if (!isSignedIn()) return false;
-      let isPrimaryAdmin = request.auth.token.email == 'grupodallax@gmail.com';
-      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
-      return isPrimaryAdmin || (exists(userPath) && get(userPath).data.role == 'admin');
+    // Administrador Mestre (Verificação direta por Token - Sem latência de banco)
+    function isMasterAdmin() {
+      return isSignedIn() && request.auth.token.email == 'grupodallax@gmail.com';
     }
 
-    // Função genérica para verificar permissões granulares no mapa de permissões
+    // Verifica se o usuário logado tem o papel de 'admin' no documento de perfil
+    function isAdmin() {
+      if (!isSignedIn()) return false;
+      if (isMasterAdmin()) return true;
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(userPath) && get(userPath).data.role == 'admin';
+    }
+
+    // Função genérica para verificar permissões granulares
     function hasPermission(module, action) {
       if (!isSignedIn()) return false;
-      if (isAdmin()) return true;
+      if (isMasterAdmin()) return true;
       
       let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
       if (!exists(userPath)) return false;
       let userData = get(userPath).data;
+      
+      // Se for admin no perfil, libera tudo
+      if (userData.role == 'admin') return true;
       
       return userData.get('permissions', {}).get(module, {}).get(action, false) == true;
     }
@@ -41,85 +48,99 @@ service cloud.firestore {
     // ----------------------------------------------------------------------
 
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin() || hasPermission('userManagement', 'view');
-      allow list: if isAdmin() || hasPermission('userManagement', 'view');
-      allow create: if isOwner(userId) || isAdmin() || hasPermission('employees', 'create') || hasPermission('userManagement', 'create');
-      allow update: if isOwner(userId) || isAdmin() || hasPermission('userManagement', 'edit');
-      allow delete: if isAdmin() || hasPermission('userManagement', 'delete');
+      allow get: if isOwner(userId) || isMasterAdmin() || isAdmin() || hasPermission('userManagement', 'view');
+      allow list: if isMasterAdmin() || isAdmin() || hasPermission('userManagement', 'view');
+      allow create: if isOwner(userId) || isMasterAdmin() || isAdmin();
+      allow update: if isOwner(userId) || isMasterAdmin() || isAdmin() || hasPermission('userManagement', 'edit');
+      allow delete: if isMasterAdmin() || isAdmin();
 
       match /coraTokens/{tokenId} {
-        allow read, write: if isOwner(userId) || isAdmin();
+        allow read, write: if isOwner(userId) || isMasterAdmin() || isAdmin();
       }
     }
 
     match /roles/{roleId} {
       allow get, list: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if isMasterAdmin() || isAdmin();
     }
     
     match /incomes/{docId} {
-        allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid || hasPermission('transactions', 'view'));
-        allow list: if isSignedIn() && (isAdmin() || hasPermission('transactions', 'view') || hasPermission('reports', 'view'));
-        allow create: if isAdmin() || hasPermission('transactions', 'create');
-        allow update: if isAdmin() || hasPermission('transactions', 'edit');
-        allow delete: if isAdmin() || hasPermission('transactions', 'delete');
+        allow get: if isSignedIn() && (isMasterAdmin() || isAdmin() || resource.data.userId == request.auth.uid || hasPermission('transactions', 'view'));
+        allow list: if isSignedIn() && (isMasterAdmin() || isAdmin() || hasPermission('transactions', 'view'));
+        allow create: if isMasterAdmin() || isAdmin() || hasPermission('transactions', 'create');
+        allow update: if isMasterAdmin() || isAdmin() || hasPermission('transactions', 'edit');
+        allow delete: if isMasterAdmin() || isAdmin() || hasPermission('transactions', 'delete');
     }
 
     match /expenses/{docId} {
-        allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid || hasPermission('transactions', 'view'));
-        allow list: if isSignedIn() && (isAdmin() || hasPermission('transactions', 'view') || hasPermission('reports', 'view'));
-        allow create: if isAdmin() || hasPermission('transactions', 'create');
-        allow update: if isAdmin() || hasPermission('transactions', 'edit');
-        allow delete: if isAdmin() || hasPermission('transactions', 'delete');
+        allow get: if isSignedIn() && (isMasterAdmin() || isAdmin() || resource.data.userId == request.auth.uid || hasPermission('transactions', 'view'));
+        allow list: if isSignedIn() && (isMasterAdmin() || isAdmin() || hasPermission('transactions', 'view'));
+        allow create: if isMasterAdmin() || isAdmin() || hasPermission('transactions', 'create');
+        allow update: if isMasterAdmin() || isAdmin() || hasPermission('transactions', 'edit');
+        allow delete: if isMasterAdmin() || isAdmin() || hasPermission('transactions', 'delete');
     }
 
     match /budgets/{budgetId} {
-      allow read: if isAdmin() || hasPermission('budgets', 'view') || (resource != null && resource.data.userId == request.auth.uid);
-      allow create: if isAdmin() || hasPermission('budgets', 'create');
-      allow update: if isAdmin() || hasPermission('budgets', 'edit');
-      allow delete: if isAdmin() || hasPermission('budgets', 'delete');
+      allow read: if isMasterAdmin() || isAdmin() || hasPermission('budgets', 'view') || (resource != null && resource.data.userId == request.auth.uid);
+      allow create: if isMasterAdmin() || isAdmin() || hasPermission('budgets', 'create');
+      allow update: if isMasterAdmin() || isAdmin() || hasPermission('budgets', 'edit');
+      allow delete: if isMasterAdmin() || isAdmin() || hasPermission('budgets', 'delete');
     }
 
     match /incomeCategories/{categoryId} {
         allow get, list: if isSignedIn();
         allow create: if isSignedIn();
-        allow update, delete: if isAdmin();
+        allow update, delete: if isMasterAdmin() || isAdmin();
     }
 
     match /expenseCategoryGroups/{groupId} {
         allow get, list: if isSignedIn();
-        allow write: if isAdmin();
+        allow write: if isMasterAdmin() || isAdmin();
     }
 
     match /contracts/{contractId} {
-      allow read, list: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid || hasPermission('transactions', 'view'));
-      allow create: if isAdmin() || hasPermission('transactions', 'create') || hasPermission('settings', 'view');
-      allow update: if isAdmin() || hasPermission('transactions', 'edit') || hasPermission('settings', 'view');
-      allow delete: if isAdmin() || hasPermission('transactions', 'delete') || hasPermission('settings', 'view');
+      allow get: if isSignedIn() && (isMasterAdmin() || isAdmin() || resource.data.userId == request.auth.uid || hasPermission('transactions', 'view'));
+      allow list: if isSignedIn() && (isMasterAdmin() || isAdmin() || hasPermission('transactions', 'view'));
+      allow create: if isMasterAdmin() || isAdmin() || hasPermission('transactions', 'create') || hasPermission('settings', 'view');
+      allow update: if isMasterAdmin() || isAdmin() || hasPermission('transactions', 'edit') || hasPermission('settings', 'view');
+      allow delete: if isMasterAdmin() || isAdmin() || hasPermission('transactions', 'delete') || hasPermission('settings', 'view');
     }
 
     match /employees/{employeeId} {
-      allow read, list: if isAdmin() || hasPermission('employees', 'view') || hasPermission('timeTracking', 'view');
-      allow create: if isAdmin() || hasPermission('employees', 'create');
-      allow update: if isAdmin() || hasPermission('employees', 'edit');
-      allow delete: if isAdmin() || hasPermission('employees', 'delete');
+      allow get: if isSignedIn() && (isMasterAdmin() || isAdmin() || hasPermission('employees', 'view'));
+      allow list: if isSignedIn() && (isMasterAdmin() || isAdmin() || hasPermission('employees', 'view'));
+      allow create: if isMasterAdmin() || isAdmin() || hasPermission('employees', 'create');
+      allow update: if isMasterAdmin() || isAdmin() || hasPermission('employees', 'edit');
+      allow delete: if isMasterAdmin() || isAdmin() || hasPermission('employees', 'delete');
     }
 
     match /attendanceRecords/{recordId} {
-      // Dono sempre pode ler seus próprios pontos. Admin/RH podem ler tudo se tiverem permissão.
-      allow read: if isSignedIn() && (
+      // Regra para visualizar histórico (lista)
+      // Se for Admin ou tiver permissão de RH, vê tudo.
+      // Se for usuário comum, o Firestore exige que a query tenha o filtro 'employeeId == uid'
+      allow list: if isSignedIn() && (
+        isMasterAdmin() || 
         isAdmin() || 
         hasPermission('timeTracking', 'view') ||
-        (resource != null && resource.data.employeeId == request.auth.uid) ||
-        (resource == null) // Permite listar se houver filtros de consulta
+        (request.query.limit <= 500 && resource.data.employeeId == request.auth.uid)
       );
-      // Qualquer um logado pode registrar o próprio ponto se tiver permissão de criação
+
+      // Regra para ver um documento específico
+      allow get: if isSignedIn() && (
+        isMasterAdmin() || 
+        isAdmin() || 
+        hasPermission('timeTracking', 'view') || 
+        resource.data.employeeId == request.auth.uid
+      );
+
       allow create: if isSignedIn() && (
+        isMasterAdmin() || 
         isAdmin() || 
         (request.resource.data.employeeId == request.auth.uid && hasPermission('timeTracking', 'create')) || 
         hasPermission('hrTimesheet', 'create')
       );
-      allow update, delete: if isAdmin() || hasPermission('hrTimesheet', 'edit');
+
+      allow update, delete: if isMasterAdmin() || isAdmin() || hasPermission('hrTimesheet', 'edit');
     }
   }
 }
