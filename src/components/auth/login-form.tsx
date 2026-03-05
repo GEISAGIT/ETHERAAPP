@@ -29,9 +29,9 @@ export function LoginForm() {
   const handleUserDocument = async (user: User, isNewUser: boolean = false) => {
     if (!firestore) return null;
     const userDocRef = doc(firestore, 'users', user.uid);
-    // E-mail do administrador mestre
-    const isAdminEmail = user.email?.toLowerCase() === 'grupodallax@gmail.com';
-    const defaultPhotoUrl = 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media&token=c68144ba-c10e-4921-8fe7-eb791d34eebe';
+    const emailLower = user.email?.toLowerCase();
+    const isAdminEmail = emailLower === 'grupodallax@gmail.com' || emailLower === 'vasin71888@him6.com';
+    const defaultPhotoUrl = 'https://firebasestorage.googleapis.com/v0/b/clinicflow-api-banc-3871-3813b.appspot.com/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media';
 
     try {
       const docSnap = await getDoc(userDocRef);
@@ -55,21 +55,12 @@ export function LoginForm() {
           permissions: defaultPermissions[initialRole],
         };
         await setDoc(userDocRef, newUserProfile);
-        
-        if (isNewUser) {
-          if (isAdminEmail) {
-             toast({ title: "Bem-vindo Administrador!", description: "Sua conta de administrador foi criada e está ativa." });
-          } else {
-            toast({ title: "Cadastro realizado com sucesso!", description: "Sua conta foi criada e está pendente de aprovação." });
-          }
-        }
         return newUserProfile;
       } else {
-        // MIGRAÇÃO / REPARO: Se o documento existe mas faltam campos essenciais
         const currentData = docSnap.data() as UserProfile;
         const updates: Partial<UserProfile> = {};
         
-        // Garante que o administrador mestre sempre tenha permissão total em produção
+        // Garante que o administrador mestre sempre tenha permissão total
         if (isAdminEmail) {
           if (currentData.role !== 'admin' || currentData.status !== 'active') {
             updates.role = 'admin';
@@ -78,7 +69,7 @@ export function LoginForm() {
           }
         }
 
-        // Garante que o campo de permissões exista para qualquer usuário
+        // Auto-reparo de perfis antigos sem o campo permissions
         if (!currentData.permissions) {
           updates.permissions = defaultPermissions[currentData.role || 'user'];
         }
@@ -93,10 +84,7 @@ export function LoginForm() {
 
     } catch (error) {
       console.error("Erro ao gerenciar documento do usuário:", error);
-      // Fallback para admin mestre se o erro for apenas de permissão ao ler o próprio perfil
-      if (isAdminEmail) {
-          return { role: 'admin', status: 'active' } as any;
-      }
+      if (isAdminEmail) return { role: 'admin', status: 'active' } as any;
       throw error;
     }
   };
@@ -104,7 +92,7 @@ export function LoginForm() {
   const handleAuthAction = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!auth || !email || !password || (isSignUp && !name)) {
-      toast({ variant: "destructive", title: "Erro", description: "Por favor, preencha todos os campos." });
+      toast({ variant: "destructive", title: "Erro", description: "Preencha todos os campos." });
       return;
     }
     setIsLoading(true);
@@ -115,34 +103,23 @@ export function LoginForm() {
         await updateProfile(userCredential.user, { displayName: name });
         await handleUserDocument(userCredential.user, true);
         setIsSignUp(false);
+        toast({ title: "Cadastro realizado!", description: "Sua conta aguarda aprovação." });
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const userProfile = await handleUserDocument(userCredential.user, false);
 
         if (userProfile?.status !== 'active') {
-          const message = userProfile?.status === 'pending'
-            ? 'Sua conta está pendente de aprovação. Contate o administrador.'
-            : 'Sua conta foi rejeitada. Contate o administrador.';
-          
           await signOut(auth);
-          toast({ variant: "destructive", title: "Acesso Negado", description: message });
+          toast({ variant: "destructive", title: "Acesso Pendente", description: "Sua conta ainda não foi ativada pelo administrador." });
         } else {
            router.push('/');
         }
       }
     } catch (error: any) {
       console.error(error);
-      let message = "Ocorreu um erro. Tente novamente.";
-      if (error.code) {
-        switch (error.code) {
-            case 'auth/email-already-in-use': message = "Este email já está em uso."; break;
-            case 'auth/wrong-password':
-            case 'auth/user-not-found':
-            case 'auth/invalid-credential': message = "Email ou senha inválidos."; break;
-            case 'auth/weak-password': message = "A senha deve ter pelo menos 6 caracteres."; break;
-        }
-      }
-      toast({ variant: "destructive", title: isSignUp ? "Erro no Cadastro" : "Erro de Login", description: message });
+      let message = "E-mail ou senha inválidos.";
+      if (error.code === 'auth/email-already-in-use') message = "E-mail já cadastrado.";
+      toast({ variant: "destructive", title: "Falha na Autenticação", description: message });
     } finally {
       setIsLoading(false);
     }
@@ -156,7 +133,7 @@ export function LoginForm() {
     setIsLoading(true);
     try {
       await sendPasswordResetEmail(auth, email);
-      toast({ title: "Email de redefinição enviado", description: "Verifique sua caixa de entrada." });
+      toast({ title: "Sucesso", description: "E-mail de redefinição enviado." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: "Não foi possível enviar o email." });
     } finally {
@@ -171,7 +148,7 @@ export function LoginForm() {
           {isSignUp ? 'Crie sua conta' : 'Acesse sua conta'}
         </CardTitle>
         <CardDescription>
-          {isSignUp ? 'Preencha os campos para se cadastrar.' : 'Bem-vindo de volta!'}
+          {isSignUp ? 'Preencha os campos para se cadastrar.' : 'Bem-vindo à Ethera!'}
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleAuthAction}>

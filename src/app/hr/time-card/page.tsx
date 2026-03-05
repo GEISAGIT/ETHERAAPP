@@ -29,15 +29,15 @@ function TimeCardContent() {
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   
-  // Consulta otimizada para produção: userId filtrado e limite explícito
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
+    // O filtro de userId é OBRIGATÓRIO para bater com a regra de segurança de produção
     return query(
       collection(firestore, 'timeEntries'),
       where('userId', '==', user.uid),
       where('dateStr', '==', todayStr),
       orderBy('timestamp', 'asc'),
-      limit(100) // Limite pequeno para carregamento instantâneo
+      limit(100)
     );
   }, [firestore, user, todayStr]);
 
@@ -75,8 +75,9 @@ function TimeCardContent() {
   const safeFormatTime = (ts: any) => {
     if (!ts) return '--:--';
     try {
-      // Tratamento para evitar erro de .toDate() em dados pendentes do Firestore
-      const date = ts instanceof Timestamp ? ts.toDate() : (ts.seconds ? new Date(ts.seconds * 1000) : new Date());
+      // Evita o erro de "seconds" verificando se o dado já foi processado pelo Firestore
+      const date = ts instanceof Timestamp ? ts.toDate() : 
+                   (ts.seconds ? new Date(ts.seconds * 1000) : new Date());
       return format(date, 'HH:mm:ss');
     } catch (e) {
       return '--:--';
@@ -101,24 +102,24 @@ function TimeCardContent() {
       {entriesError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Erro de Permissão na Produção</AlertTitle>
+          <AlertTitle>Erro de Permissão em Produção</AlertTitle>
           <AlertDescription>
-            O banco de dados bloqueou a leitura. Verifique se você está logado com o e-mail correto.
+            Certifique-se de que seu usuário tem a permissão "Cartão de Ponto" ativa no Gerenciador de Usuários.
           </AlertDescription>
         </Alert>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Button size="lg" className="h-20 text-md flex-col gap-1" onClick={() => handleClockAction('entrada')} disabled={isSubmitting}>
+        <Button size="lg" className="h-20 text-md flex-col gap-1 shadow-lg active:scale-95 transition-all" onClick={() => handleClockAction('entrada')} disabled={isSubmitting}>
           <LogIn className="h-5 w-5" /> Entrada
         </Button>
-        <Button size="lg" variant="outline" className="h-20 text-md flex-col gap-1" onClick={() => handleClockAction('saida_almoco')} disabled={isSubmitting}>
+        <Button size="lg" variant="outline" className="h-20 text-md flex-col gap-1 active:scale-95 transition-all" onClick={() => handleClockAction('saida_almoco')} disabled={isSubmitting}>
           <Coffee className="h-5 w-5" /> Almoço (S)
         </Button>
-        <Button size="lg" variant="outline" className="h-20 text-md flex-col gap-1" onClick={() => handleClockAction('volta_almoco')} disabled={isSubmitting}>
+        <Button size="lg" variant="outline" className="h-20 text-md flex-col gap-1 active:scale-95 transition-all" onClick={() => handleClockAction('volta_almoco')} disabled={isSubmitting}>
           <History className="h-5 w-5" /> Almoço (R)
         </Button>
-        <Button size="lg" variant="destructive" className="h-20 text-md flex-col gap-1" onClick={() => handleClockAction('saida')} disabled={isSubmitting}>
+        <Button size="lg" variant="destructive" className="h-20 text-md flex-col gap-1 shadow-md active:scale-95 transition-all" onClick={() => handleClockAction('saida')} disabled={isSubmitting}>
           <LogOut className="h-5 w-5" /> Saída
         </Button>
       </div>
@@ -148,7 +149,7 @@ function TimeCardContent() {
                 {entries.map((entry) => (
                   <TableRow key={entry.id}>
                     <TableCell className="font-medium capitalize">{entry.type.replace('_', ' ')}</TableCell>
-                    <TableCell className="text-right font-mono font-bold">{safeFormatTime(entry.timestamp)}</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-primary">{safeFormatTime(entry.timestamp)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

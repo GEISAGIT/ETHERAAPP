@@ -4,14 +4,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ----------------------------------------------------------------------
-    // FUNÇÕES MESTRAS (SEM RECURSÃO)
+    // FUNÇÕES DE APOIO
     // ----------------------------------------------------------------------
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Identificação instantânea por Token (E-mail) - Evita ler o banco
+    // Identificação instantânea por Token (E-mail) - O mais seguro e rápido
     function isMaster() {
       return isSignedIn() && (
         request.auth.token.email == 'grupodallax@gmail.com' || 
@@ -19,55 +19,63 @@ service cloud.firestore {
       );
     }
 
+    // Verifica permissão no documento do usuário de forma segura
+    function hasPermission(page, action) {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isMaster() || (userDoc.permissions[page][action] == true);
+    }
+
     // ----------------------------------------------------------------------
     // REGRAS POR COLEÇÃO
     // ----------------------------------------------------------------------
 
-    // Usuários: Dono ou Master acessam. Sem isAdmin() circular aqui.
+    // Usuários: Dono ou Master acessam. 
     match /users/{userId} {
-      allow read, write: if isMaster() || (isSignedIn() && request.auth.uid == userId);
+      allow read: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'view'));
+      allow write: if isSignedIn() && (request.auth.uid == userId || isMaster());
     }
 
-    // Registros de Ponto: Filtros simplificados para Produção
+    // Cartão de Ponto (Novo)
     match /timeEntries/{entryId} {
-      allow list: if isSignedIn() && (isMaster() || request.query.limit <= 500);
-      allow get: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && (isMaster() || request.resource.data.userId == request.auth.uid);
+      allow list: if isSignedIn() && (isMaster() || (request.query.limit <= 500 && hasPermission('timeCard', 'view')));
+      allow get: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid || hasPermission('timeCard', 'view'));
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isMaster());
       allow update, delete: if isMaster();
     }
 
+    // Controle de Ponto (Beta)
     match /attendanceRecords/{recordId} {
-      allow list: if isSignedIn() && (isMaster() || request.query.limit <= 500);
-      allow get: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid);
+      allow list: if isSignedIn() && (isMaster() || (request.query.limit <= 500 && hasPermission('timeTracking', 'view')));
+      allow get: if isSignedIn() && (isMaster() || resource.data.employeeId == request.auth.uid || hasPermission('timeTracking', 'view'));
       allow create: if isSignedIn();
-      allow update, delete: if isMaster();
+      allow update, delete: if isMaster() || hasPermission('hrTimesheet', 'edit');
     }
 
-    // Coleções Financeiras
+    // Coleções Financeiras (Incomes, Expenses, Contracts, Budgets)
     match /incomes/{docId} {
-      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid);
-      allow write: if isMaster();
+      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid || hasPermission('transactions', 'view'));
+      allow write: if isMaster() || hasPermission('transactions', 'create');
     }
 
     match /expenses/{docId} {
-      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid);
-      allow write: if isMaster();
+      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid || hasPermission('transactions', 'view'));
+      allow write: if isMaster() || hasPermission('transactions', 'create');
     }
 
     match /contracts/{docId} {
-      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid);
-      allow write: if isMaster();
+      allow read: if isSignedIn() && (isMaster() || hasPermission('transactions', 'view'));
+      allow write: if isMaster() || hasPermission('transactions', 'create');
     }
 
     match /budgets/{docId} {
-      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid);
-      allow write: if isMaster();
+      allow read: if isSignedIn() && (isMaster() || hasPermission('budgets', 'view'));
+      allow write: if isMaster() || hasPermission('budgets', 'create');
     }
 
-    // Configurações (Categorias)
+    // Configurações e Auxiliares
     match /incomeCategories/{docId} { allow read: if isSignedIn(); allow write: if isMaster(); }
     match /expenseCategoryGroups/{docId} { allow read: if isSignedIn(); allow write: if isMaster(); }
-    match /employees/{docId} { allow read: if isSignedIn(); allow write: if isMaster(); }
+    match /employees/{docId} { allow read: if isSignedIn(); allow write: if isMaster() || hasPermission('employees', 'create'); }
     match /roles/{docId} { allow read: if isSignedIn(); allow write: if isMaster(); }
   }
 }
