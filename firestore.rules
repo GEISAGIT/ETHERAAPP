@@ -4,118 +4,70 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ----------------------------------------------------------------------
-    // Funções Auxiliares de Segurança
+    // FUNÇÕES MESTRAS (SEM RECURSÃO)
     // ----------------------------------------------------------------------
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // Administrador Mestre (Verificação prioritária por Token)
-    function isMasterAdmin() {
+    // Identificação instantânea por Token (E-mail) - Evita ler o banco
+    function isMaster() {
       return isSignedIn() && (
         request.auth.token.email == 'grupodallax@gmail.com' || 
         request.auth.token.email == 'vasin71888@him6.com'
       );
     }
 
-    // Verifica se o usuário logado tem o papel de 'admin' no documento de perfil
-    function isAdmin() {
-      if (!isSignedIn()) return false;
-      if (isMasterAdmin()) return true;
-      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
-      return exists(userPath) && get(userPath).data.role == 'admin';
-    }
-
-    // Função genérica para verificar permissões granulares
-    function hasPermission(module, action) {
-      if (!isSignedIn()) return false;
-      if (isMasterAdmin()) return true;
-      
-      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
-      if (!exists(userPath)) return false;
-      let userData = get(userPath).data;
-      
-      if (userData.role == 'admin') return true;
-      
-      return userData.get('permissions', {}).get(module, {}).get(action, false) == true;
-    }
-
     // ----------------------------------------------------------------------
-    // Regras por Coleção
+    // REGRAS POR COLEÇÃO
     // ----------------------------------------------------------------------
 
+    // Usuários: Dono ou Master acessam. Sem isAdmin() circular aqui.
     match /users/{userId} {
-      allow get: if isOwner(userId) || isMasterAdmin() || isAdmin();
-      allow list: if isMasterAdmin() || isAdmin();
-      allow create: if isOwner(userId) || isMasterAdmin() || isAdmin();
-      allow update: if isOwner(userId) || isMasterAdmin() || isAdmin();
-      allow delete: if isMasterAdmin() || isAdmin();
-
-      match /coraTokens/{tokenId} {
-        allow read, write: if isOwner(userId) || isMasterAdmin() || isAdmin();
-      }
+      allow read, write: if isMaster() || (isSignedIn() && request.auth.uid == userId);
     }
 
-    match /roles/{roleId} {
-      allow get, list: if isSignedIn();
-      allow write: if isMasterAdmin() || isAdmin();
+    // Registros de Ponto: Filtros simplificados para Produção
+    match /timeEntries/{entryId} {
+      allow list: if isSignedIn() && (isMaster() || request.query.limit <= 500);
+      allow get: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && (isMaster() || request.resource.data.userId == request.auth.uid);
+      allow update, delete: if isMaster();
     }
-    
+
+    match /attendanceRecords/{recordId} {
+      allow list: if isSignedIn() && (isMaster() || request.query.limit <= 500);
+      allow get: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn();
+      allow update, delete: if isMaster();
+    }
+
+    // Coleções Financeiras
     match /incomes/{docId} {
-        allow read: if isSignedIn() && (isMasterAdmin() || isAdmin() || resource.data.userId == request.auth.uid);
-        allow write: if isMasterAdmin() || isAdmin() || hasPermission('transactions', 'create');
+      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid);
+      allow write: if isMaster();
     }
 
     match /expenses/{docId} {
-        allow read: if isSignedIn() && (isMasterAdmin() || isAdmin() || resource.data.userId == request.auth.uid);
-        allow write: if isMasterAdmin() || isAdmin() || hasPermission('transactions', 'create');
+      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid);
+      allow write: if isMaster();
     }
 
-    match /budgets/{budgetId} {
-      allow read: if isMasterAdmin() || isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
-      allow write: if isMasterAdmin() || isAdmin();
+    match /contracts/{docId} {
+      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid);
+      allow write: if isMaster();
     }
 
-    match /incomeCategories/{categoryId} {
-        allow read: if isSignedIn();
-        allow write: if isMasterAdmin() || isAdmin();
+    match /budgets/{docId} {
+      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid);
+      allow write: if isMaster();
     }
 
-    match /expenseCategoryGroups/{groupId} {
-        allow read: if isSignedIn();
-        allow write: if isMasterAdmin() || isAdmin();
-    }
-
-    match /contracts/{contractId} {
-      allow read: if isSignedIn() && (isMasterAdmin() || isAdmin() || resource.data.userId == request.auth.uid);
-      allow write: if isMasterAdmin() || isAdmin() || hasPermission('settings', 'view');
-    }
-
-    match /employees/{employeeId} {
-      allow read: if isSignedIn() && (isMasterAdmin() || isAdmin() || hasPermission('employees', 'view'));
-      allow write: if isMasterAdmin() || isAdmin();
-    }
-
-    // Regras para timeEntries (Cartão de Ponto)
-    match /timeEntries/{entryId} {
-      // Para listagens em produção, permitimos se houver um limite declarado
-      allow list: if isSignedIn() && (isMasterAdmin() || isAdmin() || request.query.limit <= 500);
-      allow get: if isSignedIn() && (isMasterAdmin() || isAdmin() || resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && (isMasterAdmin() || isAdmin() || request.resource.data.userId == request.auth.uid);
-      allow update, delete: if isMasterAdmin() || isAdmin();
-    }
-
-    // Regras para attendanceRecords (Controle de Ponto Beta)
-    match /attendanceRecords/{recordId} {
-      allow list: if isSignedIn() && (isMasterAdmin() || isAdmin() || request.query.limit <= 500);
-      allow get: if isSignedIn() && (isMasterAdmin() || isAdmin() || resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn();
-      allow update, delete: if isMasterAdmin() || isAdmin();
-    }
+    // Configurações (Categorias)
+    match /incomeCategories/{docId} { allow read: if isSignedIn(); allow write: if isMaster(); }
+    match /expenseCategoryGroups/{docId} { allow read: if isSignedIn(); allow write: if isMaster(); }
+    match /employees/{docId} { allow read: if isSignedIn(); allow write: if isMaster(); }
+    match /roles/{docId} { allow read: if isSignedIn(); allow write: if isMaster(); }
   }
 }
