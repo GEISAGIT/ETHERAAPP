@@ -59,7 +59,7 @@ const hrMenuItems = [
 
 const managementMenuItems = [
   { key: 'upload' as MenuItemKey, href: '/upload', label: 'Upload', icon: Upload },
-  { key: 'userManagement' as MenuItemKey, href: '/user-management', label: 'Gerenciar Usuários', icon: Users, adminOnly: true },
+  { key: 'userManagement' as MenuItemKey, href: '/user-management', label: 'Gerenciar Usuários', icon: Users },
 ];
 
 const userMenuItems = [
@@ -80,36 +80,36 @@ export function AppSidebar() {
 
   const { data: userProfile } = useDoc<UserProfile>(userDocRef);
   
+  // Função que filtra os itens baseando-se RIGOROSAMENTE no que você definiu no painel Admin
   const filterMenuItems = (items: any[]) => {
-    const isAdmin = userProfile?.role === 'admin';
+    const emailLower = user?.email?.toLowerCase();
+    const isAdminMaster = emailLower === 'grupodallax@gmail.com' || emailLower === 'vasin71888@him6.com';
+
+    if (isAdminMaster) return items; // Dono vê tudo
 
     if (!userProfile) {
-        return items.filter(item => !item.adminOnly && (item.key === 'profile' || item.key === 'home'));
+        return items.filter(item => item.key === 'profile' || item.key === 'home');
     }
 
     return items.filter(item => {
-        if (isAdmin) return true;
-        if (item.adminOnly) return false;
-
         const pagePermissions = userProfile.permissions?.[item.key as keyof Permissions];
+        // Se no admin o campo "Visualizar" estiver checado, o item aparece aqui
         if (pagePermissions && 'view' in pagePermissions) {
-          return pagePermissions.view;
+          return pagePermissions.view === true;
         }
         return false;
     });
   };
 
-  const homeVisible = useMemo(() => filterMenuItems([homeItem]).length > 0, [userProfile]);
-  const dashboardVisible = useMemo(() => filterMenuItems([dashboardItem]).length > 0, [userProfile]);
-  const financialItems = useMemo(() => filterMenuItems(financialMenuItems), [userProfile]);
-  const hrItems = useMemo(() => filterMenuItems(hrMenuItems), [userProfile]);
-  const managementItems = useMemo(() => filterMenuItems(managementMenuItems), [userProfile]);
-  const userItems = useMemo(() => filterMenuItems(userMenuItems), [userProfile]);
+  const homeVisible = useMemo(() => filterMenuItems([homeItem]).length > 0, [userProfile, user]);
+  const dashboardVisible = useMemo(() => filterMenuItems([dashboardItem]).length > 0, [userProfile, user]);
+  const financialItems = useMemo(() => filterMenuItems(financialMenuItems), [userProfile, user]);
+  const hrItems = useMemo(() => filterMenuItems(hrMenuItems), [userProfile, user]);
+  const managementItems = useMemo(() => filterMenuItems(managementMenuItems), [userProfile, user]);
+  const userItems = useMemo(() => filterMenuItems(userMenuItems), [userProfile, user]);
 
   const isActive = (href: string) => {
-    if (href === '/settings') {
-      return pathname.startsWith('/settings');
-    }
+    if (href === '/settings') return pathname.startsWith('/settings');
     return pathname === href;
   };
 
@@ -122,43 +122,25 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2 space-y-2">
-        {/* Main Links - Fixed */}
         <SidebarGroup>
           <SidebarMenu>
             {homeVisible && (
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActive(homeItem.href)}
-                  tooltip={{ children: homeItem.label, side: 'right' }}
-                  className={isActive(homeItem.href) ? 'text-primary font-bold' : 'text-primary'}
-                >
-                  <Link href={homeItem.href}>
-                    <homeItem.icon className={isActive(homeItem.href) ? 'text-primary' : ''} />
-                    <span>{homeItem.label}</span>
-                  </Link>
+                <SidebarMenuButton asChild isActive={isActive(homeItem.href)} className={isActive(homeItem.href) ? 'text-primary font-bold' : 'text-primary'}>
+                  <Link href={homeItem.href}><homeItem.icon /><span>{homeItem.label}</span></Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )}
             {dashboardVisible && (
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActive(dashboardItem.href)}
-                  tooltip={{ children: dashboardItem.label, side: 'right' }}
-                  className={isActive(dashboardItem.href) ? 'text-primary font-bold' : 'text-primary'}
-                >
-                  <Link href={dashboardItem.href}>
-                    <dashboardItem.icon className={isActive(dashboardItem.href) ? 'text-primary' : ''} />
-                    <span>{dashboardItem.label}</span>
-                  </Link>
+                <SidebarMenuButton asChild isActive={isActive(dashboardItem.href)} className={isActive(dashboardItem.href) ? 'text-primary font-bold' : 'text-primary'}>
+                  <Link href={dashboardItem.href}><dashboardItem.icon /><span>{dashboardItem.label}</span></Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )}
           </SidebarMenu>
         </SidebarGroup>
 
-        {/* Financeiro Group */}
         {financialItems.length > 0 && (
           <Collapsible asChild defaultOpen={false} className="group/collapsible">
             <SidebarGroup>
@@ -166,7 +148,7 @@ export function AppSidebar() {
                 <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">
                   <Wallet className="h-3.5 w-3.5 text-primary" />
                   <span>Financeiro</span>
-                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 text-primary" />
+                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>
               <CollapsibleContent>
@@ -174,16 +156,8 @@ export function AppSidebar() {
                   <SidebarMenu>
                     {financialItems.map(({ href, label, icon: Icon }) => (
                       <SidebarMenuItem key={href}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={isActive(href)}
-                          tooltip={{ children: label, side: 'right' }}
-                          className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}
-                        >
-                          <Link href={href}>
-                            <Icon className={isActive(href) ? 'text-primary' : ''} />
-                            <span>{label}</span>
-                          </Link>
+                        <SidebarMenuButton asChild isActive={isActive(href)} className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}>
+                          <Link href={href}><Icon /><span>{label}</span></Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     ))}
@@ -194,7 +168,6 @@ export function AppSidebar() {
           </Collapsible>
         )}
 
-        {/* Recursos Humanos Group */}
         {hrItems.length > 0 && (
           <Collapsible asChild defaultOpen={false} className="group/collapsible">
             <SidebarGroup>
@@ -202,7 +175,7 @@ export function AppSidebar() {
                 <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">
                   <Briefcase className="h-3.5 w-3.5 text-primary" />
                   <span>Recursos Humanos</span>
-                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 text-primary" />
+                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>
               <CollapsibleContent>
@@ -210,16 +183,8 @@ export function AppSidebar() {
                   <SidebarMenu>
                     {hrItems.map(({ href, label, icon: Icon }) => (
                       <SidebarMenuItem key={href}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={isActive(href)}
-                          tooltip={{ children: label, side: 'right' }}
-                          className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}
-                        >
-                          <Link href={href}>
-                            <Icon className={isActive(href) ? 'text-primary' : ''} />
-                            <span>{label}</span>
-                          </Link>
+                        <SidebarMenuButton asChild isActive={isActive(href)} className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}>
+                          <Link href={href}><Icon /><span>{label}</span></Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     ))}
@@ -230,7 +195,6 @@ export function AppSidebar() {
           </Collapsible>
         )}
 
-        {/* Gestão e Administração Group */}
         {managementItems.length > 0 && (
           <Collapsible asChild defaultOpen={false} className="group/collapsible">
             <SidebarGroup>
@@ -238,7 +202,7 @@ export function AppSidebar() {
                 <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">
                   <Settings className="h-3.5 w-3.5 text-primary" />
                   <span>Administração</span>
-                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 text-primary" />
+                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>
               <CollapsibleContent>
@@ -246,16 +210,8 @@ export function AppSidebar() {
                   <SidebarMenu>
                     {managementItems.map(({ href, label, icon: Icon }) => (
                       <SidebarMenuItem key={href}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={isActive(href)}
-                          tooltip={{ children: label, side: 'right' }}
-                          className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}
-                        >
-                          <Link href={href}>
-                            <Icon className={isActive(href) ? 'text-primary' : ''} />
-                            <span>{label}</span>
-                          </Link>
+                        <SidebarMenuButton asChild isActive={isActive(href)} className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}>
+                          <Link href={href}><Icon /><span>{label}</span></Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     ))}
@@ -266,14 +222,13 @@ export function AppSidebar() {
           </Collapsible>
         )}
 
-        {/* User Group */}
         <Collapsible asChild defaultOpen={false} className="group/collapsible">
           <SidebarGroup>
             <SidebarGroupLabel asChild>
               <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">
                 <User className="h-3.5 w-3.5 text-primary" />
                 <span>Usuário</span>
-                <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 text-primary" />
+                <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
               </CollapsibleTrigger>
             </SidebarGroupLabel>
             <CollapsibleContent>
@@ -281,16 +236,8 @@ export function AppSidebar() {
                 <SidebarMenu>
                   {userItems.map(({ href, label, icon: Icon }) => (
                     <SidebarMenuItem key={href}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={isActive(href)}
-                        tooltip={{ children: label, side: 'right' }}
-                        className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}
-                      >
-                        <Link href={href}>
-                          <Icon className={isActive(href) ? 'text-primary' : ''} />
-                          <span>{label}</span>
-                        </Link>
+                      <SidebarMenuButton asChild isActive={isActive(href)} className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}>
+                        <Link href={href}><Icon /><span>{label}</span></Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}

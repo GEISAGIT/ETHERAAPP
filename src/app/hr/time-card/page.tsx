@@ -29,9 +29,9 @@ function TimeCardContent() {
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   
+  // Consulta otimizada para Produção: Inclui userId e Limit para bater com as regras de segurança
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    // O filtro de userId é OBRIGATÓRIO para bater com a regra de segurança de produção
     return query(
       collection(firestore, 'timeEntries'),
       where('userId', '==', user.uid),
@@ -75,7 +75,7 @@ function TimeCardContent() {
   const safeFormatTime = (ts: any) => {
     if (!ts) return '--:--';
     try {
-      // Evita o erro de "seconds" verificando se o dado já foi processado pelo Firestore
+      // Tratamento ultra-seguro para evitar o erro de "seconds" em produção
       const date = ts instanceof Timestamp ? ts.toDate() : 
                    (ts.seconds ? new Date(ts.seconds * 1000) : new Date());
       return format(date, 'HH:mm:ss');
@@ -104,7 +104,7 @@ function TimeCardContent() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Erro de Permissão em Produção</AlertTitle>
           <AlertDescription>
-            Certifique-se de que seu usuário tem a permissão "Cartão de Ponto" ativa no Gerenciador de Usuários.
+            O acesso a esta página depende da permissão "Controle de Ponto" estar ativa no seu perfil de usuário.
           </AlertDescription>
         </Alert>
       )}
