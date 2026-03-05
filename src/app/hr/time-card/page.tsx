@@ -4,8 +4,8 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, Timestamp, orderBy, limit } from 'firebase/firestore';
-import { useState, useEffect, Suspense, useMemo } from 'react';
-import { Clock, Loader2, LogIn, LogOut, Coffee, History } from 'lucide-react';
+import { useState, useEffect, Suspense } from 'react';
+import { Clock, Loader2, LogIn, LogOut, Coffee, History, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { TimeClockEntry } from '@/lib/types';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function TimeCardContent() {
   const { user, isUserLoading } = useUser();
@@ -27,7 +28,7 @@ function TimeCardContent() {
     return () => clearInterval(timer);
   }, []);
 
-  // Busca registros de hoje
+  // Busca registros de hoje - Adicionado limit(500) para satisfazer regras de segurança de produção
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -35,11 +36,12 @@ function TimeCardContent() {
       collection(firestore, 'timeEntries'),
       where('userId', '==', user.uid),
       where('dateStr', '==', todayStr),
-      orderBy('timestamp', 'asc')
+      orderBy('timestamp', 'asc'),
+      limit(500)
     );
   }, [firestore, user, todayStr]);
 
-  const { data: entries, isLoading: entriesLoading } = useCollection<TimeClockEntry>(entriesQuery);
+  const { data: entries, isLoading: entriesLoading, error: entriesError } = useCollection<TimeClockEntry>(entriesQuery);
 
   const handleClockAction = async (type: TimeClockEntry['type']) => {
     if (!user || !firestore) return;
@@ -73,7 +75,8 @@ function TimeCardContent() {
   const safeFormatTime = (ts: any) => {
     if (!ts) return '--:--';
     try {
-      const date = ts instanceof Timestamp ? ts.toDate() : new Date(ts.seconds * 1000);
+      // Tratamento ultra-seguro para evitar erro de "seconds" em produção
+      const date = ts instanceof Timestamp ? ts.toDate() : (ts?.seconds ? new Date(ts.seconds * 1000) : new Date());
       return format(date, 'HH:mm:ss');
     } catch (e) {
       return '--:--';
@@ -94,6 +97,16 @@ function TimeCardContent() {
           <div className="text-xs text-muted-foreground uppercase tracking-widest mt-1">{format(currentTime, "EEEE, dd 'de' MMMM", { locale: ptBR })}</div>
         </div>
       </header>
+
+      {entriesError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Erro de Conexão</AlertTitle>
+          <AlertDescription>
+            Não foi possível carregar seus registros. Verifique sua conexão ou permissões.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Button 

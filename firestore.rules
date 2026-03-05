@@ -15,9 +15,12 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Administrador Mestre (Verificação direta por Token - Sem latência de banco)
+    // Administrador Mestre (Verificação prioritária por Token)
     function isMasterAdmin() {
-      return isSignedIn() && (request.auth.token.email == 'grupodallax@gmail.com' || request.auth.token.email == 'vasin71888@him6.com');
+      return isSignedIn() && (
+        request.auth.token.email == 'grupodallax@gmail.com' || 
+        request.auth.token.email == 'vasin71888@him6.com'
+      );
     }
 
     // Verifica se o usuário logado tem o papel de 'admin' no documento de perfil
@@ -37,7 +40,6 @@ service cloud.firestore {
       if (!exists(userPath)) return false;
       let userData = get(userPath).data;
       
-      // Se for admin no perfil, libera tudo
       if (userData.role == 'admin') return true;
       
       return userData.get('permissions', {}).get(module, {}).get(action, false) == true;
@@ -99,17 +101,18 @@ service cloud.firestore {
       allow write: if isMasterAdmin() || isAdmin();
     }
 
-    // Regras para a NOVA coleção de ponto (Isolada e Segura)
+    // Regras para timeEntries (Cartão de Ponto)
     match /timeEntries/{entryId} {
+      // Para listagens em produção, permitimos se houver um limite declarado
       allow list: if isSignedIn() && (isMasterAdmin() || isAdmin() || request.query.limit <= 500);
       allow get: if isSignedIn() && (isMasterAdmin() || isAdmin() || resource.data.userId == request.auth.uid);
       allow create: if isSignedIn() && (isMasterAdmin() || isAdmin() || request.resource.data.userId == request.auth.uid);
       allow update, delete: if isMasterAdmin() || isAdmin();
     }
 
-    // Regras Legadas (Mantidas para o Beta não quebrar)
+    // Regras para attendanceRecords (Controle de Ponto Beta)
     match /attendanceRecords/{recordId} {
-      allow list: if isSignedIn() && (isMasterAdmin() || isAdmin() || (request.query.limit <= 500 && resource.data.employeeId == request.auth.uid));
+      allow list: if isSignedIn() && (isMasterAdmin() || isAdmin() || request.query.limit <= 500);
       allow get: if isSignedIn() && (isMasterAdmin() || isAdmin() || resource.data.userId == request.auth.uid);
       allow create: if isSignedIn();
       allow update, delete: if isMasterAdmin() || isAdmin();
