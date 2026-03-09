@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -112,9 +111,17 @@ export function EditEmployeeDialog({ open, onOpenChange, employee }: { open: boo
   const onSubmit = async (values: FormValues) => {
     if (!employee || !firestore) return;
 
+    // Limpeza de campos undefined para evitar erro de gravação no Firestore
+    const cleanValues = Object.entries(values).reduce((acc, [key, value]) => {
+      if (value !== undefined) {
+        (acc as any)[key] = value;
+      }
+      return acc;
+    }, {} as any);
+
     const docRef = doc(firestore, 'employees', employee.id);
     updateDocumentNonBlocking(docRef, {
-      ...values,
+      ...cleanValues,
       hireDate: values.hireDate ? Timestamp.fromDate(values.hireDate) : null,
       updatedAt: serverTimestamp(),
     });

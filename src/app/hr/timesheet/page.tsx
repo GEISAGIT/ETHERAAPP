@@ -84,14 +84,19 @@ function HRTimesheetContent() {
   useEffect(() => {
     if (selectedEmployee) {
       setFormData({
+        fullName: selectedEmployee.fullName,
+        cpf: selectedEmployee.cpf,
+        status: selectedEmployee.status,
+        regimeType: selectedEmployee.regimeType,
+        overtimePolicy: selectedEmployee.overtimePolicy,
         registrationNumber: selectedEmployee.registrationNumber || '',
         pisPasep: selectedEmployee.pisPasep || '',
         ctps: selectedEmployee.ctps || '',
         workStatus: selectedEmployee.workStatus || 'regular',
-        hireDate: selectedEmployee.hireDate,
-        dismissalDate: selectedEmployee.dismissalDate,
-        experienceEndDate: selectedEmployee.experienceEndDate,
-        vacationExpirationDate: selectedEmployee.vacationExpirationDate,
+        hireDate: selectedEmployee.hireDate || null,
+        dismissalDate: selectedEmployee.dismissalDate || null,
+        experienceEndDate: selectedEmployee.experienceEndDate || null,
+        vacationExpirationDate: selectedEmployee.vacationExpirationDate || null,
         discounts: selectedEmployee.discounts || [],
         adjustments: selectedEmployee.adjustments || [],
         compensations: selectedEmployee.compensations || [],
@@ -108,11 +113,42 @@ function HRTimesheetContent() {
 
   const handleSaveEmployee = () => {
     if (!firestore || !selectedEmployeeId) return;
+
+    // Validação de campos obrigatórios
+    const requiredFields: { key: keyof Employee; label: string }[] = [
+      { key: 'fullName', label: 'Nome Completo' },
+      { key: 'cpf', label: 'CPF' },
+      { key: 'status', label: 'Status' },
+      { key: 'regimeType', label: 'Tipo de Regime' },
+      { key: 'overtimePolicy', label: 'Política de Horas Extras' },
+    ];
+
+    for (const field of requiredFields) {
+      if (!formData[field.key]) {
+        toast({
+          variant: 'destructive',
+          title: 'Campo Obrigatório',
+          description: `O campo "${field.label}" deve ser preenchido para salvar.`,
+        });
+        return;
+      }
+    }
+
     setIsSaving(true);
+
+    // Limpeza de dados undefined para evitar erro do Firebase
+    const cleanData = Object.entries(formData).reduce((acc, [key, value]) => {
+      if (value !== undefined) {
+        (acc as any)[key] = value;
+      } else {
+        (acc as any)[key] = null; // Envia null em vez de undefined
+      }
+      return acc;
+    }, {} as any);
 
     const employeeRef = doc(firestore, 'employees', selectedEmployeeId);
     updateDocumentNonBlocking(employeeRef, {
-      ...formData,
+      ...cleanData,
       updatedAt: serverTimestamp(),
     });
 
