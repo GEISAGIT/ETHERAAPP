@@ -10,10 +10,12 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Wallet, Briefcase, Settings, ShieldAlert, User as UserIcon, CheckSquare } from 'lucide-react';
+import { Loader2, Wallet, Briefcase, Settings, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react';
 import type { UserProfile, Permissions, CrudActions } from '@/lib/types';
 import { useEffect, useState, Suspense } from 'react';
 import { defaultPermissions } from '@/lib/data';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
 
 type ModuleConfig = {
   title: string;
@@ -79,6 +81,12 @@ function UserAccessControlContent() {
   
   const [isSaving, setIsSaving] = useState(false);
   const [permissions, setPermissions] = useState<Permissions | null>(null);
+  const [openModules, setOpenModules] = useState<Record<string, boolean>>({
+    'Financeiro': true,
+    'Recursos Humanos': false,
+    'Administração': false,
+    'Geral & Configurações': false,
+  });
 
   const targetUserRef = useMemoFirebase(() => {
     if (!firestore || !userId) return null;
@@ -141,6 +149,10 @@ function UserAccessControlContent() {
     }, 500);
   };
 
+  const toggleAccordion = (title: string) => {
+    setOpenModules(prev => ({ ...prev, [title]: !prev[title] }));
+  };
+
   if (isTargetUserLoading) {
     return (
         <div className="space-y-8">
@@ -176,56 +188,83 @@ function UserAccessControlContent() {
           </Button>
         </header>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 gap-6">
           {modules.map((module) => (
-            <Card key={module.title} className="border-primary/10 overflow-hidden">
-              <CardHeader className="bg-primary/5 border-b border-primary/10">
-                <CardTitle className="flex items-center gap-2 text-primary">
-                  <module.icon className="h-5 w-5" />
-                  {module.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-border">
-                  {module.permissions.map((perm) => {
-                    const currentPerms = permissions?.[perm.key] || { view: false, create: false, edit: false, delete: false };
-                    const isAllChecked = Object.values(currentPerms).every(v => v === true);
-
-                    return (
-                      <div key={perm.key} className="p-4 space-y-3 hover:bg-muted/30 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">{perm.label}</h4>
-                          <div className="flex items-center gap-2">
-                            <Label htmlFor={`all-${perm.key}`} className="text-[10px] text-muted-foreground uppercase">Tudo</Label>
-                            <Checkbox 
-                              id={`all-${perm.key}`}
-                              checked={isAllChecked}
-                              onCheckedChange={(checked) => handleToggleModule(perm.key, !!checked)}
-                              disabled={targetUser?.role === 'admin' && (perm.key === 'userManagement')}
-                            />
-                          </div>
+            <Collapsible
+              key={module.title}
+              open={openModules[module.title]}
+              onOpenChange={() => toggleAccordion(module.title)}
+              className="w-full"
+            >
+              <Card className="border-primary/10 overflow-hidden shadow-sm">
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="bg-primary/5 border-b border-primary/10 cursor-pointer hover:bg-primary/10 transition-colors p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary/10 p-2 rounded-md">
+                          <module.icon className="h-5 w-5 text-primary" />
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pl-4 border-l-2 border-primary/20">
-                          {(Object.keys(actionLabels) as (keyof CrudActions)[]).map((action) => (
-                            <div key={action} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`${perm.key}-${action}`}
-                                checked={permissions?.[perm.key]?.[action] ?? false}
-                                onCheckedChange={(checked) => handlePermissionChange(perm.key, action, !!checked)}
-                                disabled={targetUser?.role === 'admin' && (perm.key === 'userManagement')}
-                              />
-                              <Label htmlFor={`${perm.key}-${action}`} className="text-xs cursor-pointer">
-                                {actionLabels[action]}
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
+                        <CardTitle className="text-lg text-primary font-headline">
+                          {module.title}
+                        </CardTitle>
                       </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground hidden sm:inline">
+                          {openModules[module.title] ? 'Clique para recolher' : 'Clique para expandir'}
+                        </span>
+                        {openModules[module.title] ? (
+                          <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="p-0 animate-in fade-in-0 slide-in-from-top-2 duration-300">
+                    <div className="divide-y divide-border">
+                      {module.permissions.map((perm) => {
+                        const currentPerms = permissions?.[perm.key] || { view: false, create: false, edit: false, delete: false };
+                        const isAllChecked = Object.values(currentPerms).every(v => v === true);
+
+                        return (
+                          <div key={perm.key} className="p-4 space-y-3 hover:bg-muted/30 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-bold text-foreground/80 uppercase tracking-wider">{perm.label}</h4>
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor={`all-${perm.key}`} className="text-[10px] text-muted-foreground uppercase">Marcar Tudo</Label>
+                                <Checkbox 
+                                  id={`all-${perm.key}`}
+                                  checked={isAllChecked}
+                                  onCheckedChange={(checked) => handleToggleModule(perm.key, !!checked)}
+                                  disabled={targetUser?.role === 'admin' && (perm.key === 'userManagement')}
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pl-4 border-l-2 border-primary/20">
+                              {(Object.keys(actionLabels) as (keyof CrudActions)[]).map((action) => (
+                                <div key={action} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`${perm.key}-${action}`}
+                                    checked={permissions?.[perm.key]?.[action] ?? false}
+                                    onCheckedChange={(checked) => handlePermissionChange(perm.key, action, !!checked)}
+                                    disabled={targetUser?.role === 'admin' && (perm.key === 'userManagement')}
+                                  />
+                                  <Label htmlFor={`${perm.key}-${action}`} className="text-xs cursor-pointer">
+                                    {actionLabels[action]}
+                                  </Label>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           ))}
         </div>
       </div>
