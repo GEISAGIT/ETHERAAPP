@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -28,7 +27,9 @@ import {
   ChevronRight,
   Home,
   UserCheck,
-  ClipboardList
+  ClipboardList,
+  FileText,
+  Tags
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -45,6 +46,8 @@ const dashboardItem = { key: 'dashboard' as MenuItemKey, href: '/dashboard', lab
 
 const financialMenuItems = [
   { key: 'transactions' as MenuItemKey, href: '/transactions', label: 'Transações', icon: ArrowRightLeft },
+  { key: 'contracts' as MenuItemKey, href: '/settings/contracts', label: 'Contratos', icon: FileText },
+  { key: 'expenses' as MenuItemKey, href: '/settings/expenses', label: 'Classificação de Despesas', icon: Tags },
   { key: 'budgets' as MenuItemKey, href: '/budgets', label: 'Orçamentos', icon: PiggyBank },
   { key: 'reports' as MenuItemKey, href: '/reports', label: 'Relatórios', icon: BarChart3 },
   { key: 'apiBank' as MenuItemKey, href: '/api-bank', label: 'API BANK (BETA)', icon: Banknote },
@@ -80,12 +83,11 @@ export function AppSidebar() {
 
   const { data: userProfile } = useDoc<UserProfile>(userDocRef);
   
-  // Função que filtra os itens baseando-se RIGOROSAMENTE no que você definiu no painel Admin
   const filterMenuItems = (items: any[]) => {
     const emailLower = user?.email?.toLowerCase();
     const isAdminMaster = emailLower === 'grupodallax@gmail.com' || emailLower === 'vasin71888@him6.com';
 
-    if (isAdminMaster) return items; // Dono vê tudo
+    if (isAdminMaster) return items;
 
     if (!userProfile) {
         return items.filter(item => item.key === 'profile' || item.key === 'home');
@@ -93,7 +95,6 @@ export function AppSidebar() {
 
     return items.filter(item => {
         const pagePermissions = userProfile.permissions?.[item.key as keyof Permissions];
-        // Se no admin o campo "Visualizar" estiver checado, o item aparece aqui
         if (pagePermissions && 'view' in pagePermissions) {
           return pagePermissions.view === true;
         }
@@ -142,7 +143,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {financialItems.length > 0 && (
-          <Collapsible asChild defaultOpen={false} className="group/collapsible">
+          <Collapsible asChild defaultOpen={true} className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Timestamp } from 'firebase/firestore';
@@ -96,6 +95,8 @@ export type Permissions = {
   home: ViewOnlyActions;
   dashboard: ViewOnlyActions;
   transactions: CrudActions;
+  contracts: CrudActions;
+  expenses: CrudActions;
   budgets: CrudActions;
   reports: ViewOnlyActions;
   upload: CrudActions;

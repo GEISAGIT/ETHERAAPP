@@ -1,4 +1,3 @@
-
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -24,6 +23,8 @@ const allPermissionsConfig: {
   { key: 'home', label: 'Início', actions: ['view'] },
   { key: 'dashboard', label: 'Painel', actions: ['view'] },
   { key: 'transactions', label: 'Transações', actions: ['view', 'create', 'edit', 'delete'] },
+  { key: 'contracts', label: 'Cadastro de Contratos', actions: ['view', 'create', 'edit', 'delete'] },
+  { key: 'expenses', label: 'Classificação de Despesas', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'budgets', label: 'Orçamentos', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'reports', label: 'Relatórios', actions: ['view'] },
   { key: 'upload', label: 'Upload de Arquivos', actions: ['view', 'create', 'edit', 'delete'] },
@@ -69,7 +70,6 @@ function UserAccessControlPage() {
 
   useEffect(() => {
     if (targetUser) {
-        // Deep merge logic to ensure UI has all keys even if missing in DB
         const userPerms = targetUser.permissions || defaultPermissions.user;
         const basePerms = JSON.parse(JSON.stringify(defaultPermissions.user));
 
@@ -145,7 +145,6 @@ function UserAccessControlPage() {
       );
   }
 
-  // Only throw notFound if loading is finished and we definitely have no data
   if (!isTargetUserLoading && !targetUser) {
     notFound();
   }
