@@ -649,7 +649,17 @@ function HRTimesheetContent() {
                 </div>
                 <div className="space-y-2">
                   <Label>Fim do Período de Experiência</Label>
-                  <Input type="date" value={formData.experienceEndDate ? format(formData.experienceEndDate.toDate(), 'yyyy-MM-dd') : ''} onChange={(e) => handleUpdateField('experienceEndDate', e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null)} />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.experienceEndDate && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.experienceEndDate ? format(formData.experienceEndDate.toDate(), "PPP", { locale: ptBR }) : <span>Definir data...</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={formData.experienceEndDate?.toDate()} onSelect={(date) => handleUpdateField('experienceEndDate', date ? Timestamp.fromDate(date) : null)} initialFocus locale={ptBR} />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </CardContent>
             </Card>
