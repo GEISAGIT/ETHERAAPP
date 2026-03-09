@@ -15,7 +15,12 @@ service cloud.firestore {
 
     function hasPermission(page, action) {
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return isMaster() || (userDoc.permissions[page][action] == true);
+      return isMaster() || (
+        userDoc != null && 
+        userDoc.permissions != null && 
+        userDoc.permissions[page] != null && 
+        userDoc.permissions[page][action] == true
+      );
     }
 
     match /users/{userId} {

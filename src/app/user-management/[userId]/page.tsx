@@ -5,7 +5,7 @@ import { useDoc, useFirestore, useUser, useMemoFirebase, updateDocumentNonBlocki
 import { doc } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -82,7 +82,6 @@ function UserAccessControlPage() {
   const userId = params.userId as string;
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { user } = useUser();
   
   const [isSaving, setIsSaving] = useState(false);
   const [permissions, setPermissions] = useState<Permissions | null>(null);
@@ -113,7 +112,7 @@ function UserAccessControlPage() {
                 ...prev[page as keyof Permissions],
                 [action]: checked,
             },
-        };
+        } as Permissions;
     });
   };
   
@@ -146,7 +145,7 @@ function UserAccessControlPage() {
     );
   }
 
-  if (!targetUser) notFound();
+  if (!targetUser) return notFound();
 
   return (
     <AppLayout>
@@ -172,7 +171,6 @@ function UserAccessControlPage() {
                   <module.icon className="h-5 w-5" />
                   {module.title}
                 </CardTitle>
-                <CardDescription>Permissões do módulo {module.title.toLowerCase()}.</CardDescription>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 {module.permissions.map((perm) => (
