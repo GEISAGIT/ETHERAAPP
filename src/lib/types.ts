@@ -86,23 +86,30 @@ export type ViewOnlyActions = {
     view: boolean;
 }
 
+// Unified permission structure for all modules
+export type ModulePermissions = CrudActions;
+
 export type Permissions = {
-  home: ViewOnlyActions;
-  dashboard: ViewOnlyActions;
-  transactions: CrudActions;
-  contracts: CrudActions;
-  expenses: CrudActions;
-  budgets: CrudActions;
-  reports: ViewOnlyActions;
-  upload: CrudActions;
-  apiBank: ViewOnlyActions;
-  userManagement: CrudActions;
-  profile: ViewEditActions;
-  settings: ViewOnlyActions;
-  hrTimesheet: CrudActions;
-  employees: CrudActions;
-  timeTracking: CrudActions;
-  timeCard: CrudActions;
+  // Financeiro
+  dashboard: ModulePermissions;
+  transactions: ModulePermissions;
+  contracts: ModulePermissions;
+  expenses: ModulePermissions;
+  budgets: ModulePermissions;
+  reports: ModulePermissions;
+  apiBank: ModulePermissions;
+  // RH
+  timeCard: ModulePermissions;
+  timeTracking: ModulePermissions;
+  employees: ModulePermissions;
+  hrTimesheet: ModulePermissions;
+  // Administração
+  upload: ModulePermissions;
+  userManagement: ModulePermissions;
+  // Geral
+  home: ModulePermissions;
+  profile: ModulePermissions;
+  settings: ModulePermissions;
 };
 
 export type UserStatus = 'pending' | 'active' | 'rejected';

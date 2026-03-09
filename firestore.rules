@@ -13,6 +13,7 @@ service cloud.firestore {
       );
     }
 
+    // Modular permission check
     function hasPermission(page, action) {
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return isMaster() || (
