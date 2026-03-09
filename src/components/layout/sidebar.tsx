@@ -95,7 +95,7 @@ export function AppSidebar() {
 
     return items.filter(item => {
         const pagePermissions = userProfile.permissions?.[item.key as keyof Permissions];
-        if (pagePermissions && 'view' in pagePermissions) {
+        if (pagePermissions && typeof pagePermissions === 'object' && 'view' in pagePermissions) {
           return pagePermissions.view === true;
         }
         return false;
@@ -111,6 +111,7 @@ export function AppSidebar() {
 
   const isActive = (href: string) => {
     if (href === '/settings') return pathname.startsWith('/settings');
+    if (href === '/user-management') return pathname.startsWith('/user-management');
     return pathname === href;
   };
 

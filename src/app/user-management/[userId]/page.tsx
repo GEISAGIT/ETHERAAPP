@@ -3,7 +3,7 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { useDoc, useFirestore, useUser, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { notFound, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Wallet, Briefcase, Settings, ShieldAlert, User as UserIcon, CheckSquare } from 'lucide-react';
 import type { UserProfile, Permissions, CrudActions } from '@/lib/types';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { defaultPermissions } from '@/lib/data';
 
 type ModuleConfig = {
@@ -71,9 +71,9 @@ const actionLabels: Record<keyof CrudActions, string> = {
     delete: 'Excluir'
 };
 
-function UserAccessControlPage() {
+function UserAccessControlContent() {
   const params = useParams();
-  const userId = params.userId as string;
+  const userId = params?.userId as string;
   const firestore = useFirestore();
   const { toast } = useToast();
   
@@ -143,30 +143,34 @@ function UserAccessControlPage() {
 
   if (isTargetUserLoading) {
     return (
-      <AppLayout>
         <div className="space-y-8">
             <header><Skeleton className="h-9 w-80" /><Skeleton className="h-5 w-96 mt-2" /></header>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[...Array(4)].map((_, i) => (<Skeleton key={i} className="h-64 w-full" />))}
             </div>
         </div>
-      </AppLayout>
     );
   }
 
-  if (!targetUser) return notFound();
+  if (!targetUser && !isTargetUserLoading && userId) {
+      return (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+              <h2 className="text-xl font-bold">Usuário não encontrado</h2>
+              <p className="text-muted-foreground">O ID do usuário é inválido ou o documento foi removido.</p>
+          </div>
+      )
+  }
 
   return (
-    <AppLayout>
       <div className="space-y-8">
         <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Controle de Acesso</h1>
             <p className="text-muted-foreground">
-              Configurando permissões para <span className="font-semibold text-foreground">{targetUser.displayName}</span>.
+              Configurando permissões para <span className="font-semibold text-foreground">{targetUser?.displayName || 'Usuário'}</span>.
             </p>
           </div>
-          <Button onClick={handleSaveChanges} disabled={isSaving} className="shadow-lg">
+          <Button onClick={handleSaveChanges} disabled={isSaving || !targetUser} className="shadow-lg">
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Salvar Configurações
           </Button>
@@ -197,7 +201,7 @@ function UserAccessControlPage() {
                               id={`all-${perm.key}`}
                               checked={isAllChecked}
                               onCheckedChange={(checked) => handleToggleModule(perm.key, !!checked)}
-                              disabled={targetUser.role === 'admin' && (perm.key === 'userManagement')}
+                              disabled={targetUser?.role === 'admin' && (perm.key === 'userManagement')}
                             />
                           </div>
                         </div>
@@ -208,7 +212,7 @@ function UserAccessControlPage() {
                                 id={`${perm.key}-${action}`}
                                 checked={permissions?.[perm.key]?.[action] ?? false}
                                 onCheckedChange={(checked) => handlePermissionChange(perm.key, action, !!checked)}
-                                disabled={targetUser.role === 'admin' && (perm.key === 'userManagement')}
+                                disabled={targetUser?.role === 'admin' && (perm.key === 'userManagement')}
                               />
                               <Label htmlFor={`${perm.key}-${action}`} className="text-xs cursor-pointer">
                                 {actionLabels[action]}
@@ -225,8 +229,15 @@ function UserAccessControlPage() {
           ))}
         </div>
       </div>
-    </AppLayout>
   );
 }
 
-export default UserAccessControlPage;
+export default function UserAccessControlPage() {
+    return (
+        <AppLayout>
+            <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+                <UserAccessControlContent />
+            </Suspense>
+        </AppLayout>
+    )
+}
