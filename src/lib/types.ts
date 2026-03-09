@@ -4,7 +4,7 @@ import { Timestamp } from 'firebase/firestore';
 
 export type IncomeTransaction = {
   id: string;
-  userId: string; // Creator's UID
+  userId: string;
   createdByName: string;
   date: Timestamp;
   description: string;
@@ -77,39 +77,27 @@ export type CrudActions = {
   delete: boolean;
 };
 
-export type ViewEditActions = {
-    view: boolean;
-    edit: boolean;
-}
-
-export type ViewOnlyActions = {
-    view: boolean;
-}
-
-// Unified permission structure for all modules
-export type ModulePermissions = CrudActions;
-
 export type Permissions = {
   // Financeiro
-  dashboard: ModulePermissions;
-  transactions: ModulePermissions;
-  contracts: ModulePermissions;
-  expenses: ModulePermissions;
-  budgets: ModulePermissions;
-  reports: ModulePermissions;
-  apiBank: ModulePermissions;
+  dashboard: CrudActions;
+  transactions: CrudActions;
+  contracts: CrudActions;
+  expenses: CrudActions;
+  budgets: CrudActions;
+  reports: CrudActions;
+  apiBank: CrudActions;
   // RH
-  timeCard: ModulePermissions;
-  timeTracking: ModulePermissions;
-  employees: ModulePermissions;
-  hrTimesheet: ModulePermissions;
+  timeCard: CrudActions;
+  timeTracking: CrudActions;
+  employees: CrudActions;
+  hrTimesheet: CrudActions;
   // Administração
-  upload: ModulePermissions;
-  userManagement: ModulePermissions;
+  upload: CrudActions;
+  userManagement: CrudActions;
   // Geral
-  home: ModulePermissions;
-  profile: ModulePermissions;
-  settings: ModulePermissions;
+  home: CrudActions;
+  profile: CrudActions;
+  settings: CrudActions;
 };
 
 export type UserStatus = 'pending' | 'active' | 'rejected';
