@@ -12,25 +12,25 @@ export type IncomeTransaction = {
   type: 'income';
   category: string;
   notes?: string;
-  receiptUrl?: string; // Added for consistency, though less common for income
+  receiptUrl?: string;
   updatedAt?: Timestamp;
-  updatedBy?: string; // UID of user who last updated
+  updatedBy?: string;
 }
 
 export type ExpenseTransaction = {
   id:string;
-  userId: string; // Creator's UID
+  userId: string;
   createdByName: string;
   date: Timestamp;
   description: string;
   amount: number;
   type: 'expense';
-  category: string; // This will eventually be hierarchical
+  category: string;
   costType?: 'fixed' | 'variable';
   notes?: string;
   receiptUrl?: string;
   updatedAt?: Timestamp;
-  updatedBy?: string; // UID of user who last updated
+  updatedBy?: string;
   fullCategoryPath?: {
     group: string;
     category: string;
@@ -40,7 +40,6 @@ export type ExpenseTransaction = {
 
 export type Transaction = IncomeTransaction | ExpenseTransaction;
 
-
 export type Budget = {
   id: string;
   name: string;
@@ -48,14 +47,12 @@ export type Budget = {
   spent: number;
 };
 
-// Old simple category type
 export type IncomeCategory = {
   id: string;
   name: string;
   description?: string;
 };
 
-// NEW HIERARCHICAL EXPENSE CATEGORY STRUCTURE
 export interface ExpenseSubCategory {
   id: string;
   name: string;
@@ -72,8 +69,6 @@ export interface ExpenseCategoryGroup {
   name: string;
   categories: ExpenseCategory[];
 }
-
-export type Category = string;
 
 export type CrudActions = {
   view: boolean;
@@ -110,7 +105,6 @@ export type Permissions = {
   timeCard: CrudActions;
 };
 
-
 export type UserStatus = 'pending' | 'active' | 'rejected';
 
 export type UserProfile = {
@@ -127,7 +121,6 @@ export type UserProfile = {
 }
 
 export type UserManagement = Omit<UserProfile, 'permissions'>;
-
 
 export type Role = {
   id: 'admin' | 'user';
@@ -194,7 +187,7 @@ export interface EmployeeDocument {
 
 export type Employee = {
   id: string;
-  userId: string; // Creator
+  userId: string;
   fullName: string;
   cpf: string;
   email?: string;
@@ -208,8 +201,6 @@ export type Employee = {
   overtimePolicy: OvertimePolicy;
   createdAt: Timestamp;
   updatedAt: Timestamp;
-  
-  // Novas propriedades de Folha/Ponto
   registrationNumber?: string;
   pisPasep?: string;
   ctps?: string;
@@ -235,6 +226,9 @@ export type AttendanceRecord = {
     latitude: number;
     longitude: number;
   };
+  manual?: boolean;
+  notes?: string;
+  updatedBy?: string;
 };
 
 export type TimeClockEntry = {
@@ -243,7 +237,7 @@ export type TimeClockEntry = {
   userName: string;
   timestamp: Timestamp;
   type: 'entrada' | 'saida_almoco' | 'volta_almoco' | 'saida';
-  dateStr: string; // YYYY-MM-DD
+  dateStr: string;
 }
 
 export type CoraToken = {
@@ -263,125 +257,44 @@ export type CoraAccountData = {
   bankName: string;
 };
 
-export type CoraStatementCounterParty = {
-  name: string;
-  identity: string;
-};
-
-export type CoraStatementTransaction = {
-  id: string;
-  type: string;
-  description: string;
-  counterParty: CoraStatementCounterParty;
-};
-
 export type CoraStatementEntry = {
   id: string;
   type: 'CREDIT' | 'DEBIT';
-  amount: number; // in cents
-  createdAt: string; // ISO Date string
-  transaction: CoraStatementTransaction;
+  amount: number;
+  createdAt: string;
+  transaction: {
+    description: string;
+    counterParty?: { name: string };
+  };
 };
-
-export type CoraStatementHeader = {
-  businessName: string;
-  businessDocument: string;
-};
-
-export type CoraStatementBoundary = {
-    date: string;
-    balance: number; // in cents
-}
 
 export type CoraStatement = {
-  header: CoraStatementHeader;
-  start: CoraStatementBoundary;
-  end: CoraStatementBoundary;
   entries: CoraStatementEntry[];
-};
-
-export type CoraCreditor = {
-  name: string;
-  document: string;
-  type: 'CPF' | 'CNPJ';
-}
-
-export type CoraPaymentInitiationResponse = {
-    id: string;
-    status: 'INITIATED' | string;
-    amount: number;
-    creditor: CoraCreditor;
-    created_at: string;
-    scheduled_at?: string;
-    code?: string;
-};
-
-
-// --- INVOICE (BOLETO/PIX V2) TYPES ---
-
-export type CoraCustomerAddress = {
-    street: string;
-    number: string;
-    district: string;
-    city: string;
-    state: string;
-    zip_code: string;
-    complement?: string;
-};
-
-export type CoraCustomer = {
-    name: string;
-    email: string;
-    document: {
-        identity: string;
-        type: 'CPF' | 'CNPJ';
-    };
-    address: CoraCustomerAddress;
-};
-
-export type CoraService = {
-    name: string;
-    description: string;
-    amount: number; // in cents
-};
-
-export type CoraFine = {
-    amount: number; // in cents
-};
-
-export type CoraPaymentTerms = {
-    due_date: string; // YYYY-MM-DD
-    fine?: CoraFine;
 };
 
 export type CoraInvoiceRequestBody = {
     code?: string;
-    customer: CoraCustomer;
-    services: CoraService[];
-    payment_terms: CoraPaymentTerms;
+    customer: {
+        name: string;
+        email: string;
+        document: { identity: string; type: 'CPF' | 'CNPJ' };
+        address: { street: string; number: string; district: string; city: string; state: string; zip_code: string; complement?: string };
+    };
+    services: Array<{ name: string; description: string; amount: number }>;
+    payment_terms: { due_date: string };
     payment_forms: Array<'BANK_SLIP' | 'PIX'>;
-    instructions?: string;
 };
 
 export type CoraInvoiceResponse = {
     id: string;
-    code?: string;
+    bank_slip?: { digitable_line: string; barcode: string; url: string };
+    pix?: { emv: string };
+    payment_options?: { bank_slip?: { url: string } };
+};
+
+export type CoraPaymentInitiationResponse = {
+    id: string;
     status: string;
-
-    // Boleto specific
-    bank_slip?: {
-        digitable_line: string;
-        barcode: string;
-        url: string;
-    };
-
-    // Pix specific
-    pix?: {
-        emv: string; // Copia e Cola
-    };
-    payment_options?: {
-        bank_slip?: {
-            url: string; // PNG URL of QR code
-        };
-    };
+    amount: number;
+    creditor: { name: string };
 };
