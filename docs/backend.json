@@ -55,8 +55,8 @@
       "properties": {
         "id": { "type": "string" },
         "employeeId": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "type": { "type": "string", "enum": ["clock_in", "clock_out", "break_start", "break_end"] },
+        "timestamp": { "type": "string", format: "date-time" },
+        "type": { "type": "string", enum: ["clock_in", "clock_out", "break_start", "break_end"] },
         "photoUrl": { "type": "string" },
         "location": {
           "type": "object",
@@ -67,6 +67,24 @@
         }
       },
       "required": ["id", "employeeId", "timestamp", "type"]
+    },
+    "StockItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StockItem",
+      "type": "object",
+      "description": "Represents an item in the clinic's inventory.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "quantity": { "type": "number" },
+        "minQuantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "lastRestock": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["id", "name", "quantity", "unit"]
     },
     "UserManagement": {
        "$schema": "http://json-schema.org/draft-07/schema#",
@@ -536,5 +554,11 @@
       "password",
       "anonymous"
     ]
+  },
+  "firestore": {
+    "/stock/{itemId}": {
+      "schema": "#/backend/entities/StockItem",
+      "description": "Clinic inventory items."
+    }
   }
 }

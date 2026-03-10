@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Wallet, Briefcase, Settings, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Wallet, Briefcase, Settings, ShieldAlert, ChevronDown, ChevronUp, Package } from 'lucide-react';
 import type { UserProfile, Permissions, CrudActions } from '@/lib/types';
 import { useEffect, useState, Suspense } from 'react';
 import { defaultPermissions } from '@/lib/data';
@@ -45,6 +46,13 @@ const modules: ModuleConfig[] = [
       { key: 'timeTracking', label: 'Controle de Ponto (Beta)' },
       { key: 'employees', label: 'Cadastro de Funcionários' },
       { key: 'hrTimesheet', label: 'Gestão de Horários' },
+    ]
+  },
+  {
+    title: 'Suprimentos',
+    icon: Package,
+    permissions: [
+      { key: 'suppliesStock', label: 'Controle de Estoque' },
     ]
   },
   {
@@ -84,6 +92,7 @@ function UserAccessControlContent() {
   const [openModules, setOpenModules] = useState<Record<string, boolean>>({
     'Financeiro': true,
     'Recursos Humanos': false,
+    'Suprimentos': false,
     'Administração': false,
     'Geral & Configurações': false,
   });

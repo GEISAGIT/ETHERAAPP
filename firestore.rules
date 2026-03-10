@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -71,6 +72,13 @@ service cloud.firestore {
       allow create: if isMaster() || hasPermission('budgets', 'create');
       allow update: if isMaster() || hasPermission('budgets', 'edit');
       allow delete: if isMaster() || hasPermission('budgets', 'delete');
+    }
+
+    match /stock/{docId} {
+      allow read: if isSignedIn() && (isMaster() || hasPermission('suppliesStock', 'view'));
+      allow create: if isMaster() || hasPermission('suppliesStock', 'create');
+      allow update: if isMaster() || hasPermission('suppliesStock', 'edit');
+      allow delete: if isMaster() || hasPermission('suppliesStock', 'delete');
     }
 
     match /incomeCategories/{docId} { 

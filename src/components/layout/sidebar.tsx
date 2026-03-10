@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -29,7 +30,9 @@ import {
   UserCheck,
   ClipboardList,
   FileText,
-  Tags
+  Tags,
+  Package,
+  Boxes
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -58,6 +61,10 @@ const hrMenuItems = [
   { key: 'timeTracking' as MenuItemKey, href: '/hr/attendance', label: 'Controle de Ponto (Beta)', icon: Clock },
   { key: 'employees' as MenuItemKey, href: '/hr/employees', label: 'Cadastro de Funcionários', icon: Users },
   { key: 'hrTimesheet' as MenuItemKey, href: '/hr/timesheet', label: 'Gestão de Horários', icon: ClipboardList },
+];
+
+const suppliesMenuItems = [
+  { key: 'suppliesStock' as MenuItemKey, href: '/supplies/stock', label: 'Controle de Estoque', icon: Boxes },
 ];
 
 const managementMenuItems = [
@@ -106,6 +113,7 @@ export function AppSidebar() {
   const dashboardVisible = useMemo(() => filterMenuItems([dashboardItem]).length > 0, [userProfile, user]);
   const financialItems = useMemo(() => filterMenuItems(financialMenuItems), [userProfile, user]);
   const hrItems = useMemo(() => filterMenuItems(hrMenuItems), [userProfile, user]);
+  const suppliesItems = useMemo(() => filterMenuItems(suppliesMenuItems), [userProfile, user]);
   const managementItems = useMemo(() => filterMenuItems(managementMenuItems), [userProfile, user]);
   const userItems = useMemo(() => filterMenuItems(userMenuItems), [userProfile, user]);
 
@@ -184,6 +192,33 @@ export function AppSidebar() {
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {hrItems.map(({ href, label, icon: Icon }) => (
+                      <SidebarMenuItem key={href}>
+                        <SidebarMenuButton asChild isActive={isActive(href)} className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}>
+                          <Link href={href}><Icon /><span>{label}</span></Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        )}
+
+        {suppliesItems.length > 0 && (
+          <Collapsible asChild defaultOpen={false} className="group/collapsible">
+            <SidebarGroup>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">
+                  <Package className="h-3.5 w-3.5 text-primary" />
+                  <span>Suprimentos</span>
+                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {suppliesItems.map(({ href, label, icon: Icon }) => (
                       <SidebarMenuItem key={href}>
                         <SidebarMenuButton asChild isActive={isActive(href)} className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}>
                           <Link href={href}><Icon /><span>{label}</span></Link>

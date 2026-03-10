@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Timestamp } from 'firebase/firestore';
@@ -91,6 +92,8 @@ export type Permissions = {
   timeTracking: CrudActions;
   employees: CrudActions;
   hrTimesheet: CrudActions;
+  // Suprimentos
+  suppliesStock: CrudActions;
   // Administração
   upload: CrudActions;
   userManagement: CrudActions;
@@ -233,6 +236,18 @@ export type TimeClockEntry = {
   timestamp: Timestamp;
   type: 'entrada' | 'saida_almoco' | 'volta_almoco' | 'saida';
   dateStr: string;
+}
+
+export type StockItem = {
+  id: string;
+  name: string;
+  category: string;
+  quantity: number;
+  minQuantity: number;
+  unit: string;
+  lastRestock?: Timestamp;
+  updatedAt: Timestamp;
+  updatedBy: string;
 }
 
 export type CoraToken = {
