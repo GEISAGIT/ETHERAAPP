@@ -24,6 +24,7 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     timeTracking: fullCrud,
     timeCard: fullCrud,
     suppliesStock: fullCrud,
+    addresses: fullCrud,
   },
   user: {
     home: viewOnly,
@@ -43,6 +44,7 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     timeTracking: { view: true, create: true, edit: false, delete: false },
     timeCard: { view: true, create: true, edit: false, delete: false },
     suppliesStock: noCrud,
+    addresses: noCrud,
   },
 };
 

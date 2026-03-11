@@ -81,6 +81,13 @@ service cloud.firestore {
       allow delete: if isMaster() || hasPermission('suppliesStock', 'delete');
     }
 
+    match /addresses/{docId} {
+      allow read: if isSignedIn() && (isMaster() || hasPermission('addresses', 'view'));
+      allow create: if isMaster() || hasPermission('addresses', 'create');
+      allow update: if isMaster() || hasPermission('addresses', 'edit');
+      allow delete: if isMaster() || hasPermission('addresses', 'delete');
+    }
+
     match /incomeCategories/{docId} { 
       allow read: if isSignedIn(); 
       allow write: if isMaster() || hasPermission('expenses', 'edit'); 

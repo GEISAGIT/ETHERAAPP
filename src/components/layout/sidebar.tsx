@@ -32,7 +32,8 @@ import {
   FileText,
   Tags,
   Package,
-  Boxes
+  Boxes,
+  MapPin
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -74,6 +75,7 @@ const managementMenuItems = [
 
 const userMenuItems = [
   { key: 'profile' as MenuItemKey, href: '/profile', label: 'Perfil', icon: User },
+  { key: 'addresses' as MenuItemKey, href: '/settings/addresses', label: 'Endereços', icon: MapPin },
   { key: 'settings' as MenuItemKey, href: '/settings', label: 'Configurações', icon: Settings },
 ];
 
@@ -118,7 +120,7 @@ export function AppSidebar() {
   const userItems = useMemo(() => filterMenuItems(userMenuItems), [userProfile, user]);
 
   const isActive = (href: string) => {
-    if (href === '/settings') return pathname.startsWith('/settings');
+    if (href === '/settings') return pathname.startsWith('/settings') && !pathname.includes('addresses');
     if (href === '/user-management') return pathname.startsWith('/user-management');
     return pathname === href;
   };
@@ -259,7 +261,7 @@ export function AppSidebar() {
           </Collapsible>
         )}
 
-        <Collapsible asChild defaultOpen={false} className="group/collapsible">
+        <Collapsible asChild defaultOpen={true} className="group/collapsible">
           <SidebarGroup>
             <SidebarGroupLabel asChild>
               <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">

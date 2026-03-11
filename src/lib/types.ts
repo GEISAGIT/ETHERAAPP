@@ -101,6 +101,7 @@ export type Permissions = {
   home: CrudActions;
   profile: CrudActions;
   settings: CrudActions;
+  addresses: CrudActions;
 };
 
 export type UserStatus = 'pending' | 'active' | 'rejected';
@@ -249,6 +250,22 @@ export type StockItem = {
   updatedAt: Timestamp;
   updatedBy: string;
 }
+
+export type Address = {
+  id: string;
+  userId: string;
+  label: string;
+  street: string;
+  number: string;
+  complement?: string;
+  district: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  validityDate?: Timestamp;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+};
 
 export type CoraToken = {
     userId: string;

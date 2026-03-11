@@ -47,6 +47,28 @@
         "updatedAt"
       ]
     },
+    "Address": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Address",
+      "type": "object",
+      "description": "Represents a registered address in the system.",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "label": { "type": "string", "description": "A nickname for the address (e.g., 'Main Office')" },
+        "street": { "type": "string" },
+        "number": { "type": "string" },
+        "complement": { "type": "string" },
+        "district": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "zipCode": { "type": "string" },
+        "validityDate": { "type": "string", "format": "date-time", "description": "The expiration date of this address record" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "label", "street", "city", "state", "zipCode"]
+    },
     "AttendanceRecord": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "AttendanceRecord",
@@ -113,440 +135,21 @@
           "type": "object",
           "description": "A map of feature names to granular permission actions.",
           "properties": {
-            "dashboard": {
-              "type": "object",
-              "properties": { "view": { "type": "boolean" } }
-            },
-            "transactions": {
-              "type": "object",
-              "properties": {
-                "view": { "type": "boolean" },
-                "create": { "type": "boolean" },
-                "edit": { "type": "boolean" },
-                "delete": { "type": "boolean" }
-              }
-            },
-            "budgets": {
-              "type": "object",
-              "properties": {
-                "view": { "type": "boolean" },
-                "create": { "type": "boolean" },
-                "edit": { "type": "boolean" },
-                "delete": { "type": "boolean" }
-              }
-            },
-            "reports": {
-              "type": "object",
-              "properties": { "view": { "type": "boolean" } }
-            },
-            "upload": {
-              "type": "object",
-              "properties": {
-                "view": { "type": "boolean" },
-                "create": { "type": "boolean" },
-                "edit": { "type": "boolean" },
-                "delete": { "type": "boolean" }
-              }
-            },
-            "userManagement": {
-              "type": "object",
-              "properties": {
-                "view": { "type": "boolean" },
-                "create": { "type": "boolean" },
-                "edit": { "type": "boolean" },
-                "delete": { "type": "boolean" }
-              }
-            },
-            "profile": {
-              "type": "object",
-              "properties": {
-                "view": { "type": "boolean" },
-                "edit": { "type": "boolean" }
-              }
-            },
-            "settings": {
-              "type": "object",
-              "properties": { "view": { "type": "boolean" } }
-            }
+            "dashboard": { "type": "object", "properties": { "view": { "type": "boolean" } } },
+            "transactions": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
+            "contracts": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
+            "expenses": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
+            "budgets": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
+            "reports": { "type": "object", "properties": { "view": { "type": "boolean" } } },
+            "upload": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
+            "userManagement": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
+            "profile": { "type": "object", "properties": { "view": { "type": "boolean" }, "edit": { "type": "boolean" } } },
+            "settings": { "type": "object", "properties": { "view": { "type": "boolean" } } },
+            "addresses": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } }
           }
         }
       },
       "required": ["id", "permissions"]
-    },
-    "Income": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Income",
-      "type": "object",
-      "description": "Represents an income record for the clinic.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Income entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Income)"
-        },
-        "amount": {
-          "type": "number",
-          "description": "The amount of income received."
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the income source."
-        },
-        "category": {
-          "type": "string",
-          "description": "Category of the income (e.g., consultation fees, sales)."
-        },
-        "date": {
-          "type": "string",
-          "description": "The date the income was received.",
-          "format": "date-time"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the income record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the income record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "amount",
-        "description",
-        "category",
-        "date",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "Expense": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Expense",
-      "type": "object",
-      "description": "Represents an expense record for the clinic.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Expense entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Expense)"
-        },
-        "amount": {
-          "type": "number",
-          "description": "The amount of the expense."
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the expense."
-        },
-        "category": {
-          "type": "string",
-          "description": "Category of the expense (e.g., rent, supplies)."
-        },
-        "date": {
-          "type": "string",
-          "description": "The date the expense was incurred.",
-          "format": "date-time"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the expense record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the expense record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "amount",
-        "description",
-        "category",
-        "date",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "ExpenseCategoryGroup": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ExpenseCategoryGroup",
-      "type": "object",
-      "description": "Represents a hierarchical group of expense categories.",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string", "description": "The name of the top-level group (e.g., 'PESSOAL E ENCARGOS')." },
-        "categories": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "string" },
-              "name": { "type": "string", "description": "The name of the category within the group (e.g., 'BENEFICIOS')." },
-              "subCategories": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "id": { "type": "string" },
-                    "name": { "type": "string", "description": "The specific description of the category (e.g., 'VA - VALE ALIMENTACAO')." }
-                  },
-                  "required": ["id", "name"]
-                }
-              }
-            },
-            "required": ["id", "name", "subCategories"]
-          }
-        }
-      },
-      "required": ["id", "name", "categories"]
-    },
-    "Budget": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Budget",
-      "type": "object",
-      "description": "Represents a budget for the clinic.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Budget entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Budget)"
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the budget."
-        },
-        "amount": {
-          "type": "number",
-          "description": "The total budget amount."
-        },
-        "startDate": {
-          "type": "string",
-          "description": "The start date of the budget period.",
-          "format": "date-time"
-        },
-        "endDate": {
-          "type": "string",
-          "description": "The end date of the budget period.",
-          "format": "date-time"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the budget was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the budget was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "name",
-        "amount",
-        "startDate",
-        "endDate",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "FileUpload": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FileUpload",
-      "type": "object",
-      "description": "Represents a file uploaded by a user.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the FileUpload entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N FileUpload)"
-        },
-        "filename": {
-          "type": "string",
-          "description": "The original name of the uploaded file."
-        },
-        "storageLocation": {
-          "type": "string",
-          "description": "The location where the file is stored (e.g., URL, path)."
-        },
-        "mimeType": {
-          "type": "string",
-          "description": "The MIME type of the file."
-        },
-        "uploadDate": {
-          "type": "string",
-          "description": "Timestamp indicating when the file was uploaded.",
-          "format": "date-time"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the file upload record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the file upload record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "filename",
-        "storageLocation",
-        "mimeType",
-        "uploadDate",
-        "createdAt",
-        "updatedAt"
-      ]
-    },
-    "Contract": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Contract",
-      "type": "object",
-      "description": "Represents a recurring contract for services or expenses.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Contract entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User who created the contract."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name or title of the contract (e.g., 'Aluguel do Consultório')."
-        },
-        "description": {
-          "type": "string",
-          "description": "A brief description of the contract."
-        },
-        "type": {
-          "type": "string",
-          "description": "The type of contract value.",
-          "enum": ["fixed", "variable"]
-        },
-        "amount": {
-          "type": "number",
-          "description": "The amount for fixed contracts. Not applicable for variable contracts."
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the contract.",
-          "enum": ["active", "cancelled", "expired"]
-        },
-        "paymentFrequency": {
-          "type": "string",
-          "description": "The frequency of payment.",
-          "enum": ["monthly", "bimonthly", "quarterly", "semiannually", "annually"]
-        },
-        "paymentDueDate": {
-          "type": "number",
-          "description": "The day of the month the payment is due (e.g., 5 for the 5th)."
-        },
-        "expirationDate": {
-          "type": "string",
-          "description": "The date when the contract expires.",
-          "format": "date"
-        },
-        "fullCategoryPath": {
-            "type": "object",
-            "description": "Hierarchical classification for the expense associated with the contract.",
-            "properties": {
-                "group": { "type": "string" },
-                "category": { "type": "string" },
-                "description": { "type": "string" }
-            }
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the contract was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the contract was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": ["id", "userId", "name", "type", "paymentFrequency", "status", "createdAt", "updatedAt"]
-    },
-    "Employee": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Employee",
-      "type": "object",
-      "description": "Represents an employee of the clinic.",
-      "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string", "description": "Reference to the User who created the record." },
-        "fullName": { "type": "string" },
-        "cpf": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "phone": { "type": "string" },
-        "position": { "type": "string" },
-        "department": { "type": "string" },
-        "hireDate": { "type": "string", "format": "date-time" },
-        "dismissalDate": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["active", "inactive", "on_leave"] },
-        "regimeType": { "type": "string", "enum": ["CLT", "PJ", "intern", "other"] },
-        "overtimePolicy": { "type": "string", "enum": ["overtime", "time_bank"] },
-        "registrationNumber": { "type": "string" },
-        "pisPasep": { "type": "string" },
-        "ctps": { "type": "string" },
-        "workStatus": { "type": "string", "enum": ["regular", "temporary", "probation", "inactive"] },
-        "experienceEndDate": { "type": "string", "format": "date-time" },
-        "vacationExpirationDate": { "type": "string", "format": "date-time" },
-        "documents": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "string" },
-              "name": { "type": "string" },
-              "url": { "type": "string" },
-              "uploadedAt": { "type": "string", "format": "date-time" }
-            }
-          }
-        },
-        "createdAt": { "type": "string", format: "date-time" },
-        "updatedAt": { "type": "string", format: "date-time" }
-      },
-      "required": ["id", "userId", "fullName", "cpf", "status", "regimeType", "overtimePolicy", "createdAt", "updatedAt"]
-    },
-    "CoraToken": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "CoraToken",
-      "type": "object",
-      "description": "Stores OAuth tokens for the Cora API.",
-      "properties": {
-        "userId": { "type": "string", "description": "The ID of the user this token belongs to." },
-        "accessToken": { "type": "string" },
-        "refreshToken": { "type": "string" },
-        "expiresAt": { "type": "string", "format": "date-time" },
-        "scope": { "type": "string" },
-        "tokenType": { "type": "string" }
-      },
-      "required": ["userId", "accessToken", "refreshToken", "expiresAt"]
     }
   },
   "auth": {
@@ -559,6 +162,10 @@
     "/stock/{itemId}": {
       "schema": "#/backend/entities/StockItem",
       "description": "Clinic inventory items."
+    },
+    "/addresses/{addressId}": {
+      "schema": "#/backend/entities/Address",
+      "description": "Registered business or personal addresses."
     }
   }
 }

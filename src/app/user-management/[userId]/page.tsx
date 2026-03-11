@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Wallet, Briefcase, Settings, ShieldAlert, ChevronDown, ChevronUp, Package } from 'lucide-react';
+import { Loader2, Wallet, Briefcase, Settings, ShieldAlert, ChevronDown, ChevronUp, Package, MapPin } from 'lucide-react';
 import type { UserProfile, Permissions, CrudActions } from '@/lib/types';
 import { useEffect, useState, Suspense } from 'react';
 import { defaultPermissions } from '@/lib/data';
@@ -70,6 +70,7 @@ const modules: ModuleConfig[] = [
       { key: 'home', label: 'Página Inicial' },
       { key: 'profile', label: 'Perfil do Usuário' },
       { key: 'settings', label: 'Configurações do Sistema' },
+      { key: 'addresses', label: 'Cadastro de Endereços' },
     ]
   }
 ];
