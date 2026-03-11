@@ -271,6 +271,7 @@ function HRTimesheetContent() {
 
     setIsEditPunchOpen(false);
     setEditingPunch(null);
+    setEditPunchTime('');
     setEditPunchNotes('');
     toast({ title: 'Horário Atualizado' });
   };
@@ -588,37 +589,55 @@ function HRTimesheetContent() {
                         <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/20")}>
                           <TableCell className="font-medium">{format(day.date, "dd/MM (eee)", { locale: ptBR })}</TableCell>
                           <TableCell>
-                            <div className="flex flex-wrap gap-2">
-                              {day.records.length > 0 ? day.records.map(r => (
-                                <div key={r.id} className="flex items-center gap-1 bg-secondary rounded-md px-2 py-1 border border-border/50 group/punch transition-colors hover:border-primary/50 relative">
-                                  <span className="text-sm font-medium">
-                                    {r.timestamp ? format(r.timestamp.toDate(), 'HH:mm') : '--:--'}
-                                  </span>
-                                  <div className="flex items-center ml-1 border-l pl-1 gap-0.5 opacity-0 group-hover/punch:opacity-100 transition-opacity">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                      onClick={() => {
-                                        setEditingPunch(r);
-                                        setEditPunchTime(format(r.timestamp.toDate(), 'HH:mm'));
-                                        setEditPunchNotes(r.notes || '');
-                                        setIsEditPunchOpen(true);
-                                      }}
-                                      title="Editar horário"
-                                    >
-                                      <Edit className="h-3 w-3" />
-                                    </Button>
-                                    <button 
-                                      onClick={() => handleDeletePunch(r.id)}
-                                      className="p-1 text-muted-foreground hover:text-destructive transition-colors"
-                                      title="Excluir batida"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </button>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {day.records.length > 0 ? (
+                                day.records.map(r => (
+                                  <div key={r.id} className="flex items-center gap-1 bg-secondary rounded-md px-2 py-1 border border-border/50 group/punch transition-all hover:border-primary hover:shadow-sm relative">
+                                    <span className="text-sm font-medium">
+                                      {r.timestamp ? format(r.timestamp.toDate(), 'HH:mm') : '--:--'}
+                                    </span>
+                                    <div className="flex items-center ml-1 border-l pl-1 gap-0.5 opacity-0 group-hover/punch:opacity-100 transition-opacity">
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                        onClick={() => {
+                                          setEditingPunch(r);
+                                          setEditPunchTime(format(r.timestamp.toDate(), 'HH:mm'));
+                                          setEditPunchNotes(r.notes || '');
+                                          setIsEditPunchOpen(true);
+                                        }}
+                                        title="Editar horário"
+                                      >
+                                        <Edit className="h-3 w-3" />
+                                      </Button>
+                                      <button 
+                                        onClick={() => handleDeletePunch(r.id)}
+                                        className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                                        title="Excluir batida"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    </div>
                                   </div>
+                                ))
+                              ) : (
+                                <div className="group/empty flex items-center gap-2">
+                                  <span className="text-sm text-muted-foreground">--:--</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 opacity-0 group-hover/empty:opacity-100 text-primary transition-opacity"
+                                    onClick={() => {
+                                      setManualPunchDate(day.date);
+                                      setIsManualPunchOpen(true);
+                                    }}
+                                    title="Lançar ponto para este dia"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
                                 </div>
-                              )) : '--:--'}
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="text-center">{formatMinutes(stats.worked)}</TableCell>
