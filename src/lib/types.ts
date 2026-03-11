@@ -168,6 +168,8 @@ export interface WorkSchedule {
   days: Record<number, DailySchedule>; // 0 (Dom) a 6 (Sab)
 }
 
+export type AdjustmentType = 'absence' | 'medical_certificate' | 'holiday' | 'day_off' | 'compensation' | 'other';
+
 export interface EmployeeDiscount {
   id: string;
   name: string;
@@ -176,9 +178,10 @@ export interface EmployeeDiscount {
 
 export interface TimeAdjustment {
   id: string;
-  startDate: Timestamp;
-  endDate: Timestamp;
-  reason: string;
+  date: Timestamp;
+  type: AdjustmentType;
+  description: string;
+  hoursToAcknowledge?: number; // For manual additions/deductions
 }
 
 export interface CompensationRecord {
