@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useCollection, useFirestore, useUser, useMemoFirebase, updateDocumentNonBlocking, useStorage, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc, query, Timestamp, serverTimestamp, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import type { Employee, TimeAdjustment, AdjustmentType, WorkSchedule, WorkScheduleType, AttendanceRecord, AttendanceType } from '@/lib/types';
+import type { Employee, TimeAdjustment, AdjustmentType, WorkSchedule, WorkScheduleType, AttendanceRecord, AttendanceType, EmployeeDiscount } from '@/lib/types';
 import { useState, useMemo, useEffect, Suspense } from 'react';
 import { CalendarIcon, Loader2, Save, Plus, Trash2, UserCheck, UploadCloud, FileText, Download, Info, Printer, ClipboardCheck, Stethoscope, AlertTriangle, ShieldCheck, Edit, History, PlusCircle } from 'lucide-react';
 import { format, differenceInMinutes, isSameDay, getDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
@@ -281,6 +281,16 @@ function HRTimesheetContent() {
       deleteDocumentNonBlocking(doc(firestore, 'attendanceRecords', id));
       toast({ title: 'Batida Removida' });
     }
+  };
+
+  const handleAddDiscount = () => {
+    const newDiscount: EmployeeDiscount = {
+      id: crypto.randomUUID(),
+      name: '',
+      percentage: 0,
+    };
+    const updatedDiscounts = [...(formData.discounts || []), newDiscount];
+    handleUpdateField('discounts', updatedDiscounts);
   };
 
   const fullHistory = useMemo(() => {
@@ -562,8 +572,8 @@ function HRTimesheetContent() {
               </CardHeader>
               <CardContent className="p-0 sm:p-6">
                 <Table className="print:text-[10px]">
-                  <TableHeader className="bg-muted/50 print:bg-slate-100">
-                    <TableRow>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50 print:bg-slate-100">
                       <TableHead className="w-32">Data</TableHead>
                       <TableHead>Batidas</TableHead>
                       <TableHead className="text-center">Trab.</TableHead>
