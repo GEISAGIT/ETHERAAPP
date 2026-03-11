@@ -12,7 +12,7 @@ import { collection, doc, query, Timestamp, serverTimestamp, where } from 'fireb
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Employee, TimeAdjustment, AdjustmentType, WorkSchedule, WorkScheduleType, AttendanceRecord, AttendanceType, EmployeeDiscount } from '@/lib/types';
 import { useState, useMemo, useEffect, Suspense } from 'react';
-import { CalendarIcon, Loader2, Save, Plus, Trash2, UserCheck, UploadCloud, FileText, Download, Info, Printer, ClipboardCheck, Stethoscope, AlertTriangle, ShieldCheck, Edit, History, PlusCircle, MessageSquare } from 'lucide-react';
+import { CalendarIcon, Loader2, Save, Plus, Trash2, UserCheck, UploadCloud, FileText, Download, Printer, Stethoscope, Edit, PlusCircle, MessageSquare, AlertTriangle, CheckCircle2, History } from 'lucide-react';
 import { format, differenceInMinutes, isSameDay, getDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -22,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -279,6 +279,68 @@ function HRTimesheetContent() {
     handleUpdateField('discounts', updatedDiscounts);
   };
 
+  // --- Lógica de Cálculos CLT ---
+
+  const calculateHours = (records: AttendanceRecord[], dayDate: Date, adjustment?: TimeAdjustment) => {
+    const clockIn = records.find(r => r.type === 'clock_in')?.timestamp?.toDate();
+    const clockOut = records.find(r => r.type === 'clock_out')?.timestamp?.toDate();
+    const breakStart = records.find(r => r.type === 'break_start')?.timestamp?.toDate();
+    const breakEnd = records.find(r => r.type === 'break_end')?.timestamp?.toDate();
+
+    const dayOfWeek = getDay(dayDate);
+    const daySchedule = formData.workSchedule?.days[dayOfWeek];
+    const isWorkDay = daySchedule?.workDay ?? false;
+    
+    let expectedMinutes = 0;
+    if (isWorkDay) {
+      const [sH, sM] = (daySchedule.start || "00:00").split(':').map(Number);
+      const [eH, eM] = (daySchedule.end || "00:00").split(':').map(Number);
+      const [lsH, lsM] = (daySchedule.lunchStart || "00:00").split(':').map(Number);
+      const [leH, leM] = (daySchedule.lunchEnd || "00:00").split(':').map(Number);
+      expectedMinutes = (eH * 60 + eM) - (sH * 60 + sM);
+      if (lsH && leH) expectedMinutes -= (leH * 60 + leM) - (lsH * 60 + lsM);
+    }
+
+    let workedMinutes = 0;
+    if (clockIn && clockOut) {
+      workedMinutes = differenceInMinutes(clockOut, clockIn);
+      if (breakStart && breakEnd) workedMinutes -= differenceInMinutes(breakEnd, breakStart);
+    }
+
+    // Se houve atestado ou folga legal no dia de trabalho, abonamos a jornada esperada
+    if (adjustment && isWorkDay) {
+      if (['medical_certificate', 'holiday', 'day_off'].includes(adjustment.type)) {
+        workedMinutes = expectedMinutes;
+      }
+    }
+
+    const balance = workedMinutes - expectedMinutes;
+    const isWeekend = !isWorkDay;
+
+    let status = 'Jornada Normal';
+    if (adjustment) {
+      status = ADJUSTMENT_LABELS[adjustment.type];
+    } else if (isWeekend) {
+      status = workedMinutes > 0 ? 'Extra no Descanso' : 'Descanso (DSR)';
+    } else if (workedMinutes === 0 && isWorkDay) {
+      status = 'Falta';
+    } else if (balance > 0) {
+      status = 'Crédito Banco de Horas';
+    } else if (balance < 0) {
+      status = 'Débito Banco de Horas';
+    }
+
+    return { worked: workedMinutes, expected: expectedMinutes, balance, isWeekend, status };
+  };
+
+  const formatMinutes = (min: number) => {
+    const sign = min < 0 ? '-' : '';
+    const absMin = Math.abs(min);
+    const h = Math.floor(absMin / 60);
+    const m = absMin % 60;
+    return `${sign}${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
+
   const fullHistory = useMemo(() => {
     if (!isClient) return [];
     const start = startOfMonth(new Date());
@@ -307,50 +369,32 @@ function HRTimesheetContent() {
     }).reverse();
   }, [rawAttendance, formData.adjustments, isClient]);
 
-  const calculateHours = (records: AttendanceRecord[], dayDate: Date, adjustment?: TimeAdjustment) => {
-    const clockIn = records.find(r => r.type === 'clock_in')?.timestamp?.toDate();
-    const clockOut = records.find(r => r.type === 'clock_out')?.timestamp?.toDate();
-    const breakStart = records.find(r => r.type === 'break_start')?.timestamp?.toDate();
-    const breakEnd = records.find(r => r.type === 'break_end')?.timestamp?.toDate();
+  const monthlySummary = useMemo(() => {
+    let totalWorked = 0;
+    let totalCredits = 0;
+    let totalDebits = 0;
+    let totalAbsences = 0;
+    let totalCertificates = 0;
 
-    const dayOfWeek = getDay(dayDate);
-    const daySchedule = formData.workSchedule?.days[dayOfWeek];
-    
-    let expectedMinutes = 0;
-    if (daySchedule?.workDay) {
-      const [sH, sM] = (daySchedule.start || "00:00").split(':').map(Number);
-      const [eH, eM] = (daySchedule.end || "00:00").split(':').map(Number);
-      const [lsH, lsM] = (daySchedule.lunchStart || "00:00").split(':').map(Number);
-      const [leH, leM] = (daySchedule.lunchEnd || "00:00").split(':').map(Number);
-      expectedMinutes = (eH * 60 + eM) - (sH * 60 + sM);
-      if (lsH && leH) expectedMinutes -= (leH * 60 + leM) - (lsH * 60 + lsM);
-    }
+    fullHistory.forEach(day => {
+      const stats = calculateHours(day.records, day.date, day.adjustment);
+      totalWorked += stats.worked;
+      if (stats.balance > 0) totalCredits += stats.balance;
+      if (stats.balance < 0) totalDebits += Math.abs(stats.balance);
+      
+      if (stats.status === 'Falta') totalAbsences++;
+      if (day.adjustment?.type === 'medical_certificate') totalCertificates++;
+    });
 
-    let workedMinutes = 0;
-    if (clockIn && clockOut) {
-      workedMinutes = differenceInMinutes(clockOut, clockIn);
-      if (breakStart && breakEnd) workedMinutes -= differenceInMinutes(breakEnd, breakStart);
-    }
-
-    if (adjustment) {
-      if (['medical_certificate', 'holiday', 'day_off'].includes(adjustment.type)) {
-        workedMinutes = expectedMinutes;
-      }
-    }
-
-    const balance = workedMinutes - expectedMinutes;
-    const isWeekend = dayOfWeek === 0 || (dayOfWeek === 6 && !daySchedule?.workDay);
-
-    return { worked: workedMinutes, expected: expectedMinutes, balance, isWeekend };
-  };
-
-  const formatMinutes = (min: number) => {
-    const sign = min < 0 ? '-' : '';
-    const absMin = Math.abs(min);
-    const h = Math.floor(absMin / 60);
-    const m = absMin % 60;
-    return `${sign}${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-  };
+    return {
+      worked: totalWorked,
+      credits: totalCredits,
+      debits: totalDebits,
+      balance: totalCredits - totalDebits,
+      absences: totalAbsences,
+      certificates: totalCertificates
+    };
+  }, [fullHistory, formData.workSchedule, formData.adjustments]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -370,7 +414,7 @@ function HRTimesheetContent() {
 
   const PunchCell = ({ record, dayDate, type }: { record?: AttendanceRecord, dayDate: Date, type: AttendanceType }) => {
     return (
-      <TableCell className="relative group/cell p-2 border-x text-center min-w-[100px]">
+      <TableCell className="relative group/cell p-2 border-x text-center min-w-[90px]">
         {record ? (
           <div className="flex items-center justify-center gap-1">
             <span className={cn("text-sm font-medium", record.manual && "text-amber-600 underline decoration-dotted")}>
@@ -386,7 +430,7 @@ function HRTimesheetContent() {
                 </Tooltip>
               </TooltipProvider>
             )}
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-[1px] opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center gap-1">
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-[1px] opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center gap-1 print:hidden">
               <Button 
                 variant="ghost" 
                 size="icon" 
@@ -413,7 +457,7 @@ function HRTimesheetContent() {
         ) : (
           <div className="flex items-center justify-center gap-1">
             <span className="text-xs text-muted-foreground opacity-30">--:--</span>
-            <div className="absolute inset-0 bg-background/80 opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="absolute inset-0 bg-background/80 opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center print:hidden">
               <Button 
                 variant="ghost" 
                 size="icon" 
@@ -439,7 +483,7 @@ function HRTimesheetContent() {
 
   return (
     <div className="space-y-8 print:space-y-4">
-      {/* Dialog: Ocorrência / Atestado */}
+      {/* Dialogs */}
       <Dialog open={isAdjDialogOpen} onOpenChange={setIsAdjDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -464,29 +508,25 @@ function HRTimesheetContent() {
             </div>
             <div className="space-y-2">
               <Label>Observações</Label>
-              <Textarea value={adjNotes} onChange={(e) => setAdjNotes(e.target.value)} placeholder="Ex: Protocolo atestado 12345..." />
+              <Textarea value={adjNotes} onChange={(e) => setAdjNotes(e.target.value)} placeholder="Justificativa obrigatória..." />
             </div>
             <div className="space-y-2">
-              <Label>Anexo (Opcional)</Label>
+              <Label>Anexo do Documento (Opcional)</Label>
               <Input type="file" onChange={e => setAdjFile(e.target.files?.[0] || null)} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsAdjDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddAdjustment} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Salvar
-            </Button>
+            <Button onClick={handleAddAdjustment} disabled={isSaving || !adjNotes}>Salvar Ocorrência</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Batida Manual */}
       <Dialog open={isManualPunchOpen} onOpenChange={setIsManualPunchOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Lançamento Manual de Ponto</DialogTitle>
-            <DialogDescription>Insira uma batida de ponto retroativa para o colaborador.</DialogDescription>
+            <DialogDescription>Insira uma batida retroativa com justificativa.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
@@ -512,22 +552,21 @@ function HRTimesheetContent() {
             </div>
             <div className="space-y-2">
               <Label>Justificativa do Lançamento</Label>
-              <Textarea value={manualPunchNotes} onChange={e => setManualPunchNotes(e.target.value)} placeholder="Ex: Colaborador esqueceu de registrar o ponto..." required />
+              <Textarea value={manualPunchNotes} onChange={e => setManualPunchNotes(e.target.value)} placeholder="Obrigatório para auditoria..." required />
             </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsManualPunchOpen(false)}>Cancelar</Button>
-            <Button onClick={handleManualPunch} disabled={!manualPunchNotes}>Salvar Batida</Button>
+            <Button onClick={handleManualPunch} disabled={!manualPunchNotes}>Gravar no Histórico</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Editar Batida */}
       <Dialog open={isEditPunchOpen} onOpenChange={setIsEditPunchOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ajustar Horário de Ponto</DialogTitle>
-            <DialogDescription>Corrija o horário registrado pelo colaborador.</DialogDescription>
+            <DialogTitle>Ajustar Horário Registrado</DialogTitle>
+            <DialogDescription>Corrija marcações com erro ou esquecimento.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
@@ -536,25 +575,26 @@ function HRTimesheetContent() {
             </div>
             <div className="space-y-2">
               <Label>Justificativa do Ajuste</Label>
-              <Textarea value={editPunchNotes} onChange={e => setEditPunchNotes(e.target.value)} placeholder="Ex: Ajuste solicitado pelo colaborador..." required />
+              <Textarea value={editPunchNotes} onChange={e => setEditPunchNotes(e.target.value)} placeholder="Motivo da alteração..." required />
             </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsEditPunchOpen(false)}>Cancelar</Button>
-            <Button onClick={handleEditPunchSubmit} disabled={!editPunchNotes}>Salvar Alteração</Button>
+            <Button onClick={handleEditPunchSubmit} disabled={!editPunchNotes}>Confirmar Ajuste</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Header */}
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print:hidden">
         <div>
           <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Controle de Funcionários</h1>
-          <p className="text-muted-foreground">Ficha completa e espelho de ponto CLT.</p>
+          <p className="text-muted-foreground">Ficha completa, escala CLT e espelho de ponto oficial.</p>
         </div>
         <div className="flex gap-2">
           {selectedEmployeeId && (
             <>
-              <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
+              <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimir Espelho</Button>
               <Button onClick={handleSaveEmployee} disabled={isSaving}>
                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Salvar Ficha
@@ -564,28 +604,35 @@ function HRTimesheetContent() {
         </div>
       </header>
 
+      {/* Print-only Header */}
       <div className="hidden print:block border-b-2 border-primary pb-4 mb-6">
         <div className="flex justify-between items-end">
-          <h1 className="text-2xl font-bold text-primary">Ethera - Espelho de Ponto</h1>
-          <p className="text-sm font-medium">Competência: {format(new Date(), 'MMMM / yyyy', { locale: ptBR })}</p>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-4 text-xs">
           <div>
-            <p><strong>Colaborador:</strong> {selectedEmployee?.fullName}</p>
-            <p><strong>CPF:</strong> {selectedEmployee?.cpf} | <strong>Matrícula:</strong> {selectedEmployee?.registrationNumber || '--'}</p>
+            <h1 className="text-2xl font-bold text-primary">ETHERA SAÚDE & LONGEVIDADE</h1>
+            <p className="text-sm font-semibold">ESPELHO DE PONTO MENSAL - CLT</p>
           </div>
-          <div className="text-right">
-            <p><strong>PIS:</strong> {selectedEmployee?.pisPasep || '--'} | <strong>CTPS:</strong> {selectedEmployee?.ctps || '--'}</p>
-            <p><strong>Admissão:</strong> {selectedEmployee?.hireDate ? format(selectedEmployee.hireDate.toDate(), 'dd/MM/yyyy') : '--'}</p>
+          <p className="text-sm font-bold">Competência: {format(new Date(), 'MMMM / yyyy', { locale: ptBR }).toUpperCase()}</p>
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-x-12 gap-y-2 text-[11px]">
+          <div className="space-y-1">
+            <p><strong>COLABORADOR:</strong> {selectedEmployee?.fullName.toUpperCase()}</p>
+            <p><strong>CPF:</strong> {selectedEmployee?.cpf} | <strong>MATRÍCULA:</strong> {selectedEmployee?.registrationNumber || '--'}</p>
+            <p><strong>CARGO:</strong> {selectedEmployee?.position?.toUpperCase() || '--'}</p>
+          </div>
+          <div className="space-y-1 text-right">
+            <p><strong>PIS/PASEP:</strong> {selectedEmployee?.pisPasep || '--'} | <strong>CTPS:</strong> {selectedEmployee?.ctps || '--'}</p>
+            <p><strong>ADMISSÃO:</strong> {selectedEmployee?.hireDate ? format(selectedEmployee.hireDate.toDate(), 'dd/MM/yyyy') : '--'}</p>
+            <p><strong>ESCALA:</strong> {selectedEmployee?.workSchedule?.type} | <strong>REGIME:</strong> {selectedEmployee?.regimeType}</p>
           </div>
         </div>
       </div>
 
+      {/* Select Employee (hidden on print) */}
       <Card className="border-primary/20 shadow-sm print:hidden">
-        <CardHeader className="pb-4"><CardTitle className="text-lg flex items-center gap-2"><UserCheck className="h-5 w-5 text-primary" /> Colaborador</CardTitle></CardHeader>
+        <CardHeader className="pb-4"><CardTitle className="text-lg flex items-center gap-2"><UserCheck className="h-5 w-5 text-primary" /> Selecione o Colaborador</CardTitle></CardHeader>
         <CardContent>
           <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-            <SelectTrigger className="max-w-md"><SelectValue placeholder="Escolha um colaborador..." /></SelectTrigger>
+            <SelectTrigger className="max-w-md"><SelectValue placeholder="Escolha um colaborador para gerenciar..." /></SelectTrigger>
             <SelectContent>
               {employees?.map(emp => (
                 <SelectItem key={emp.id} value={emp.id}>{emp.fullName} ({emp.position})</SelectItem>
@@ -599,42 +646,37 @@ function HRTimesheetContent() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6 h-auto p-1 bg-muted/50 print:hidden">
             <TabsTrigger value="attendance" className="py-2">Folha Ponto</TabsTrigger>
-            <TabsTrigger value="contract" className="py-2">Ficha & Escala</TabsTrigger>
-            <TabsTrigger value="adjustments" className="py-2">Ocorrências</TabsTrigger>
+            <TabsTrigger value="contract" className="py-2">Contrato & Escala</TabsTrigger>
             <TabsTrigger value="finance" className="py-2">Financeiro</TabsTrigger>
-            <TabsTrigger value="documents" className="py-2">Arquivos</TabsTrigger>
+            <TabsTrigger value="documents" className="py-2">Documentos</TabsTrigger>
           </TabsList>
 
           <TabsContent value="attendance" className="space-y-6">
-            <Card className="print:border-none print:shadow-none overflow-hidden">
+            <Card className="print:border-none print:shadow-none overflow-hidden border-primary/10">
               <CardHeader className="flex flex-row items-center justify-between print:hidden">
                 <div>
-                  <CardTitle className="text-lg">Folha Mensal</CardTitle>
-                  <CardDescription>Visualização detalhada por tipo de batida.</CardDescription>
+                  <CardTitle className="text-lg">Registro de Frequência</CardTitle>
+                  <CardDescription>Detalhamento diário da jornada contratada vs. realizada.</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setIsManualPunchOpen(true)}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Lançar Ponto Manual
-                  </Button>
                   <Button variant="outline" size="sm" onClick={() => setIsAdjDialogOpen(true)}>
-                    <Stethoscope className="mr-2 h-4 w-4" /> Lançar Atestado
+                    <Stethoscope className="mr-2 h-4 w-4" /> Lançar Atestado/Falta
                   </Button>
-                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700">Saldo: {formatMinutes(fullHistory.reduce((acc, day) => acc + calculateHours(day.records, day.date, day.adjustment).balance, 0))}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="p-0 sm:p-0">
                 <div className="overflow-x-auto">
-                  <Table className="print:text-[10px] border-collapse">
+                  <Table className="print:text-[10px] border-collapse border">
                     <TableHeader>
-                      <TableRow className="bg-muted/50 print:bg-slate-100 h-12">
-                        <TableHead className="w-32 border-r pl-4">Data</TableHead>
-                        <TableHead className="text-center">Entrada</TableHead>
-                        <TableHead className="text-center">Almoço (S)</TableHead>
-                        <TableHead className="text-center">Almoço (R)</TableHead>
-                        <TableHead className="text-center border-r">Saída</TableHead>
-                        <TableHead className="text-center w-20">Trab.</TableHead>
-                        <TableHead className="text-center w-20">Saldo</TableHead>
-                        <TableHead className="pl-4">Ocorrência</TableHead>
+                      <TableRow className="bg-muted/50 print:bg-slate-100 h-12 border-b">
+                        <TableHead className="w-32 border-r pl-4 font-bold text-foreground">DATA / DIA</TableHead>
+                        <TableHead className="text-center font-bold text-foreground">ENTRADA</TableHead>
+                        <TableHead className="text-center font-bold text-foreground">ALMOÇO (S)</TableHead>
+                        <TableHead className="text-center font-bold text-foreground">ALMOÇO (R)</TableHead>
+                        <TableHead className="text-center border-r font-bold text-foreground">SAÍDA</TableHead>
+                        <TableHead className="text-center w-20 font-bold text-foreground">TRAB.</TableHead>
+                        <TableHead className="text-center w-20 font-bold text-foreground">SALDO</TableHead>
+                        <TableHead className="pl-4 font-bold text-foreground">OBSERVAÇÃO / STATUS</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -646,8 +688,8 @@ function HRTimesheetContent() {
                         const clockOut = day.records.find(r => r.type === 'clock_out');
 
                         return (
-                          <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/20", "h-12")}>
-                            <TableCell className="font-medium border-r pl-4">
+                          <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/30 print:bg-slate-50", "h-11 border-b")}>
+                            <TableCell className="font-medium border-r pl-4 whitespace-nowrap">
                               {format(day.date, "dd/MM (eee)", { locale: ptBR })}
                             </TableCell>
                             
@@ -656,23 +698,30 @@ function HRTimesheetContent() {
                             <PunchCell record={breakEnd} dayDate={day.date} type="break_end" />
                             <PunchCell record={clockOut} dayDate={day.date} type="clock_out" />
 
-                            <TableCell className="text-center border-l bg-muted/5">{formatMinutes(stats.worked)}</TableCell>
-                            <TableCell className={cn("text-center font-bold border-l", stats.balance > 0 ? "text-emerald-600 bg-emerald-50/10" : stats.balance < 0 ? "text-red-600 bg-red-50/10" : "")}>
-                              {formatMinutes(stats.balance)}
+                            <TableCell className="text-center border-l bg-muted/5 font-mono">{formatMinutes(stats.worked)}</TableCell>
+                            <TableCell className={cn("text-center font-bold border-l font-mono", stats.balance > 0 ? "text-emerald-600" : stats.balance < 0 ? "text-red-600" : "text-muted-foreground")}>
+                              {stats.balance !== 0 ? formatMinutes(stats.balance) : '--:--'}
                             </TableCell>
                             <TableCell className="pl-4 border-l">
-                              {day.adjustment ? (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Badge variant="outline" className="text-[10px] uppercase cursor-help">
-                                        {ADJUSTMENT_LABELS[day.adjustment.type]}
-                                      </Badge>
-                                    </TooltipTrigger>
-                                    <TooltipContent><p>{day.adjustment.description}</p></TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              ) : ''}
+                              <div className="flex items-center gap-2">
+                                <span className={cn("text-[10px] uppercase font-semibold", 
+                                  stats.status === 'Falta' ? 'text-red-600' : 
+                                  stats.status.includes('Atestado') ? 'text-blue-600' : 
+                                  stats.status.includes('Descanso') ? 'text-muted-foreground' : 'text-foreground'
+                                )}>
+                                  {stats.status}
+                                </span>
+                                {day.adjustment?.description && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <MessageSquare className="h-3 w-3 text-muted-foreground opacity-50 cursor-help print:hidden" />
+                                      </TooltipTrigger>
+                                      <TooltipContent><p>{day.adjustment.description}</p></TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -680,9 +729,70 @@ function HRTimesheetContent() {
                     </TableBody>
                   </Table>
                 </div>
-                <div className="hidden print:grid grid-cols-2 gap-20 mt-16 text-center text-sm">
-                  <div className="border-t border-black pt-2"><p>{selectedEmployee?.fullName}</p><p className="text-[10px]">Assinatura do Colaborador</p></div>
-                  <div className="border-t border-black pt-2"><p>Ethera Longevidade</p><p className="text-[10px]">Assinatura do Gestor</p></div>
+
+                {/* Monthly Summary / Footer */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border-t-2 border-primary">
+                  <div className="p-6 bg-muted/10 print:p-4 border-r">
+                    <h3 className="font-bold text-sm mb-4 uppercase tracking-widest text-primary flex items-center gap-2">
+                      <History className="h-4 w-4" /> Resumo do Mês
+                    </h3>
+                    <div className="grid grid-cols-2 gap-y-3 text-xs">
+                      <span className="text-muted-foreground">Total de Horas Trabalhadas:</span>
+                      <span className="font-bold text-right font-mono">{formatMinutes(monthlySummary.worked)}</span>
+                      
+                      <span className="text-muted-foreground">Créditos (Horas Extras/BH):</span>
+                      <span className="font-bold text-right text-emerald-600 font-mono">+{formatMinutes(monthlySummary.credits)}</span>
+                      
+                      <span className="text-muted-foreground">Débitos (Atrasos/Faltas):</span>
+                      <span className="font-bold text-right text-red-600 font-mono">-{formatMinutes(monthlySummary.debits)}</span>
+                      
+                      <div className="col-span-2 border-t pt-3 mt-1 flex justify-between items-center">
+                        <span className="font-bold text-sm">SALDO ACUMULADO NO MÊS:</span>
+                        <Badge className={cn("text-sm font-mono px-4", monthlySummary.balance >= 0 ? "bg-emerald-600" : "bg-red-600")}>
+                          {formatMinutes(monthlySummary.balance)}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-6 bg-primary/5 print:p-4">
+                    <h3 className="font-bold text-sm mb-4 uppercase tracking-widest text-primary flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" /> Estatísticas de Absenteísmo
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-red-500" />
+                          Total de Faltas:
+                        </span>
+                        <span className="font-bold text-lg">{monthlySummary.absences} dias</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-blue-500" />
+                          Atestados Médicos:
+                        </span>
+                        <span className="font-bold text-lg">{monthlySummary.certificates} dias</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-4 italic">
+                        * Cálculos baseados no Art. 59 da CLT e na escala cadastrada na ficha do colaborador.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Signature Fields (Print only) */}
+                <div className="hidden print:grid grid-cols-2 gap-20 mt-20 text-center text-[10px]">
+                  <div className="border-t border-black pt-2 px-8">
+                    <p className="font-bold">{selectedEmployee?.fullName.toUpperCase()}</p>
+                    <p>ASSINATURA DO COLABORADOR</p>
+                    <p className="text-[8px] mt-1 text-muted-foreground">DATA: ___/___/___</p>
+                  </div>
+                  <div className="border-t border-black pt-2 px-8">
+                    <p className="font-bold">ETHERA LONGEVIDADE - RH</p>
+                    <p>CARIMBO E ASSINATURA DA EMPRESA</p>
+                    <p className="text-[8px] mt-1 text-muted-foreground">DATA: ___/___/___</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -690,8 +800,8 @@ function HRTimesheetContent() {
 
           <TabsContent value="contract" className="space-y-6 print:hidden">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="lg:col-span-2">
-                <CardHeader><CardTitle className="text-md flex items-center gap-2"><FileText className="h-4 w-4" /> Documentação & Pessoal</CardTitle></CardHeader>
+              <Card className="lg:col-span-2 border-primary/10">
+                <CardHeader><CardTitle className="text-md flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /> Dados Contratuais & CLT</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Matrícula Interna</Label>
@@ -740,31 +850,36 @@ function HRTimesheetContent() {
                 </CardContent>
               </Card>
 
-              <Card className="lg:col-span-1">
-                <CardHeader><CardTitle className="text-md">Escala de Trabalho</CardTitle></CardHeader>
+              <Card className="lg:col-span-1 border-primary/10">
+                <CardHeader><CardTitle className="text-md flex items-center gap-2"><History className="h-4 w-4 text-primary" /> Escala Contratada</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Tipo de Escala</Label>
+                    <Label>Modelo de Escala</Label>
                     <Select value={formData.workSchedule?.type} onValueChange={(v: WorkScheduleType) => handleUpdateField('workSchedule', DEFAULT_SCHEDULES[v])}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="5x2">5x2 (Seg a Sex)</SelectItem>
-                        <SelectItem value="6x1">6x1 (Folga Variável)</SelectItem>
+                        <SelectItem value="6x1">6x1 (Sábado Parcial)</SelectItem>
                         <SelectItem value="12x36">12x36 (Plantão)</SelectItem>
                         <SelectItem value="custom">Personalizada</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Regime</Label>
+                    <Label>Regime de Contratação</Label>
                     <Select value={formData.regimeType} onValueChange={v => handleUpdateField('regimeType', v)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="CLT">CLT</SelectItem>
-                        <SelectItem value="PJ">PJ</SelectItem>
+                        <SelectItem value="CLT">CLT (Consolidado)</SelectItem>
+                        <SelectItem value="PJ">PJ (Prestador)</SelectItem>
                         <SelectItem value="intern">Estagiário</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="p-3 bg-primary/5 rounded-lg border border-primary/10 mt-4">
+                    <p className="text-[10px] text-muted-foreground font-medium uppercase mb-2">Horário Padrão:</p>
+                    <p className="text-sm font-bold text-primary">08:00 - 12:00 | 13:00 - 18:00</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 italic">Edite horários específicos na Folha Ponto.</p>
                   </div>
                 </CardContent>
               </Card>
@@ -772,14 +887,14 @@ function HRTimesheetContent() {
           </TabsContent>
 
           <TabsContent value="finance" className="space-y-6 print:hidden">
-            <Card>
+            <Card className="border-primary/10">
               <CardHeader className="flex flex-row items-center justify-between">
-                <div><CardTitle className="text-lg">Descontos & Benefícios</CardTitle><CardDescription>Configure verbas fixas mensais.</CardDescription></div>
+                <div><CardTitle className="text-lg">Verbas, Descontos & Benefícios</CardTitle><CardDescription>Gestão de proventos fixos fora da folha de horas.</CardDescription></div>
                 <Button variant="outline" onClick={handleAddDiscount}><Plus className="mr-2 h-4 w-4" /> Adicionar Verba</Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 {formData.discounts?.map((disc, idx) => (
-                  <div key={disc.id} className="flex items-end gap-4 border p-4 rounded-lg">
+                  <div key={disc.id} className="flex items-end gap-4 border p-4 rounded-lg bg-card group hover:border-primary/30 transition-colors">
                     <div className="flex-1 space-y-2"><Label>Descrição da Verba</Label><Input value={disc.name} onChange={e => {
                       const newDiscounts = [...(formData.discounts || [])];
                       newDiscounts[idx].name = e.target.value;
@@ -790,102 +905,53 @@ function HRTimesheetContent() {
                       newDiscounts[idx].percentage = Number(e.target.value);
                       handleUpdateField('discounts', newDiscounts);
                     }} /></div>
-                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleUpdateField('discounts', formData.discounts?.filter(d => d.id !== disc.id))}><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleUpdateField('discounts', formData.discounts?.filter(d => d.id !== disc.id))}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 ))}
-                {(!formData.discounts || formData.discounts.length === 0) && <p className="text-center py-8 text-muted-foreground italic">Nenhuma verba configurada.</p>}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="adjustments" className="space-y-6 print:hidden">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Ocorrências Lançadas</CardTitle>
-                  <CardDescription>Atestados, faltas e folgas que afetam o espelho de ponto.</CardDescription>
-                </div>
-                <Button variant="outline" onClick={() => setIsAdjDialogOpen(true)}><Stethoscope className="mr-2 h-4 w-4" /> Lançar Nova</Button>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead>Doc.</TableHead>
-                        <TableHead className="text-right">Ação</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {formData.adjustments?.length === 0 ? (
-                        <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhuma ocorrência registrada.</TableCell></TableRow>
-                      ) : (
-                        formData.adjustments?.sort((a,b) => {
-                          const tA = a.date instanceof Timestamp ? a.date.toMillis() : (a.date ? new Date(a.date).getTime() : 0);
-                          const tB = b.date instanceof Timestamp ? b.date.toMillis() : (b.date ? new Date(b.date).getTime() : 0);
-                          return tB - tA;
-                        }).map((adj) => (
-                          <TableRow key={adj.id}>
-                            <TableCell className="font-medium">
-                              {adj.date ? format(adj.date instanceof Timestamp ? adj.date.toDate() : new Date(adj.date), 'dd/MM/yyyy') : '--/--/----'}
-                            </TableCell>
-                            <TableCell><Badge variant="outline">{ADJUSTMENT_LABELS[adj.type]}</Badge></TableCell>
-                            <TableCell className="max-w-xs truncate">{adj.description || '-'}</TableCell>
-                            <TableCell>
-                              {adj.attachmentUrl ? (
-                                <Button variant="ghost" size="icon" asChild>
-                                  <Link href={adj.attachmentUrl} target="_blank">
-                                    <Download className="h-4 w-4" />
-                                  </Link>
-                                </Button>
-                              ) : '-'}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteAdjustment(adj.id)}><Trash2 className="h-4 w-4" /></Button>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                {(!formData.discounts || formData.discounts.length === 0) && <p className="text-center py-12 text-muted-foreground italic border-2 border-dashed rounded-xl">Nenhuma verba fixa configurada para este colaborador.</p>}
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="documents" className="space-y-6 print:hidden">
-            <Card>
+            <Card className="border-primary/10">
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-md">Documentos Digitalizados</CardTitle>
+                <div>
+                  <CardTitle className="text-md">Documentos Digitalizados</CardTitle>
+                  <CardDescription>Arquivo digital de contratos, exames e termos assinados.</CardDescription>
+                </div>
                 <div className="relative">
                   <Input type="file" className="hidden" id="doc-upload-hr" onChange={handleFileUpload} disabled={isUploading} />
                   <Button variant="outline" size="sm" asChild disabled={isUploading}><label htmlFor="doc-upload-hr" className="cursor-pointer">
-                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />} Anexar Novo
+                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />} Anexar Arquivo
                   </label></Button>
                 </div>
               </CardHeader>
               <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {formData.documents?.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-3 border rounded-md group hover:border-primary/50">
-                    <div className="flex items-center gap-3 overflow-hidden"><FileText className="h-5 w-5 text-primary shrink-0" />
+                  <div key={doc.id} className="flex items-center justify-between p-4 border rounded-xl group hover:border-primary/50 bg-card transition-all">
+                    <div className="flex items-center gap-3 overflow-hidden"><FileText className="h-6 w-6 text-primary shrink-0" />
                       <div className="flex flex-col overflow-hidden">
-                        <span className="text-sm font-medium truncate">{doc.name}</span>
-                        <span className="text-[10px] text-muted-foreground">{doc.uploadedAt ? format(doc.uploadedAt.toDate(), 'dd/MM/yy') : '--'}</span>
+                        <span className="text-sm font-bold truncate">{doc.name}</span>
+                        <span className="text-[10px] text-muted-foreground">Enviado em {doc.uploadedAt ? format(doc.uploadedAt.toDate(), 'dd/MM/yy') : '--'}</span>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" asChild><Link href={doc.url} target="_blank"><Download className="h-4 w-4" /></Link></Button>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 text-primary" asChild><Link href={doc.url} target="_blank"><Download className="h-4 w-4" /></Link></Button>
                   </div>
                 ))}
+                {(!formData.documents || formData.documents.length === 0) && (
+                  <div className="col-span-full py-12 text-center text-muted-foreground italic border-2 border-dashed rounded-xl">
+                    Nenhum documento anexado.
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       ) : (
-        <div className="flex h-64 items-center justify-center rounded-lg border-2 border-dashed bg-muted/10 print:hidden">
-          <p className="text-muted-foreground font-medium">Selecione um colaborador acima para começar a gestão.</p>
+        <div className="flex h-96 flex-col items-center justify-center rounded-2xl border-2 border-dashed bg-muted/5 print:hidden">
+          <UserCheck className="h-12 w-12 text-primary/20 mb-4" />
+          <p className="text-muted-foreground font-semibold text-lg text-center px-8">Selecione um colaborador acima para visualizar a ficha e o espelho de ponto.</p>
         </div>
       )}
     </div>
@@ -895,7 +961,7 @@ function HRTimesheetContent() {
 export default function HRTimesheetPage() {
   return (
     <AppLayout>
-      <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
         <HRTimesheetContent />
       </Suspense>
     </AppLayout>
