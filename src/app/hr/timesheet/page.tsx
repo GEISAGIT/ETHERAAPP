@@ -622,6 +622,7 @@ function HRTimesheetContent() {
           <div className="space-y-1 text-right">
             <p><strong>PIS/PASEP:</strong> {selectedEmployee?.pisPasep || '--'} | <strong>CTPS:</strong> {selectedEmployee?.ctps || '--'}</p>
             <p><strong>ADMISSÃO:</strong> {selectedEmployee?.hireDate ? format(selectedEmployee.hireDate.toDate(), 'dd/MM/yyyy') : '--'}</p>
+            <p><strong>VENC. FÉRIAS:</strong> {selectedEmployee?.vacationExpirationDate ? format(selectedEmployee.vacationExpirationDate.toDate(), 'dd/MM/yyyy') : '--'}</p>
             <p><strong>ESCALA:</strong> {selectedEmployee?.workSchedule?.type} | <strong>REGIME:</strong> {selectedEmployee?.regimeType}</p>
           </div>
         </div>
