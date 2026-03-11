@@ -135,12 +135,10 @@ function HRTimesheetContent() {
     if (!firestore || !selectedEmployeeId) return;
     setIsSaving(true);
 
-    // INFORMATIVE VALIDATION
     if (!formData.fullName) return showValidationError('Nome Completo');
     if (!formData.cpf) return showValidationError('CPF');
     if (!formData.position) return showValidationError('Cargo');
 
-    // Limpeza de campos undefined para evitar erros no Firestore
     const cleanData = Object.entries(formData).reduce((acc, [key, value]) => {
       if (value !== undefined) (acc as any)[key] = value;
       return acc;
@@ -186,7 +184,6 @@ function HRTimesheetContent() {
     handleUpdateField('discounts', [...(formData.discounts || []), newDiscount]);
   };
 
-  // Monthly History Calculation
   const fullHistory = useMemo(() => {
     if (!isClient) return [];
     const start = startOfMonth(new Date());
@@ -200,8 +197,8 @@ function HRTimesheetContent() {
         const date = r.timestamp instanceof Timestamp ? r.timestamp.toDate() : new Date(r.timestamp);
         return format(date, 'yyyy-MM-dd') === dayStr;
       }).sort((a, b) => {
-        const tA = a.timestamp instanceof Timestamp ? a.timestamp.toMillis() : 0;
-        const tB = b.timestamp instanceof Timestamp ? b.timestamp.toMillis() : 0;
+        const tA = a.timestamp instanceof Timestamp ? a.timestamp.toMillis() : (a.timestamp ? new Date(a.timestamp).getTime() : 0);
+        const tB = b.timestamp instanceof Timestamp ? b.timestamp.toMillis() : (b.timestamp ? new Date(b.timestamp).getTime() : 0);
         return tA - tB;
       }) || [];
       
@@ -281,7 +278,6 @@ function HRTimesheetContent() {
 
   return (
     <div className="space-y-8 print:space-y-4">
-      {/* Diálogo Ocorrência */}
       <Dialog open={isAdjDialogOpen} onOpenChange={setIsAdjDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -334,7 +330,6 @@ function HRTimesheetContent() {
         </div>
       </header>
 
-      {/* Header Impressão */}
       <div className="hidden print:block border-b-2 border-primary pb-4 mb-6">
         <div className="flex justify-between items-end">
           <h1 className="text-2xl font-bold text-primary">Ethera - Espelho de Ponto</h1>
@@ -487,7 +482,7 @@ function HRTimesheetContent() {
                           <TableCell className="font-medium">{format(day.date, "dd/MM (eee)", { locale: ptBR })}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              {day.records.length > 0 ? day.records.map(r => r.timestamp ? format(r.timestamp.toDate(), 'HH:mm') : '--:--').join(' - ') : '--:--'}
+                              {day.records.length > 0 ? day.records.map(r => r.timestamp ? format(r.timestamp instanceof Timestamp ? r.timestamp.toDate() : new Date(r.timestamp), 'HH:mm') : '--:--').join(' - ') : '--:--'}
                             </div>
                           </TableCell>
                           <TableCell className="text-center">{formatMinutes(stats.worked)}</TableCell>
@@ -557,9 +552,15 @@ function HRTimesheetContent() {
                       {formData.adjustments?.length === 0 ? (
                         <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nenhuma ocorrência registrada.</TableCell></TableRow>
                       ) : (
-                        formData.adjustments?.sort((a,b) => b.date.toMillis() - a.date.toMillis()).map((adj) => (
+                        formData.adjustments?.sort((a,b) => {
+                          const tA = a.date instanceof Timestamp ? a.date.toMillis() : (a.date ? new Date(a.date).getTime() : 0);
+                          const tB = b.date instanceof Timestamp ? b.date.toMillis() : (b.date ? new Date(b.date).getTime() : 0);
+                          return tB - tA;
+                        }).map((adj) => (
                           <TableRow key={adj.id}>
-                            <TableCell className="font-medium">{format(adj.date.toDate(), 'dd/MM/yyyy')}</TableCell>
+                            <TableCell className="font-medium">
+                              {adj.date ? format(adj.date instanceof Timestamp ? adj.date.toDate() : new Date(adj.date), 'dd/MM/yyyy') : '--/--/----'}
+                            </TableCell>
                             <TableCell><Badge variant="outline">{ADJUSTMENT_LABELS[adj.type]}</Badge></TableCell>
                             <TableCell className="max-w-xs truncate">{adj.description || '-'}</TableCell>
                             <TableCell className="text-right">
@@ -590,7 +591,10 @@ function HRTimesheetContent() {
                 {formData.documents?.map((doc) => (
                   <div key={doc.id} className="flex items-center justify-between p-3 border rounded-md group hover:border-primary/50">
                     <div className="flex items-center gap-3 overflow-hidden"><FileText className="h-5 w-5 text-primary shrink-0" />
-                      <div className="flex flex-col overflow-hidden"><span className="text-sm font-medium truncate">{doc.name}</span><span className="text-[10px] text-muted-foreground">{format(doc.uploadedAt.toDate(), 'dd/MM/yy')}</span></div>
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-sm font-medium truncate">{doc.name}</span>
+                        <span className="text-[10px] text-muted-foreground">{doc.uploadedAt ? format(doc.uploadedAt.toDate(), 'dd/MM/yy') : '--'}</span>
+                      </div>
                     </div>
                     <Button variant="ghost" size="icon" className="h-8 w-8" asChild><Link href={doc.url} target="_blank"><Download className="h-4 w-4" /></Link></Button>
                   </div>
