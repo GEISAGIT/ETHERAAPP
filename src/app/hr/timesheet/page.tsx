@@ -140,6 +140,7 @@ function HRTimesheetContent() {
     if (!formData.cpf) return showValidationError('CPF');
     if (!formData.position) return showValidationError('Cargo');
 
+    // Limpeza de campos undefined para evitar erros no Firestore
     const cleanData = Object.entries(formData).reduce((acc, [key, value]) => {
       if (value !== undefined) (acc as any)[key] = value;
       return acc;
@@ -195,31 +196,40 @@ function HRTimesheetContent() {
     return days.map(day => {
       const dayStr = format(day, 'yyyy-MM-dd');
       const dayRecords = rawAttendance?.filter(r => {
+        if (!r.timestamp) return false;
         const date = r.timestamp instanceof Timestamp ? r.timestamp.toDate() : new Date(r.timestamp);
         return format(date, 'yyyy-MM-dd') === dayStr;
-      }).sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis()) || [];
+      }).sort((a, b) => {
+        const tA = a.timestamp instanceof Timestamp ? a.timestamp.toMillis() : 0;
+        const tB = b.timestamp instanceof Timestamp ? b.timestamp.toMillis() : 0;
+        return tA - tB;
+      }) || [];
       
-      const dayAdj = formData.adjustments?.find(a => isSameDay(a.date.toDate(), day));
+      const dayAdj = formData.adjustments?.find(a => {
+        if (!a.date) return false;
+        const adjDateObj = a.date instanceof Timestamp ? a.date.toDate() : new Date(a.date);
+        return isSameDay(adjDateObj, day);
+      });
       
       return { date: day, records: dayRecords, adjustment: dayAdj };
     }).reverse();
   }, [rawAttendance, formData.adjustments, isClient]);
 
   const calculateHours = (records: AttendanceRecord[], dayDate: Date, adjustment?: TimeAdjustment) => {
-    const clockIn = records.find(r => r.type === 'clock_in')?.timestamp.toDate();
-    const clockOut = records.find(r => r.type === 'clock_out')?.timestamp.toDate();
-    const breakStart = records.find(r => r.type === 'break_start')?.timestamp.toDate();
-    const breakEnd = records.find(r => r.type === 'break_end')?.timestamp.toDate();
+    const clockIn = records.find(r => r.type === 'clock_in')?.timestamp?.toDate();
+    const clockOut = records.find(r => r.type === 'clock_out')?.timestamp?.toDate();
+    const breakStart = records.find(r => r.type === 'break_start')?.timestamp?.toDate();
+    const breakEnd = records.find(r => r.type === 'break_end')?.timestamp?.toDate();
 
     const dayOfWeek = getDay(dayDate);
     const daySchedule = formData.workSchedule?.days[dayOfWeek];
     
     let expectedMinutes = 0;
     if (daySchedule?.workDay) {
-      const [sH, sM] = daySchedule.start.split(':').map(Number);
-      const [eH, eM] = daySchedule.end.split(':').map(Number);
-      const [lsH, lsM] = daySchedule.lunchStart.split(':').map(Number);
-      const [leH, leM] = daySchedule.lunchEnd.split(':').map(Number);
+      const [sH, sM] = (daySchedule.start || "00:00").split(':').map(Number);
+      const [eH, eM] = (daySchedule.end || "00:00").split(':').map(Number);
+      const [lsH, lsM] = (daySchedule.lunchStart || "00:00").split(':').map(Number);
+      const [leH, leM] = (daySchedule.lunchEnd || "00:00").split(':').map(Number);
       expectedMinutes = (eH * 60 + eM) - (sH * 60 + sM);
       if (lsH && leH) expectedMinutes -= (leH * 60 + leM) - (lsH * 60 + lsM);
     }
@@ -393,11 +403,11 @@ function HRTimesheetContent() {
                       <PopoverTrigger asChild>
                         <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.experienceEndDate && "text-muted-foreground")}>
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.experienceEndDate ? format(formData.experienceEndDate.toDate(), "dd/MM/yyyy") : <span>Selecionar data</span>}
+                          {formData.experienceEndDate ? format(formData.experienceEndDate instanceof Timestamp ? formData.experienceEndDate.toDate() : new Date(formData.experienceEndDate), "dd/MM/yyyy") : <span>Selecionar data</span>}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={formData.experienceEndDate?.toDate()} onSelect={d => handleUpdateField('experienceEndDate', d ? Timestamp.fromDate(d) : null)} initialFocus locale={ptBR} />
+                        <Calendar mode="single" selected={formData.experienceEndDate instanceof Timestamp ? formData.experienceEndDate.toDate() : (formData.experienceEndDate ? new Date(formData.experienceEndDate) : undefined)} onSelect={d => handleUpdateField('experienceEndDate', d ? Timestamp.fromDate(d) : null)} initialFocus locale={ptBR} />
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -407,11 +417,11 @@ function HRTimesheetContent() {
                       <PopoverTrigger asChild>
                         <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.vacationExpirationDate && "text-muted-foreground")}>
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {formData.vacationExpirationDate ? format(formData.vacationExpirationDate.toDate(), "dd/MM/yyyy") : <span>Selecionar data</span>}
+                          {formData.vacationExpirationDate ? format(formData.vacationExpirationDate instanceof Timestamp ? formData.vacationExpirationDate.toDate() : new Date(formData.vacationExpirationDate), "dd/MM/yyyy") : <span>Selecionar data</span>}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={formData.vacationExpirationDate?.toDate()} onSelect={d => handleUpdateField('vacationExpirationDate', d ? Timestamp.fromDate(d) : null)} initialFocus locale={ptBR} />
+                        <Calendar mode="single" selected={formData.vacationExpirationDate instanceof Timestamp ? formData.vacationExpirationDate.toDate() : (formData.vacationExpirationDate ? new Date(formData.vacationExpirationDate) : undefined)} onSelect={d => handleUpdateField('vacationExpirationDate', d ? Timestamp.fromDate(d) : null)} initialFocus locale={ptBR} />
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -477,7 +487,7 @@ function HRTimesheetContent() {
                           <TableCell className="font-medium">{format(day.date, "dd/MM (eee)", { locale: ptBR })}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              {day.records.length > 0 ? day.records.map(r => format(r.timestamp.toDate(), 'HH:mm')).join(' - ') : '--:--'}
+                              {day.records.length > 0 ? day.records.map(r => r.timestamp ? format(r.timestamp.toDate(), 'HH:mm') : '--:--').join(' - ') : '--:--'}
                             </div>
                           </TableCell>
                           <TableCell className="text-center">{formatMinutes(stats.worked)}</TableCell>
@@ -519,6 +529,48 @@ function HRTimesheetContent() {
                   </div>
                 ))}
                 {(!formData.discounts || formData.discounts.length === 0) && <p className="text-center py-8 text-muted-foreground italic">Nenhuma verba configurada.</p>}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="adjustments" className="space-y-6 print:hidden">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Ocorrências Lançadas</CardTitle>
+                  <CardDescription>Atestados, faltas e folgas que afetam o espelho de ponto.</CardDescription>
+                </div>
+                <Button variant="outline" onClick={() => setIsAdjDialogOpen(true)}><Stethoscope className="mr-2 h-4 w-4" /> Lançar Nova</Button>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead className="text-right">Ação</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {formData.adjustments?.length === 0 ? (
+                        <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nenhuma ocorrência registrada.</TableCell></TableRow>
+                      ) : (
+                        formData.adjustments?.sort((a,b) => b.date.toMillis() - a.date.toMillis()).map((adj) => (
+                          <TableRow key={adj.id}>
+                            <TableCell className="font-medium">{format(adj.date.toDate(), 'dd/MM/yyyy')}</TableCell>
+                            <TableCell><Badge variant="outline">{ADJUSTMENT_LABELS[adj.type]}</Badge></TableCell>
+                            <TableCell className="max-w-xs truncate">{adj.description || '-'}</TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteAdjustment(adj.id)}><Trash2 className="h-4 w-4" /></Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
