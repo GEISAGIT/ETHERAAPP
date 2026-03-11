@@ -7,13 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useCollection, useFirestore, useUser, useMemoFirebase, updateDocumentNonBlocking, useStorage, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc, query, Timestamp, serverTimestamp, where, orderBy } from 'firebase/firestore';
+import { useCollection, useFirestore, useUser, useMemoFirebase, updateDocumentNonBlocking, useStorage } from '@/firebase';
+import { collection, doc, query, Timestamp, serverTimestamp, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import type { Employee, EmployeeDiscount, TimeAdjustment, AdjustmentType, WorkSchedule, WorkScheduleType, AttendanceRecord, AttendanceType } from '@/lib/types';
+import type { Employee, TimeAdjustment, AdjustmentType, WorkSchedule, WorkScheduleType, AttendanceRecord } from '@/lib/types';
 import { useState, useMemo, useEffect, Suspense } from 'react';
-import { CalendarIcon, Loader2, Save, Plus, Trash2, Clock, UserCheck, CalendarDays, UploadCloud, FileText, Download, Info, Printer, ClipboardCheck, Stethoscope, AlertTriangle, Check } from 'lucide-react';
-import { format, differenceInMinutes, isSameDay, setHours, setMinutes, parse, getDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { CalendarIcon, Loader2, Save, Plus, Trash2, UserCheck, UploadCloud, FileText, Download, Info, Printer, ClipboardCheck, Stethoscope, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { format, differenceInMinutes, isSameDay, getDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -52,14 +52,8 @@ const DEFAULT_SCHEDULES: Record<WorkScheduleType, WorkSchedule> = {
       0: { workDay: false, start: '', end: '', lunchStart: '', lunchEnd: '' },
     }
   },
-  '12x36': {
-    type: '12x36',
-    days: {}
-  },
-  'custom': {
-    type: 'custom',
-    days: {}
-  }
+  '12x36': { type: '12x36', days: {} },
+  'custom': { type: 'custom', days: {} }
 };
 
 const ADJUSTMENT_LABELS: Record<AdjustmentType, string> = {
@@ -72,6 +66,7 @@ const ADJUSTMENT_LABELS: Record<AdjustmentType, string> = {
 };
 
 function HRTimesheetContent() {
+  const [isClient, setIsClient] = useState(false);
   const firestore = useFirestore();
   const storage = useStorage();
   const { user } = useUser();
@@ -89,7 +84,9 @@ function HRTimesheetContent() {
   const [adjType, setAdjType] = useState<AdjustmentType>('medical_certificate');
   const [adjNotes, setAdjNotes] = useState('');
 
+  // Hydration fix
   useEffect(() => {
+    setIsClient(true);
     const urlId = searchParams.get('id');
     if (urlId) setSelectedEmployeeId(urlId);
   }, [searchParams]);
@@ -123,6 +120,7 @@ function HRTimesheetContent() {
         ...selectedEmployee,
         workSchedule: selectedEmployee.workSchedule || DEFAULT_SCHEDULES['5x2'],
         adjustments: selectedEmployee.adjustments || [],
+        discounts: selectedEmployee.discounts || [],
       });
     } else {
       setFormData({});
@@ -137,6 +135,11 @@ function HRTimesheetContent() {
     if (!firestore || !selectedEmployeeId) return;
     setIsSaving(true);
 
+    // INFORMATIVE VALIDATION
+    if (!formData.fullName) return showValidationError('Nome Completo');
+    if (!formData.cpf) return showValidationError('CPF');
+    if (!formData.position) return showValidationError('Cargo');
+
     const cleanData = Object.entries(formData).reduce((acc, [key, value]) => {
       if (value !== undefined) (acc as any)[key] = value;
       return acc;
@@ -149,9 +152,14 @@ function HRTimesheetContent() {
     });
 
     setTimeout(() => {
-      toast({ title: 'Dados Atualizados' });
+      toast({ title: 'Dados Atualizados', description: 'As informações foram salvas no banco de dados.' });
       setIsSaving(false);
     }, 500);
+  };
+
+  const showValidationError = (fieldName: string) => {
+    toast({ variant: 'destructive', title: 'Campo Obrigatório', description: `O campo "${fieldName}" deve ser preenchido.` });
+    setIsSaving(false);
   };
 
   const handleAddAdjustment = () => {
@@ -172,26 +180,30 @@ function HRTimesheetContent() {
     handleUpdateField('adjustments', formData.adjustments?.filter(a => a.id !== id));
   };
 
-  // Cálculo da Folha Ponto Mensal (Baseado em CLT)
-  const currentMonthDays = useMemo(() => {
+  const handleAddDiscount = () => {
+    const newDiscount = { id: crypto.randomUUID(), name: '', percentage: 0 };
+    handleUpdateField('discounts', [...(formData.discounts || []), newDiscount]);
+  };
+
+  // Monthly History Calculation
+  const fullHistory = useMemo(() => {
+    if (!isClient) return [];
     const start = startOfMonth(new Date());
     const end = endOfMonth(new Date());
-    return eachDayOfInterval({ start, end });
-  }, []);
-
-  const fullHistory = useMemo(() => {
-    if (!currentMonthDays) return [];
+    const days = eachDayOfInterval({ start, end });
     
-    return currentMonthDays.map(day => {
+    return days.map(day => {
       const dayStr = format(day, 'yyyy-MM-dd');
-      const dayRecords = rawAttendance?.filter(r => format(r.timestamp.toDate(), 'yyyy-MM-dd') === dayStr)
-        .sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis()) || [];
+      const dayRecords = rawAttendance?.filter(r => {
+        const date = r.timestamp instanceof Timestamp ? r.timestamp.toDate() : new Date(r.timestamp);
+        return format(date, 'yyyy-MM-dd') === dayStr;
+      }).sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis()) || [];
       
       const dayAdj = formData.adjustments?.find(a => isSameDay(a.date.toDate(), day));
       
       return { date: day, records: dayRecords, adjustment: dayAdj };
     }).reverse();
-  }, [currentMonthDays, rawAttendance, formData.adjustments]);
+  }, [rawAttendance, formData.adjustments, isClient]);
 
   const calculateHours = (records: AttendanceRecord[], dayDate: Date, adjustment?: TimeAdjustment) => {
     const clockIn = records.find(r => r.type === 'clock_in')?.timestamp.toDate();
@@ -213,26 +225,21 @@ function HRTimesheetContent() {
     }
 
     let workedMinutes = 0;
-    const alerts: string[] = [];
-
     if (clockIn && clockOut) {
       workedMinutes = differenceInMinutes(clockOut, clockIn);
-      if (breakStart && breakEnd) {
-        workedMinutes -= differenceInMinutes(breakEnd, breakStart);
-      }
+      if (breakStart && breakEnd) workedMinutes -= differenceInMinutes(breakEnd, breakStart);
     }
 
-    // Lógica de Ocorrências
     if (adjustment) {
-      if (adjustment.type === 'medical_certificate' || adjustment.type === 'holiday' || adjustment.type === 'day_off') {
-        workedMinutes = expectedMinutes; // Abona o dia
+      if (['medical_certificate', 'holiday', 'day_off'].includes(adjustment.type)) {
+        workedMinutes = expectedMinutes;
       }
     }
 
     const balance = workedMinutes - expectedMinutes;
     const isWeekend = dayOfWeek === 0 || (dayOfWeek === 6 && !daySchedule?.workDay);
 
-    return { worked: workedMinutes, expected: expectedMinutes, balance, isWeekend, alerts };
+    return { worked: workedMinutes, expected: expectedMinutes, balance, isWeekend };
   };
 
   const formatMinutes = (min: number) => {
@@ -241,10 +248,6 @@ function HRTimesheetContent() {
     const h = Math.floor(absMin / 60);
     const m = absMin % 60;
     return `${sign}${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -258,12 +261,12 @@ function HRTimesheetContent() {
       const newDoc = { id: crypto.randomUUID(), name: file.name, url, uploadedAt: Timestamp.now() };
       const updatedDocs = [...(formData.documents || []), newDoc];
       handleUpdateField('documents', updatedDocs);
-      updateDocumentNonBlocking(doc(firestore!, 'employees', selectedEmployeeId), { documents: updatedDocs });
       toast({ title: 'Documento anexado' });
     } catch (e) { toast({ variant: 'destructive', title: 'Erro no upload' }); }
     finally { setIsUploading(false); }
   };
 
+  if (!isClient) return null;
   if (employeesLoading) return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
@@ -277,8 +280,8 @@ function HRTimesheetContent() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label>Data da Ocorrência</Label>
-              <Input type="date" value={format(adjDate, 'yyyy-MM-dd')} onChange={(e) => setAdjDate(parse(e.target.value, 'yyyy-MM-dd', new Date()))} />
+              <Label>Data</Label>
+              <Input type="date" value={format(adjDate, 'yyyy-MM-dd')} onChange={(e) => setAdjDate(new Date(e.target.value + 'T12:00:00'))} />
             </div>
             <div className="space-y-2">
               <Label>Tipo</Label>
@@ -292,67 +295,55 @@ function HRTimesheetContent() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Observações / Descritivo</Label>
+              <Label>Observações</Label>
               <Textarea value={adjNotes} onChange={(e) => setAdjNotes(e.target.value)} placeholder="Ex: Protocolo atestado 12345..." />
             </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsAdjDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddAdjustment}>Salvar Ocorrência</Button>
+            <Button onClick={handleAddAdjustment}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print:hidden">
         <div>
-          <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Gestão de Colaboradores</h1>
-          <p className="text-muted-foreground">Controle de jornada e espelho de ponto CLT.</p>
+          <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Gestão de Horários</h1>
+          <p className="text-muted-foreground">Ficha completa e espelho de ponto CLT.</p>
         </div>
         <div className="flex gap-2">
           {selectedEmployeeId && (
             <>
-              <Button variant="outline" onClick={handlePrint}>
-                <Printer className="mr-2 h-4 w-4" /> Imprimir Espelho
-              </Button>
+              <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
               <Button onClick={handleSaveEmployee} disabled={isSaving}>
                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Salvar Alterações
+                Salvar Ficha
               </Button>
             </>
           )}
         </div>
       </header>
 
-      {/* Header específico para Impressão */}
+      {/* Header Impressão */}
       <div className="hidden print:block border-b-2 border-primary pb-4 mb-6">
         <div className="flex justify-between items-end">
-          <div>
-            <h1 className="text-2xl font-bold text-primary">Ethera - Espelho de Ponto</h1>
-            <p className="text-sm font-medium">Competência: {format(new Date(), 'MMMM / yyyy', { locale: ptBR })}</p>
-          </div>
-          <div className="text-right text-xs">
-            <p>Emissão: {format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
-          </div>
+          <h1 className="text-2xl font-bold text-primary">Ethera - Espelho de Ponto</h1>
+          <p className="text-sm font-medium">Competência: {format(new Date(), 'MMMM / yyyy', { locale: ptBR })}</p>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+        <div className="mt-4 grid grid-cols-2 gap-4 text-xs">
           <div>
             <p><strong>Colaborador:</strong> {selectedEmployee?.fullName}</p>
-            <p><strong>CPF:</strong> {selectedEmployee?.cpf}</p>
-            <p><strong>Cargo:</strong> {selectedEmployee?.position}</p>
+            <p><strong>CPF:</strong> {selectedEmployee?.cpf} | <strong>Matrícula:</strong> {selectedEmployee?.registrationNumber || '--'}</p>
           </div>
           <div className="text-right">
+            <p><strong>PIS:</strong> {selectedEmployee?.pisPasep || '--'} | <strong>CTPS:</strong> {selectedEmployee?.ctps || '--'}</p>
             <p><strong>Admissão:</strong> {selectedEmployee?.hireDate ? format(selectedEmployee.hireDate.toDate(), 'dd/MM/yyyy') : '--'}</p>
-            <p><strong>Regime:</strong> {selectedEmployee?.regimeType} / {selectedEmployee?.overtimePolicy}</p>
           </div>
         </div>
       </div>
 
       <Card className="border-primary/20 shadow-sm print:hidden">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <UserCheck className="h-5 w-5 text-primary" /> Selecionar Funcionário
-          </CardTitle>
-        </CardHeader>
+        <CardHeader className="pb-4"><CardTitle className="text-lg flex items-center gap-2"><UserCheck className="h-5 w-5 text-primary" /> Colaborador</CardTitle></CardHeader>
         <CardContent>
           <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
             <SelectTrigger className="max-w-md"><SelectValue placeholder="Escolha um colaborador..." /></SelectTrigger>
@@ -368,16 +359,65 @@ function HRTimesheetContent() {
       {selectedEmployee ? (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6 h-auto p-1 bg-muted/50 print:hidden">
-            <TabsTrigger value="contract" className="py-2">Contrato & Escala</TabsTrigger>
+            <TabsTrigger value="contract" className="py-2">Ficha & Escala</TabsTrigger>
             <TabsTrigger value="attendance" className="py-2">Folha Ponto</TabsTrigger>
-            <TabsTrigger value="adjustments" className="py-2">Ajustes & Ocorrências</TabsTrigger>
-            <TabsTrigger value="experience" className="py-2">Férias & Exp.</TabsTrigger>
-            <TabsTrigger value="discounts" className="py-2">Financeiro</TabsTrigger>
+            <TabsTrigger value="adjustments" className="py-2">Ocorrências</TabsTrigger>
+            <TabsTrigger value="finance" className="py-2">Financeiro</TabsTrigger>
             <TabsTrigger value="documents" className="py-2">Arquivos</TabsTrigger>
           </TabsList>
 
           <TabsContent value="contract" className="space-y-6 print:hidden">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card className="lg:col-span-2">
+                <CardHeader><CardTitle className="text-md flex items-center gap-2"><FileText className="h-4 w-4" /> Documentação & Pessoal</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Matrícula Interna</Label>
+                    <Input value={formData.registrationNumber || ''} onChange={e => handleUpdateField('registrationNumber', e.target.value)} placeholder="0000" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>PIS / PASEP</Label>
+                    <Input value={formData.pisPasep || ''} onChange={e => handleUpdateField('pisPasep', e.target.value)} placeholder="000.00000.00-0" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>CTPS (Nº e Série)</Label>
+                    <Input value={formData.ctps || ''} onChange={e => handleUpdateField('ctps', e.target.value)} placeholder="000000 / 000-0" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Telefone</Label>
+                    <Input value={formData.phone || ''} onChange={e => handleUpdateField('phone', e.target.value)} placeholder="(00) 00000-0000" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Fim do Período de Experiência</Label>
+                    <Popover modal>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.experienceEndDate && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.experienceEndDate ? format(formData.experienceEndDate.toDate(), "dd/MM/yyyy") : <span>Selecionar data</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={formData.experienceEndDate?.toDate()} onSelect={d => handleUpdateField('experienceEndDate', d ? Timestamp.fromDate(d) : null)} initialFocus locale={ptBR} />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Próximo Vencimento de Férias</Label>
+                    <Popover modal>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.vacationExpirationDate && "text-muted-foreground")}>
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.vacationExpirationDate ? format(formData.vacationExpirationDate.toDate(), "dd/MM/yyyy") : <span>Selecionar data</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={formData.vacationExpirationDate?.toDate()} onSelect={d => handleUpdateField('vacationExpirationDate', d ? Timestamp.fromDate(d) : null)} initialFocus locale={ptBR} />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="lg:col-span-1">
                 <CardHeader><CardTitle className="text-md">Escala de Trabalho</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
@@ -393,38 +433,17 @@ function HRTimesheetContent() {
                       </SelectContent>
                     </Select>
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card className="lg:col-span-2">
-                <CardHeader><CardTitle className="text-md">Detalhamento da Jornada</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  {[1, 2, 3, 4, 5, 6, 0].map((day) => {
-                    const dayName = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][day];
-                    const schedule = formData.workSchedule?.days[day];
-                    return (
-                      <div key={day} className="flex flex-wrap items-center gap-4 p-3 border rounded-lg hover:bg-muted/30">
-                        <div className="w-24 font-medium text-sm">{dayName}</div>
-                        <Checkbox checked={schedule?.workDay} onCheckedChange={(checked) => {
-                          const updatedDays = { ...formData.workSchedule?.days, [day]: { ...schedule, workDay: !!checked } };
-                          handleUpdateField('workSchedule', { ...formData.workSchedule, days: updatedDays });
-                        }} />
-                        {schedule?.workDay && (
-                          <div className="flex gap-2 items-center">
-                            <Input type="time" className="w-24 h-8" value={schedule.start} onChange={(e) => {
-                              const updatedDays = { ...formData.workSchedule?.days, [day]: { ...schedule, start: e.target.value } };
-                              handleUpdateField('workSchedule', { ...formData.workSchedule, days: updatedDays });
-                            }} />
-                            <span className="text-xs">às</span>
-                            <Input type="time" className="w-24 h-8" value={schedule.end} onChange={(e) => {
-                              const updatedDays = { ...formData.workSchedule?.days, [day]: { ...schedule, end: e.target.value } };
-                              handleUpdateField('workSchedule', { ...formData.workSchedule, days: updatedDays });
-                            }} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  <div className="space-y-2">
+                    <Label>Regime</Label>
+                    <Select value={formData.regimeType} onValueChange={v => handleUpdateField('regimeType', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CLT">CLT</SelectItem>
+                        <SelectItem value="PJ">PJ</SelectItem>
+                        <SelectItem value="intern">Estagiário</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -434,126 +453,72 @@ function HRTimesheetContent() {
             <Card className="print:border-none print:shadow-none">
               <CardHeader className="flex flex-row items-center justify-between print:hidden">
                 <div>
-                  <CardTitle className="text-lg">Espelho de Ponto Automatizado</CardTitle>
+                  <CardTitle className="text-lg">Folha Mensal</CardTitle>
                   <CardDescription>Cálculo de horas baseado em Batidas + Ocorrências.</CardDescription>
                 </div>
-                <div className="flex gap-2">
-                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700">Saldo: {formatMinutes(fullHistory.reduce((acc, day) => acc + calculateHours(day.records, day.date, day.adjustment).balance, 0))}</Badge>
-                </div>
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700">Saldo: {formatMinutes(fullHistory.reduce((acc, day) => acc + calculateHours(day.records, day.date, day.adjustment).balance, 0))}</Badge>
               </CardHeader>
               <CardContent className="p-0 sm:p-6">
-                <div className="rounded-md border print:border-slate-300">
-                  <Table className="print:text-[10px]">
-                    <TableHeader className="bg-muted/50 print:bg-slate-100">
-                      <TableRow>
-                        <TableHead className="w-32">Data</TableHead>
-                        <TableHead>Batidas Reais</TableHead>
-                        <TableHead className="text-center">Intervalo</TableHead>
-                        <TableHead className="text-center">Trab.</TableHead>
-                        <TableHead className="text-center">Saldo</TableHead>
-                        <TableHead>Ocorrência/Nota</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {fullHistory.map((day) => {
-                        const stats = calculateHours(day.records, day.date, day.adjustment);
-                        const clockIn = day.records.find(r => r.type === 'clock_in');
-                        const breakStart = day.records.find(r => r.type === 'break_start');
-                        const breakEnd = day.records.find(r => r.type === 'break_end');
-                        const clockOut = day.records.find(r => r.type === 'clock_out');
-
-                        return (
-                          <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/20 print:bg-slate-50")}>
-                            <TableCell className="font-medium">
-                              {format(day.date, "dd/MM (eee)", { locale: ptBR })}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                {day.records.length > 0 ? day.records.map(r => (
-                                  <span key={r.id} className="font-mono">{format(r.timestamp.toDate(), 'HH:mm')}</span>
-                                )).reduce((prev, curr) => [prev, ' - ', curr] as any) : '--:--'}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {breakStart && breakEnd ? formatMinutes(differenceInMinutes(breakEnd.timestamp.toDate(), breakStart.timestamp.toDate())) : '--'}
-                            </TableCell>
-                            <TableCell className="text-center font-semibold">
-                              {formatMinutes(stats.worked)}
-                            </TableCell>
-                            <TableCell className={cn("text-center font-bold", stats.balance > 0 ? "text-emerald-600" : stats.balance < 0 ? "text-red-600" : "")}>
-                              {formatMinutes(stats.balance)}
-                            </TableCell>
-                            <TableCell>
-                              {day.adjustment ? (
-                                <Badge variant="outline" className="text-[10px] uppercase font-bold border-primary/30">
-                                  {ADJUSTMENT_LABELS[day.adjustment.type]}
-                                </Badge>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">{day.records[0]?.notes || ''}</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                <div className="hidden print:grid grid-cols-2 gap-20 mt-16 text-sm">
-                  <div className="border-t border-black pt-2 text-center">
-                    <p>{selectedEmployee?.fullName}</p>
-                    <p className="text-[10px]">Assinatura do Colaborador</p>
-                  </div>
-                  <div className="border-t border-black pt-2 text-center">
-                    <p>Ethera Longevidade</p>
-                    <p className="text-[10px]">Assinatura do Gestor</p>
-                  </div>
+                <Table className="print:text-[10px]">
+                  <TableHeader className="bg-muted/50 print:bg-slate-100">
+                    <TableRow>
+                      <TableHead className="w-32">Data</TableHead>
+                      <TableHead>Batidas</TableHead>
+                      <TableHead className="text-center">Trab.</TableHead>
+                      <TableHead className="text-center">Saldo</TableHead>
+                      <TableHead>Ocorrência</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fullHistory.map((day) => {
+                      const stats = calculateHours(day.records, day.date, day.adjustment);
+                      return (
+                        <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/20")}>
+                          <TableCell className="font-medium">{format(day.date, "dd/MM (eee)", { locale: ptBR })}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {day.records.length > 0 ? day.records.map(r => format(r.timestamp.toDate(), 'HH:mm')).join(' - ') : '--:--'}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">{formatMinutes(stats.worked)}</TableCell>
+                          <TableCell className={cn("text-center font-bold", stats.balance > 0 ? "text-emerald-600" : stats.balance < 0 ? "text-red-600" : "")}>{formatMinutes(stats.balance)}</TableCell>
+                          <TableCell>{day.adjustment ? <Badge variant="outline" className="text-[10px] uppercase">{ADJUSTMENT_LABELS[day.adjustment.type]}</Badge> : ''}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                <div className="hidden print:grid grid-cols-2 gap-20 mt-16 text-center text-sm">
+                  <div className="border-t border-black pt-2"><p>{selectedEmployee?.fullName}</p><p className="text-[10px]">Assinatura do Colaborador</p></div>
+                  <div className="border-t border-black pt-2"><p>Ethera Longevidade</p><p className="text-[10px]">Assinatura do Gestor</p></div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="adjustments" className="space-y-6 print:hidden">
+          <TabsContent value="finance" className="space-y-6 print:hidden">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-primary" /> Histórico de Ajustes</CardTitle>
-                  <CardDescription>Lance faltas, atestados ou compensações manuais.</CardDescription>
-                </div>
-                <Button onClick={() => setIsAdjDialogOpen(true)}><Plus className="mr-2 h-4 w-4" /> Lançar Ocorrência</Button>
+                <div><CardTitle className="text-lg">Descontos & Benefícios</CardTitle><CardDescription>Configure verbas fixas mensais.</CardDescription></div>
+                <Button variant="outline" onClick={handleAddDiscount}><Plus className="mr-2 h-4 w-4" /> Adicionar Verba</Button>
               </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {formData.adjustments?.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground italic">Nenhuma ocorrência lançada.</TableCell></TableRow>
-                    ) : (
-                      formData.adjustments?.sort((a,b) => b.date.toMillis() - a.date.toMillis()).map(adj => (
-                        <TableRow key={adj.id}>
-                          <TableCell className="font-medium">{format(adj.date.toDate(), 'dd/MM/yyyy')}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className="gap-1">
-                              {adj.type === 'medical_certificate' ? <Stethoscope className="h-3 w-3" /> : <Info className="h-3 w-3" />}
-                              {ADJUSTMENT_LABELS[adj.type]}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-xs">{adj.description}</TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteAdjustment(adj.id)}><Trash2 className="h-4 w-4" /></Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+              <CardContent className="space-y-4">
+                {formData.discounts?.map((disc, idx) => (
+                  <div key={disc.id} className="flex items-end gap-4 border p-4 rounded-lg">
+                    <div className="flex-1 space-y-2"><Label>Descrição da Verba</Label><Input value={disc.name} onChange={e => {
+                      const newDiscounts = [...(formData.discounts || [])];
+                      newDiscounts[idx].name = e.target.value;
+                      handleUpdateField('discounts', newDiscounts);
+                    }} placeholder="Ex: Vale Transporte" /></div>
+                    <div className="w-32 space-y-2"><Label>Percentual (%)</Label><Input type="number" value={disc.percentage} onChange={e => {
+                      const newDiscounts = [...(formData.discounts || [])];
+                      newDiscounts[idx].percentage = Number(e.target.value);
+                      handleUpdateField('discounts', newDiscounts);
+                    }} /></div>
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleUpdateField('discounts', formData.discounts?.filter(d => d.id !== disc.id))}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                ))}
+                {(!formData.discounts || formData.discounts.length === 0) && <p className="text-center py-8 text-muted-foreground italic">Nenhuma verba configurada.</p>}
               </CardContent>
             </Card>
           </TabsContent>
@@ -564,31 +529,20 @@ function HRTimesheetContent() {
                 <CardTitle className="text-md">Documentos Digitalizados</CardTitle>
                 <div className="relative">
                   <Input type="file" className="hidden" id="doc-upload-hr" onChange={handleFileUpload} disabled={isUploading} />
-                  <Button variant="outline" size="sm" asChild disabled={isUploading}>
-                    <label htmlFor="doc-upload-hr" className="cursor-pointer">
-                      {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
-                      Anexar Novo
-                    </label>
-                  </Button>
+                  <Button variant="outline" size="sm" asChild disabled={isUploading}><label htmlFor="doc-upload-hr" className="cursor-pointer">
+                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />} Anexar Novo
+                  </label></Button>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {formData.documents?.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded-md group hover:border-primary/50 transition-colors">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <FileText className="h-5 w-5 text-primary shrink-0" />
-                        <div className="flex flex-col overflow-hidden">
-                          <span className="text-sm font-medium truncate">{doc.name}</span>
-                          <span className="text-[10px] text-muted-foreground">{format(doc.uploadedAt.toDate(), 'dd/MM/yy')}</span>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                        <Link href={doc.url} target="_blank"><Download className="h-4 w-4" /></Link>
-                      </Button>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {formData.documents?.map((doc) => (
+                  <div key={doc.id} className="flex items-center justify-between p-3 border rounded-md group hover:border-primary/50">
+                    <div className="flex items-center gap-3 overflow-hidden"><FileText className="h-5 w-5 text-primary shrink-0" />
+                      <div className="flex flex-col overflow-hidden"><span className="text-sm font-medium truncate">{doc.name}</span><span className="text-[10px] text-muted-foreground">{format(doc.uploadedAt.toDate(), 'dd/MM/yy')}</span></div>
                     </div>
-                  ))}
-                </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" asChild><Link href={doc.url} target="_blank"><Download className="h-4 w-4" /></Link></Button>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </TabsContent>
