@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Timestamp } from 'firebase/firestore';
@@ -154,6 +153,20 @@ export type EmployeeStatus = 'active' | 'inactive' | 'on_leave';
 export type EmployeeRegime = 'CLT' | 'PJ' | 'intern' | 'other';
 export type OvertimePolicy = 'overtime' | 'time_bank';
 export type WorkStatus = 'regular' | 'temporary' | 'probation' | 'inactive';
+export type WorkScheduleType = '5x2' | '6x1' | '12x36' | 'custom';
+
+export interface DailySchedule {
+  workDay: boolean;
+  start: string; // HH:mm
+  end: string;
+  lunchStart: string;
+  lunchEnd: string;
+}
+
+export interface WorkSchedule {
+  type: WorkScheduleType;
+  days: Record<number, DailySchedule>; // 0 (Dom) a 6 (Sab)
+}
 
 export interface EmployeeDiscount {
   id: string;
@@ -198,6 +211,7 @@ export type Employee = {
   status: EmployeeStatus;
   regimeType: EmployeeRegime;
   overtimePolicy: OvertimePolicy;
+  workSchedule?: WorkSchedule;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   registrationNumber?: string;

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -43,7 +42,7 @@ import { collection, Timestamp, serverTimestamp, doc, setDoc } from 'firebase/fi
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
 import { defaultPermissions } from '@/lib/data';
-import type { UserProfile } from '@/lib/types';
+import type { UserProfile, WorkSchedule } from '@/lib/types';
 
 const formSchema = z.object({
   fullName: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres.'),
@@ -60,6 +59,19 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+const DEFAULT_SCHEDULE_5X2: WorkSchedule = {
+  type: '5x2',
+  days: {
+    1: { workDay: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    2: { workDay: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    3: { workDay: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    4: { workDay: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    5: { workDay: true, start: '08:00', end: '18:00', lunchStart: '12:00', lunchEnd: '13:00' },
+    6: { workDay: false, start: '', end: '', lunchStart: '', lunchEnd: '' },
+    0: { workDay: false, start: '', end: '', lunchStart: '', lunchEnd: '' },
+  }
+};
 
 export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
   const { toast } = useToast();
@@ -103,7 +115,6 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
   const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setHireDateInput(val);
-    
     const parts = val.split("/");
     if (parts.length === 3 && parts[2].length === 4) {
       const d = parseInt(parts[0], 10);
@@ -130,7 +141,7 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
 
       await updateProfile(newUser, { 
         displayName: values.fullName,
-        photoURL: 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media&token=c68144ba-c10e-4921-8fe7-eb791d34eebe'
+        photoURL: 'https://firebasestorage.googleapis.com/v0/b/clinicflow-api-banc-3871-3813b.appspot.com/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media'
       });
 
       const userProfile: UserProfile = {
@@ -157,6 +168,7 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
         status: values.status,
         regimeType: values.regimeType,
         overtimePolicy: values.overtimePolicy,
+        workSchedule: DEFAULT_SCHEDULE_5X2, // Escala padrão Seg-Sex
         userId: adminUser.uid,
         hireDate: values.hireDate ? Timestamp.fromDate(values.hireDate) : null,
         createdAt: serverTimestamp(),
@@ -168,17 +180,13 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
 
       toast({ 
         title: 'Funcionário Cadastrado', 
-        description: `${values.fullName} foi adicionado. A senha temporária é: ${values.tempPassword}` 
+        description: `${values.fullName} foi adicionado. Defina a escala detalhada na aba Gestão de Horários.` 
       });
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Erro detalhado ao cadastrar funcionário:", error);
-      let message = 'Ocorreu um erro ao criar a conta do funcionário.';
-      
-      if (error.code === 'auth/email-already-in-use') {
-        message = 'Este e-mail já está em uso no sistema de autenticação.';
-      }
-      
+      console.error(error);
+      let message = 'Erro ao criar conta.';
+      if (error.code === 'auth/email-already-in-use') message = 'E-mail já em uso.';
       toast({ variant: 'destructive', title: 'Falha no Cadastro', description: message });
     }
   };
@@ -189,7 +197,7 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
         <DialogHeader>
           <DialogTitle className="font-headline">Cadastrar Funcionário</DialogTitle>
           <DialogDescription>
-            Ao salvar, uma conta de acesso será criada automaticamente para o funcionário com os dados abaixo.
+            Ao salvar, uma conta de acesso será criada. A escala padrão é 5x2 (08h-18h).
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -226,18 +234,8 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
                     <FormLabel>Senha Temporária</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input 
-                          type={showPassword ? "text" : "password"} 
-                          placeholder="Senha de acesso" 
-                          {...field} 
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
+                        <Input type={showPassword ? "text" : "password"} {...field} />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2" onClick={() => setShowPassword(!showPassword)}>
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
                       </div>
@@ -327,7 +325,7 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
-                        <SelectItem value="overtime">Hora Extra</SelectItem>
+                        <SelectItem value="overtime">Hora Extra (+50%/+100%)</SelectItem>
                         <SelectItem value="time_bank">Banco de Horas</SelectItem>
                       </SelectContent>
                     </Select>
@@ -346,30 +344,14 @@ export function AddEmployeeDialog({ open, onOpenChange }: { open: boolean, onOpe
                     <FormLabel>Data de Contratação</FormLabel>
                     <div className="flex gap-2">
                       <FormControl>
-                        <Input 
-                          placeholder="DD/MM/AAAA"
-                          value={hireDateInput}
-                          onChange={handleDateInputChange}
-                          className="flex-1"
-                        />
+                        <Input placeholder="DD/MM/AAAA" value={hireDateInput} onChange={handleDateInputChange} className="flex-1" />
                       </FormControl>
                       <Popover modal>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" size="icon" className="shrink-0">
-                            <CalendarIcon className="h-4 w-4 opacity-50" />
-                          </Button>
+                          <Button variant="outline" size="icon"><CalendarIcon className="h-4 w-4 opacity-50" /></Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
-                          <Calendar 
-                            mode="single" 
-                            selected={field.value} 
-                            onSelect={(date) => {
-                              field.onChange(date);
-                              if (date) setHireDateInput(format(date, "dd/MM/yyyy"));
-                            }} 
-                            initialFocus 
-                            locale={ptBR} 
-                          />
+                          <Calendar mode="single" selected={field.value} onSelect={(date) => { field.onChange(date); if (date) setHireDateInput(format(date, "dd/MM/yyyy")); }} initialFocus locale={ptBR} />
                         </PopoverContent>
                       </Popover>
                     </div>
