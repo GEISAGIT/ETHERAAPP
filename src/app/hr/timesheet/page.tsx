@@ -590,11 +590,11 @@ function HRTimesheetContent() {
                           <TableCell>
                             <div className="flex flex-wrap gap-2">
                               {day.records.length > 0 ? day.records.map(r => (
-                                <div key={r.id} className="flex items-center gap-1 bg-secondary rounded-md px-2 py-1 border border-border/50 group/punch transition-colors hover:border-primary/50">
+                                <div key={r.id} className="flex items-center gap-1 bg-secondary rounded-md px-2 py-1 border border-border/50 group/punch transition-colors hover:border-primary/50 relative">
                                   <span className="text-sm font-medium">
                                     {r.timestamp ? format(r.timestamp.toDate(), 'HH:mm') : '--:--'}
                                   </span>
-                                  <div className="flex items-center ml-1 border-l pl-1 gap-0.5">
+                                  <div className="flex items-center ml-1 border-l pl-1 gap-0.5 opacity-0 group-hover/punch:opacity-100 transition-opacity">
                                     <Button 
                                       variant="ghost" 
                                       size="icon" 
