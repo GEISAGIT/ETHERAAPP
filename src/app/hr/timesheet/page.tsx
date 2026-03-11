@@ -24,7 +24,6 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 
 const DEFAULT_SCHEDULES: Record<WorkScheduleType, WorkSchedule> = {
@@ -105,7 +104,6 @@ function HRTimesheetContent() {
   const [editPunchTime, setEditPunchTime] = useState('');
   const [editPunchNotes, setEditPunchNotes] = useState('');
 
-  // Hydration fix
   useEffect(() => {
     setIsClient(true);
     const urlId = searchParams.get('id');
@@ -156,30 +154,16 @@ function HRTimesheetContent() {
     if (!firestore || !selectedEmployeeId) return;
     setIsSaving(true);
 
-    if (!formData.fullName) return showValidationError('Nome Completo');
-    if (!formData.cpf) return showValidationError('CPF');
-    if (!formData.position) return showValidationError('Cargo');
-
-    const cleanData = Object.entries(formData).reduce((acc, [key, value]) => {
-      if (value !== undefined) (acc as any)[key] = value;
-      return acc;
-    }, {} as any);
-
     const employeeRef = doc(firestore, 'employees', selectedEmployeeId);
     updateDocumentNonBlocking(employeeRef, {
-      ...cleanData,
+      ...formData,
       updatedAt: serverTimestamp(),
     });
 
     setTimeout(() => {
-      toast({ title: 'Dados Atualizados', description: 'As informações foram salvas no banco de dados.' });
+      toast({ title: 'Dados Atualizados', description: 'As informações foram salvas.' });
       setIsSaving(false);
     }, 500);
-  };
-
-  const showValidationError = (fieldName: string) => {
-    toast({ variant: 'destructive', title: 'Campo Obrigatório', description: `O campo "${fieldName}" deve ser preenchido.` });
-    setIsSaving(false);
   };
 
   const handleAddAdjustment = async () => {
@@ -237,7 +221,7 @@ function HRTimesheetContent() {
     const punchTimestamp = new Date(manualPunchDate);
     punchTimestamp.setHours(parseInt(h), parseInt(m), 0, 0);
 
-    const recordData: Omit<AttendanceRecord, 'id'> = {
+    const recordData = {
       employeeId: selectedEmployee.id,
       employeeName: selectedEmployee.fullName,
       timestamp: Timestamp.fromDate(punchTimestamp),

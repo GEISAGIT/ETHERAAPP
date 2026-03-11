@@ -27,13 +27,11 @@ import {
   ChevronRight,
   Home,
   UserCheck,
-  ClipboardList,
   FileText,
   Tags,
   Package,
   Boxes,
-  MapPin,
-  Box
+  MapPin
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -43,9 +41,7 @@ import type { MenuItemKey, UserProfile, Permissions } from '@/lib/types';
 import { useMemo } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-// Primary items
 const homeItem = { key: 'home' as MenuItemKey, href: '/home', label: 'Início', icon: Home };
-
 const dashboardItem = { key: 'dashboard' as MenuItemKey, href: '/dashboard', label: 'Painel Geral', icon: LayoutDashboard };
 
 const financialMenuItems = [
@@ -94,13 +90,8 @@ export function AppSidebar() {
   const filterMenuItems = (items: any[]) => {
     const emailLower = user?.email?.toLowerCase();
     const isAdminMaster = emailLower === 'grupodallax@gmail.com' || emailLower === 'vasin71888@him6.com';
-
     if (isAdminMaster) return items;
-
-    if (!userProfile) {
-        return items.filter(item => item.key === 'profile' || item.key === 'home');
-    }
-
+    if (!userProfile) return items.filter(item => item.key === 'profile' || item.key === 'home');
     return items.filter(item => {
         const pagePermissions = userProfile.permissions?.[item.key as keyof Permissions];
         if (pagePermissions && typeof pagePermissions === 'object' && 'view' in pagePermissions) {
@@ -180,7 +171,7 @@ export function AppSidebar() {
         )}
 
         {hrItems.length > 0 && (
-          <Collapsible asChild defaultOpen={false} className="group/collapsible">
+          <Collapsible asChild defaultOpen={true} className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">
