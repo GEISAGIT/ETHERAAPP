@@ -12,7 +12,7 @@ import { collection, doc, query, Timestamp, serverTimestamp, where } from 'fireb
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { Employee, TimeAdjustment, AdjustmentType, WorkSchedule, WorkScheduleType, AttendanceRecord, AttendanceType, EmployeeDiscount } from '@/lib/types';
 import { useState, useMemo, useEffect, Suspense } from 'react';
-import { CalendarIcon, Loader2, Save, Plus, Trash2, UserCheck, UploadCloud, FileText, Download, Info, Printer, ClipboardCheck, Stethoscope, AlertTriangle, ShieldCheck, Edit, History, PlusCircle } from 'lucide-react';
+import { CalendarIcon, Loader2, Save, Plus, Trash2, UserCheck, UploadCloud, FileText, Download, Info, Printer, ClipboardCheck, Stethoscope, AlertTriangle, ShieldCheck, Edit, History, PlusCircle, MessageSquare } from 'lucide-react';
 import { format, differenceInMinutes, isSameDay, getDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -25,6 +25,7 @@ import { useSearchParams } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const DEFAULT_SCHEDULES: Record<WorkScheduleType, WorkSchedule> = {
   '5x2': {
@@ -367,6 +368,72 @@ function HRTimesheetContent() {
     finally { setIsUploading(false); }
   };
 
+  const PunchCell = ({ record, dayDate, type }: { record?: AttendanceRecord, dayDate: Date, type: AttendanceType }) => {
+    return (
+      <TableCell className="relative group/cell p-2 border-x text-center min-w-[100px]">
+        {record ? (
+          <div className="flex items-center justify-center gap-1">
+            <span className={cn("text-sm font-medium", record.manual && "text-amber-600 underline decoration-dotted")}>
+              {format(record.timestamp.toDate(), 'HH:mm')}
+            </span>
+            {record.notes && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <MessageSquare className="h-3 w-3 text-muted-foreground opacity-50" />
+                  </TooltipTrigger>
+                  <TooltipContent><p className="max-w-[200px] text-xs">{record.notes}</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-[1px] opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center gap-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7 text-primary hover:bg-primary/10"
+                onClick={() => {
+                  setEditingPunch(record);
+                  setEditPunchTime(format(record.timestamp.toDate(), 'HH:mm'));
+                  setEditPunchNotes(record.notes || '');
+                  setIsEditPunchOpen(true);
+                }}
+              >
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                onClick={() => handleDeletePunch(record.id)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-1">
+            <span className="text-xs text-muted-foreground opacity-30">--:--</span>
+            <div className="absolute inset-0 bg-background/80 opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7 text-primary hover:bg-primary/10"
+                onClick={() => {
+                  setManualPunchDate(dayDate);
+                  setManualPunchType(type);
+                  setManualPunchTime(type === 'clock_in' ? '08:00' : type === 'break_start' ? '12:00' : type === 'break_end' ? '13:00' : '18:00');
+                  setIsManualPunchOpen(true);
+                }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </TableCell>
+    );
+  };
+
   if (!isClient) return null;
   if (employeesLoading) return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
@@ -539,11 +606,11 @@ function HRTimesheetContent() {
           </TabsList>
 
           <TabsContent value="attendance" className="space-y-6">
-            <Card className="print:border-none print:shadow-none">
+            <Card className="print:border-none print:shadow-none overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between print:hidden">
                 <div>
                   <CardTitle className="text-lg">Folha Mensal</CardTitle>
-                  <CardDescription>Cálculo de horas baseado em Batidas + Ocorrências.</CardDescription>
+                  <CardDescription>Visualização detalhada por tipo de batida.</CardDescription>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setIsManualPunchOpen(true)}>
@@ -555,83 +622,64 @@ function HRTimesheetContent() {
                   <Badge variant="outline" className="bg-emerald-50 text-emerald-700">Saldo: {formatMinutes(fullHistory.reduce((acc, day) => acc + calculateHours(day.records, day.date, day.adjustment).balance, 0))}</Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-0 sm:p-6">
-                <Table className="print:text-[10px]">
-                  <TableHeader>
-                    <TableRow className="bg-muted/50 print:bg-slate-100">
-                      <TableHead className="w-32">Data</TableHead>
-                      <TableHead>Batidas</TableHead>
-                      <TableHead className="text-center">Trab.</TableHead>
-                      <TableHead className="text-center">Saldo</TableHead>
-                      <TableHead>Ocorrência</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {fullHistory.map((day) => {
-                      const stats = calculateHours(day.records, day.date, day.adjustment);
-                      return (
-                        <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/20")}>
-                          <TableCell className="font-medium">{format(day.date, "dd/MM (eee)", { locale: ptBR })}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap items-center gap-2">
-                              {day.records.length > 0 ? (
-                                day.records.map(r => (
-                                  <div key={r.id} className="flex items-center gap-1 bg-secondary rounded-md px-2 py-1 border border-border/50 group/punch transition-all hover:border-primary hover:shadow-sm relative">
-                                    <span className="text-sm font-medium">
-                                      {r.timestamp ? format(r.timestamp.toDate(), 'HH:mm') : '--:--'}
-                                    </span>
-                                    <div className="flex items-center ml-1 border-l pl-1 gap-0.5 opacity-0 group-hover/punch:opacity-100 transition-opacity">
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                        onClick={() => {
-                                          setEditingPunch(r);
-                                          setEditPunchTime(format(r.timestamp.toDate(), 'HH:mm'));
-                                          setEditPunchNotes(r.notes || '');
-                                          setIsEditPunchOpen(true);
-                                        }}
-                                        title="Editar horário"
-                                      >
-                                        <Edit className="h-3 w-3" />
-                                      </Button>
-                                      <button 
-                                        onClick={() => handleDeletePunch(r.id)}
-                                        className="p-1 text-muted-foreground hover:text-destructive transition-colors"
-                                        title="Excluir batida"
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="group/empty flex items-center gap-2">
-                                  <span className="text-sm text-muted-foreground">--:--</span>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 opacity-0 group-hover/empty:opacity-100 text-primary transition-opacity"
-                                    onClick={() => {
-                                      setManualPunchDate(day.date);
-                                      setIsManualPunchOpen(true);
-                                    }}
-                                    title="Lançar ponto para este dia"
-                                  >
-                                    <Plus className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">{formatMinutes(stats.worked)}</TableCell>
-                          <TableCell className={cn("text-center font-bold", stats.balance > 0 ? "text-emerald-600" : stats.balance < 0 ? "text-red-600" : "")}>{formatMinutes(stats.balance)}</TableCell>
-                          <TableCell>{day.adjustment ? <Badge variant="outline" className="text-[10px] uppercase">{ADJUSTMENT_LABELS[day.adjustment.type]}</Badge> : ''}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+              <CardContent className="p-0 sm:p-0">
+                <div className="overflow-x-auto">
+                  <Table className="print:text-[10px] border-collapse">
+                    <TableHeader>
+                      <TableRow className="bg-muted/50 print:bg-slate-100 h-12">
+                        <TableHead className="w-32 border-r pl-4">Data</TableHead>
+                        <TableHead className="text-center">Entrada</TableHead>
+                        <TableHead className="text-center">Almoço (S)</TableHead>
+                        <TableHead className="text-center">Almoço (R)</TableHead>
+                        <TableHead className="text-center border-r">Saída</TableHead>
+                        <TableHead className="text-center w-20">Trab.</TableHead>
+                        <TableHead className="text-center w-20">Saldo</TableHead>
+                        <TableHead className="pl-4">Ocorrência</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {fullHistory.map((day) => {
+                        const stats = calculateHours(day.records, day.date, day.adjustment);
+                        const clockIn = day.records.find(r => r.type === 'clock_in');
+                        const breakStart = day.records.find(r => r.type === 'break_start');
+                        const breakEnd = day.records.find(r => r.type === 'break_end');
+                        const clockOut = day.records.find(r => r.type === 'clock_out');
+
+                        return (
+                          <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/20", "h-12")}>
+                            <TableCell className="font-medium border-r pl-4">
+                              {format(day.date, "dd/MM (eee)", { locale: ptBR })}
+                            </TableCell>
+                            
+                            <PunchCell record={clockIn} dayDate={day.date} type="clock_in" />
+                            <PunchCell record={breakStart} dayDate={day.date} type="break_start" />
+                            <PunchCell record={breakEnd} dayDate={day.date} type="break_end" />
+                            <PunchCell record={clockOut} dayDate={day.date} type="clock_out" />
+
+                            <TableCell className="text-center border-l bg-muted/5">{formatMinutes(stats.worked)}</TableCell>
+                            <TableCell className={cn("text-center font-bold border-l", stats.balance > 0 ? "text-emerald-600 bg-emerald-50/10" : stats.balance < 0 ? "text-red-600 bg-red-50/10" : "")}>
+                              {formatMinutes(stats.balance)}
+                            </TableCell>
+                            <TableCell className="pl-4 border-l">
+                              {day.adjustment ? (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="text-[10px] uppercase cursor-help">
+                                        {ADJUSTMENT_LABELS[day.adjustment.type]}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p>{day.adjustment.description}</p></TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              ) : ''}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
                 <div className="hidden print:grid grid-cols-2 gap-20 mt-16 text-center text-sm">
                   <div className="border-t border-black pt-2"><p>{selectedEmployee?.fullName}</p><p className="text-[10px]">Assinatura do Colaborador</p></div>
                   <div className="border-t border-black pt-2"><p>Ethera Longevidade</p><p className="text-[10px]">Assinatura do Gestor</p></div>
