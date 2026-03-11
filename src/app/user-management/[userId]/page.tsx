@@ -53,6 +53,7 @@ const modules: ModuleConfig[] = [
     icon: Package,
     permissions: [
       { key: 'suppliesStock', label: 'Controle de Estoque' },
+      { key: 'addresses', label: 'Locais de Armazenamento' },
     ]
   },
   {
@@ -70,7 +71,6 @@ const modules: ModuleConfig[] = [
       { key: 'home', label: 'Página Inicial' },
       { key: 'profile', label: 'Perfil do Usuário' },
       { key: 'settings', label: 'Configurações do Sistema' },
-      { key: 'addresses', label: 'Cadastro de Endereços' },
     ]
   }
 ];

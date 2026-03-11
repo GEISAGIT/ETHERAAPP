@@ -13,10 +13,12 @@ import {
     Trash2, 
     Package, 
     AlertTriangle, 
-    History, 
     ArrowUpCircle, 
     ArrowDownCircle,
-    Boxes
+    Box,
+    Calendar,
+    XCircle,
+    CheckCircle2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -37,16 +39,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AddStockItemDialog } from './add-stock-item-dialog';
 import { useFirestore, deleteDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format, isBefore, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export function StockClient({ data, userProfile }: { data: StockItem[], userProfile: UserProfile | null | undefined }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
 
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -59,7 +59,8 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
   const filteredData = useMemo(() => {
     return data.filter(item => 
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchTerm.toLowerCase())
+        item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.locationName && item.locationName.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [data, searchTerm]);
 
@@ -71,6 +72,22 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
     }
   };
 
+  const getExpiryBadge = (expiryDate?: Timestamp) => {
+    if (!expiryDate) return null;
+    
+    const date = expiryDate.toDate();
+    const now = new Date();
+    const soon = addDays(now, 30);
+
+    if (isBefore(date, now)) {
+        return <Badge variant="destructive" className="gap-1 px-1.5 py-0 text-[10px]"><XCircle className="h-3 w-3" /> Vencido</Badge>;
+    }
+    if (isBefore(date, soon)) {
+        return <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200 gap-1 px-1.5 py-0 text-[10px]"><AlertTriangle className="h-3 w-3" /> Vence em breve</Badge>;
+    }
+    return <Badge variant="secondary" className="text-emerald-600 bg-emerald-500/10 border-emerald-500/20 gap-1 px-1.5 py-0 text-[10px]"><CheckCircle2 className="h-3 w-3" /> No Prazo</Badge>;
+  };
+
   return (
     <div className="space-y-8">
       <AddStockItemDialog open={isAddOpen} onOpenChange={setIsAddOpen} />
@@ -78,7 +95,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Controle de Estoque</h1>
-          <p className="text-muted-foreground">Gerencie o inventário de suprimentos e materiais da clínica.</p>
+          <p className="text-muted-foreground">Gerencie o inventário com controle de localização e validade.</p>
         </div>
         {canCreate && (
           <Button onClick={() => setIsAddOpen(true)}>
@@ -103,10 +120,12 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
                 </CardTitle>
             </CardHeader>
         </Card>
-        <Card>
+        <Card className="bg-destructive/5 border-destructive/20">
             <CardHeader className="pb-2">
-                <CardDescription className="text-xs uppercase font-bold text-muted-foreground">Última Atualização</CardDescription>
-                <CardTitle className="text-sm font-medium">Hoje, às 14:30</CardTitle>
+                <CardDescription className="text-xs uppercase font-bold text-destructive">Itens Vencidos</CardDescription>
+                <CardTitle className="text-2xl font-headline text-destructive">
+                    {data.filter(i => i.expiryDate && isBefore(i.expiryDate.toDate(), new Date())).length}
+                </CardTitle>
             </CardHeader>
         </Card>
       </div>
@@ -115,7 +134,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome ou categoria..."
+            placeholder="Buscar por item, categoria ou local..."
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -124,13 +143,14 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
       </div>
 
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead className="text-center">Quantidade</TableHead>
+                <TableHead>Item / Categoria</TableHead>
+                <TableHead>Localização</TableHead>
+                <TableHead className="text-center">Qtd.</TableHead>
+                <TableHead>Validade</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -138,7 +158,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
             <TableBody>
               {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                     Nenhum item encontrado no estoque.
                   </TableCell>
                 </TableRow>
@@ -149,28 +169,43 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
                     <TableRow key={item.id}>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-medium">{item.name}</span>
-                          <span className="text-xs text-muted-foreground">Unidade: {item.unit}</span>
+                          <span className="font-bold text-foreground">{item.name}</span>
+                          <span className="text-[10px] uppercase text-muted-foreground">{item.category}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="font-normal">{item.category}</Badge>
+                        <div className="flex items-center gap-2 text-sm text-primary font-medium">
+                            <Box className="h-3.5 w-3.5" />
+                            {item.locationName || 'N/A'}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <span className={cn("font-bold", isLow ? "text-amber-600" : "text-primary")}>
-                            {item.quantity}
-                        </span>
+                        <div className="flex flex-col items-center">
+                            <span className={cn("font-bold text-lg", isLow ? "text-amber-600" : "text-primary")}>
+                                {item.quantity}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground uppercase">{item.unit}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5 text-xs">
+                                <Calendar className="h-3 w-3 text-muted-foreground" />
+                                {item.expiryDate ? format(item.expiryDate.toDate(), 'dd/MM/yy') : 'N/A'}
+                            </div>
+                            {getExpiryBadge(item.expiryDate)}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {isLow ? (
-                            <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600 border-none gap-1">
+                            <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-600 border-none gap-1 py-0.5 text-[10px] uppercase">
                                 <AlertTriangle className="h-3 w-3" />
-                                Repor Estoque
+                                Repor
                             </Badge>
                         ) : (
-                            <Badge variant="secondary" className="text-emerald-600 bg-emerald-500/10 border-emerald-500/20 gap-1">
+                            <Badge variant="secondary" className="text-emerald-600 bg-emerald-500/10 border-emerald-500/20 gap-1 py-0.5 text-[10px] uppercase">
                                 <Package className="h-3 w-3" />
-                                Disponível
+                                Ok
                             </Badge>
                         )}
                       </TableCell>
@@ -188,22 +223,18 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
                                 <>
                                   <DropdownMenuItem>
                                     <ArrowUpCircle className="mr-2 h-4 w-4 text-emerald-600" />
-                                    Entrada de Mercadoria
+                                    Entrada
                                   </DropdownMenuItem>
                                   <DropdownMenuItem>
                                     <ArrowDownCircle className="mr-2 h-4 w-4 text-amber-600" />
-                                    Saída de Mercadoria
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Editar Cadastro
+                                    Saída
                                   </DropdownMenuItem>
                                 </>
                               )}
                               {canDelete && (
                                 <DropdownMenuItem onClick={() => handleDelete(item)} className="text-red-600 focus:text-red-600">
                                   <Trash2 className="mr-2 h-4 w-4" />
-                                  Excluir Item
+                                  Excluir
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>

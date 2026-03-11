@@ -33,7 +33,8 @@ import {
   Tags,
   Package,
   Boxes,
-  MapPin
+  MapPin,
+  Box
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -66,6 +67,7 @@ const hrMenuItems = [
 
 const suppliesMenuItems = [
   { key: 'suppliesStock' as MenuItemKey, href: '/supplies/stock', label: 'Controle de Estoque', icon: Boxes },
+  { key: 'addresses' as MenuItemKey, href: '/settings/addresses', label: 'Locais de Armazenamento', icon: MapPin },
 ];
 
 const managementMenuItems = [
@@ -75,7 +77,6 @@ const managementMenuItems = [
 
 const userMenuItems = [
   { key: 'profile' as MenuItemKey, href: '/profile', label: 'Perfil', icon: User },
-  { key: 'addresses' as MenuItemKey, href: '/settings/addresses', label: 'Endereços', icon: MapPin },
   { key: 'settings' as MenuItemKey, href: '/settings', label: 'Configurações', icon: Settings },
 ];
 

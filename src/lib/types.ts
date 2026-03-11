@@ -239,6 +239,18 @@ export type TimeClockEntry = {
   dateStr: string;
 }
 
+export type StorageLocation = {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+};
+
+// Map Address to StorageLocation for compatibility
+export type Address = StorageLocation;
+
 export type StockItem = {
   id: string;
   name: string;
@@ -246,26 +258,14 @@ export type StockItem = {
   quantity: number;
   minQuantity: number;
   unit: string;
+  locationId: string;
+  locationName?: string;
+  manufacturingDate?: Timestamp;
+  expiryDate?: Timestamp;
   lastRestock?: Timestamp;
   updatedAt: Timestamp;
   updatedBy: string;
 }
-
-export type Address = {
-  id: string;
-  userId: string;
-  label: string;
-  street: string;
-  number: string;
-  complement?: string;
-  district: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  validityDate?: Timestamp;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-};
 
 export type CoraToken = {
     userId: string;

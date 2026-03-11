@@ -47,48 +47,20 @@
         "updatedAt"
       ]
     },
-    "Address": {
+    "StorageLocation": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Address",
+      "title": "StorageLocation",
       "type": "object",
-      "description": "Represents a registered address in the system.",
+      "description": "Represents a physical storage location within the clinic (Room, Cabinet, Drawer).",
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
-        "label": { "type": "string", "description": "A nickname for the address (e.g., 'Main Office')" },
-        "street": { "type": "string" },
-        "number": { "type": "string" },
-        "complement": { "type": "string" },
-        "district": { "type": "string" },
-        "city": { "type": "string" },
-        "state": { "type": "string" },
-        "zipCode": { "type": "string" },
-        "validityDate": { "type": "string", "format": "date-time", "description": "The expiration date of this address record" },
+        "name": { "type": "string", "description": "Name of the location (e.g., 'Sala 1')" },
+        "description": { "type": "string", "description": "Details (e.g., 'Armário B, Gaveta 2')" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "userId", "label", "street", "city", "state", "zipCode"]
-    },
-    "AttendanceRecord": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "AttendanceRecord",
-      "type": "object",
-      "description": "Represents a time tracking record for an employee.",
-      "properties": {
-        "id": { "type": "string" },
-        "employeeId": { "type": "string" },
-        "timestamp": { "type": "string", format: "date-time" },
-        "type": { "type": "string", enum: ["clock_in", "clock_out", "break_start", "break_end"] },
-        "photoUrl": { "type": "string" },
-        "location": {
-          "type": "object",
-          "properties": {
-            "latitude": { "type": "number" },
-            "longitude": { "type": "number" }
-          }
-        }
-      },
-      "required": ["id", "employeeId", "timestamp", "type"]
+      "required": ["id", "name"]
     },
     "StockItem": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -102,54 +74,15 @@
         "quantity": { "type": "number" },
         "minQuantity": { "type": "number" },
         "unit": { "type": "string" },
+        "locationId": { "type": "string", "description": "Reference to StorageLocation" },
+        "locationName": { "type": "string" },
+        "manufacturingDate": { "type": "string", "format": "date-time" },
+        "expiryDate": { "type": "string", "format": "date-time" },
         "lastRestock": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
         "updatedBy": { "type": "string" }
       },
-      "required": ["id", "name", "quantity", "unit"]
-    },
-    "UserManagement": {
-       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "UserManagement",
-      "type": "object",
-      "description": "Represents user data for management purposes.",
-      "properties": {
-        "uid": { "type": "string" },
-        "displayName": { "type": "string" },
-        "email": { "type": "string", format: "email" },
-        "role": { "type": "string", enum: ["admin", "user"] },
-        "createdAt": { "type": "string", format: "date-time" }
-      }
-    },
-    "Role": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Role",
-      "type": "object",
-      "description": "Defines a user role and its specific permissions for accessing different parts of the application.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "The name of the role, either 'admin' or 'user'."
-        },
-        "permissions": {
-          "type": "object",
-          "description": "A map of feature names to granular permission actions.",
-          "properties": {
-            "dashboard": { "type": "object", "properties": { "view": { "type": "boolean" } } },
-            "transactions": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
-            "contracts": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
-            "expenses": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
-            "budgets": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
-            "reports": { "type": "object", "properties": { "view": { "type": "boolean" } } },
-            "upload": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
-            "userManagement": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
-            "profile": { "type": "object", "properties": { "view": { "type": "boolean" }, "edit": { "type": "boolean" } } },
-            "settings": { "type": "object", "properties": { "view": { "type": "boolean" } } },
-            "addresses": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } }
-          }
-        }
-      },
-      "required": ["id", "permissions"]
+      "required": ["id", "name", "quantity", "unit", "locationId"]
     }
   },
   "auth": {
@@ -163,9 +96,9 @@
       "schema": "#/backend/entities/StockItem",
       "description": "Clinic inventory items."
     },
-    "/addresses/{addressId}": {
-      "schema": "#/backend/entities/Address",
-      "description": "Registered business or personal addresses."
+    "/storageLocations/{locationId}": {
+      "schema": "#/backend/entities/StorageLocation",
+      "description": "Physical storage units (Rooms, Cabinets)."
     }
   }
 }
