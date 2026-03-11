@@ -212,7 +212,6 @@ function HRTimesheetContent() {
     const updatedAdj = [...(formData.adjustments || []), newAdj];
     handleUpdateField('adjustments', updatedAdj);
     
-    // Save to Firestore
     const employeeRef = doc(firestore, 'employees', selectedEmployeeId);
     updateDocumentNonBlocking(employeeRef, { adjustments: updatedAdj });
 
@@ -272,6 +271,7 @@ function HRTimesheetContent() {
 
     setIsEditPunchOpen(false);
     setEditingPunch(null);
+    setEditPunchNotes('');
     toast({ title: 'Horário Atualizado' });
   };
 
@@ -590,27 +590,34 @@ function HRTimesheetContent() {
                           <TableCell>
                             <div className="flex flex-wrap gap-2">
                               {day.records.length > 0 ? day.records.map(r => (
-                                <Badge key={r.id} variant="secondary" className="group/punch relative pr-8">
-                                  {r.timestamp ? format(r.timestamp.toDate(), 'HH:mm') : '--:--'}
-                                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex opacity-0 group-hover/punch:opacity-100 transition-opacity">
-                                    <button 
+                                <div key={r.id} className="flex items-center gap-1 bg-secondary rounded-md px-2 py-1 border border-border/50 group/punch transition-colors hover:border-primary/50">
+                                  <span className="text-sm font-medium">
+                                    {r.timestamp ? format(r.timestamp.toDate(), 'HH:mm') : '--:--'}
+                                  </span>
+                                  <div className="flex items-center ml-1 border-l pl-1 gap-0.5">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10"
                                       onClick={() => {
                                         setEditingPunch(r);
                                         setEditPunchTime(format(r.timestamp.toDate(), 'HH:mm'));
+                                        setEditPunchNotes(r.notes || '');
                                         setIsEditPunchOpen(true);
                                       }}
-                                      className="p-0.5 hover:text-primary"
+                                      title="Editar horário"
                                     >
                                       <Edit className="h-3 w-3" />
-                                    </button>
+                                    </Button>
                                     <button 
                                       onClick={() => handleDeletePunch(r.id)}
-                                      className="p-0.5 hover:text-destructive"
+                                      className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                                      title="Excluir batida"
                                     >
                                       <Trash2 className="h-3 w-3" />
                                     </button>
                                   </div>
-                                </Badge>
+                                </div>
                               )) : '--:--'}
                             </div>
                           </TableCell>
