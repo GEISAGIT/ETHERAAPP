@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -59,8 +58,7 @@ const financialMenuItems = [
 ];
 
 const hrMenuItems = [
-  { key: 'timeCard' as MenuItemKey, href: '/hr/time-card', label: 'Cartão de Ponto', icon: UserCheck },
-  { key: 'timeTracking' as MenuItemKey, href: '/hr/attendance', label: 'Controle de Ponto (Beta)', icon: Clock },
+  { key: 'timeTracking' as MenuItemKey, href: '/hr/attendance', label: 'Controle de Ponto', icon: Clock },
   { key: 'employees' as MenuItemKey, href: '/hr/employees', label: 'Cadastro de Funcionários', icon: Users },
   { key: 'hrTimesheet' as MenuItemKey, href: '/hr/timesheet', label: 'Gestão de Horários', icon: ClipboardList },
 ];

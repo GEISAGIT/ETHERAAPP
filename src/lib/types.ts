@@ -87,7 +87,6 @@ export type Permissions = {
   reports: CrudActions;
   apiBank: CrudActions;
   // RH
-  timeCard: CrudActions;
   timeTracking: CrudActions;
   employees: CrudActions;
   hrTimesheet: CrudActions;

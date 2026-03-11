@@ -1,4 +1,3 @@
-
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -42,8 +41,7 @@ const modules: ModuleConfig[] = [
     title: 'Recursos Humanos',
     icon: Briefcase,
     permissions: [
-      { key: 'timeCard', label: 'Cartão de Ponto' },
-      { key: 'timeTracking', label: 'Controle de Ponto (Beta)' },
+      { key: 'timeTracking', label: 'Controle de Ponto' },
       { key: 'employees', label: 'Cadastro de Funcionários' },
       { key: 'hrTimesheet', label: 'Gestão de Horários' },
     ]

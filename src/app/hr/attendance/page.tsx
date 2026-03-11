@@ -1,4 +1,3 @@
-
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -356,8 +355,7 @@ function TimeTrackingContent() {
                         <div className="flex items-center gap-2">
                           {canDelete && (
                             <Button 
-                              variant="ghost" 
-                              size="icon" 
+                              variant="ghost" size="icon" 
                               className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                               onClick={() => setRecordToDelete(record.id)}
                             >
@@ -440,8 +438,7 @@ function TimeTrackingContent() {
                             {canDelete && (
                               <TableCell>
                                 <Button 
-                                  variant="ghost" 
-                                  size="icon" 
+                                  variant="ghost" size="icon" 
                                   className="h-8 w-8 text-destructive"
                                   onClick={() => {
                                       // Exclui todos os registros desse dia específico
