@@ -180,7 +180,9 @@ export interface TimeAdjustment {
   date: Timestamp;
   type: AdjustmentType;
   description: string;
-  hoursToAcknowledge?: number; // For manual additions/deductions
+  hoursToAcknowledge?: number;
+  attachmentUrl?: string;
+  attachmentName?: string;
 }
 
 export interface CompensationRecord {
@@ -244,6 +246,7 @@ export type AttendanceRecord = {
   manual?: boolean;
   notes?: string;
   updatedBy?: string;
+  updatedByName?: string;
 };
 
 export type TimeClockEntry = {

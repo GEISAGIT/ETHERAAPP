@@ -7,12 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useCollection, useFirestore, useUser, useMemoFirebase, updateDocumentNonBlocking, useStorage } from '@/firebase';
+import { useCollection, useFirestore, useUser, useMemoFirebase, updateDocumentNonBlocking, useStorage, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc, query, Timestamp, serverTimestamp, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import type { Employee, TimeAdjustment, AdjustmentType, WorkSchedule, WorkScheduleType, AttendanceRecord } from '@/lib/types';
+import type { Employee, TimeAdjustment, AdjustmentType, WorkSchedule, WorkScheduleType, AttendanceRecord, AttendanceType } from '@/lib/types';
 import { useState, useMemo, useEffect, Suspense } from 'react';
-import { CalendarIcon, Loader2, Save, Plus, Trash2, UserCheck, UploadCloud, FileText, Download, Info, Printer, ClipboardCheck, Stethoscope, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { CalendarIcon, Loader2, Save, Plus, Trash2, UserCheck, UploadCloud, FileText, Download, Info, Printer, ClipboardCheck, Stethoscope, AlertTriangle, ShieldCheck, Edit, History, PlusCircle } from 'lucide-react';
 import { format, differenceInMinutes, isSameDay, getDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -65,6 +65,13 @@ const ADJUSTMENT_LABELS: Record<AdjustmentType, string> = {
   other: 'Outro'
 };
 
+const ATTENDANCE_LABELS: Record<AttendanceType, string> = {
+  clock_in: 'Entrada',
+  clock_out: 'Saída',
+  break_start: 'Saída Almoço',
+  break_end: 'Retorno Almoço'
+};
+
 function HRTimesheetContent() {
   const [isClient, setIsClient] = useState(false);
   const firestore = useFirestore();
@@ -74,7 +81,7 @@ function HRTimesheetContent() {
   const searchParams = useSearchParams();
   
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState('contract');
+  const [activeTab, setActiveTab] = useState('attendance');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
@@ -83,6 +90,20 @@ function HRTimesheetContent() {
   const [adjDate, setAdjDate] = useState<Date>(new Date());
   const [adjType, setAdjType] = useState<AdjustmentType>('medical_certificate');
   const [adjNotes, setAdjNotes] = useState('');
+  const [adjFile, setAdjFile] = useState<File | null>(null);
+
+  // States for Manual Punch
+  const [isManualPunchOpen, setIsManualPunchOpen] = useState(false);
+  const [manualPunchDate, setManualPunchDate] = useState<Date>(new Date());
+  const [manualPunchTime, setManualPunchTime] = useState('08:00');
+  const [manualPunchType, setManualPunchType] = useState<AttendanceType>('clock_in');
+  const [manualPunchNotes, setManualPunchNotes] = useState('');
+
+  // States for Edit Punch
+  const [isEditPunchOpen, setIsEditPunchOpen] = useState(false);
+  const [editingPunch, setEditingPunch] = useState<AttendanceRecord | null>(null);
+  const [editPunchTime, setEditPunchTime] = useState('');
+  const [editPunchNotes, setEditPunchNotes] = useState('');
 
   // Hydration fix
   useEffect(() => {
@@ -161,27 +182,105 @@ function HRTimesheetContent() {
     setIsSaving(false);
   };
 
-  const handleAddAdjustment = () => {
+  const handleAddAdjustment = async () => {
+    if (!firestore || !selectedEmployeeId) return;
+    setIsSaving(true);
+
+    let attachmentUrl = '';
+    let attachmentName = '';
+
+    if (adjFile && storage) {
+      try {
+        const storageRef = ref(storage, `adjustment-docs/${selectedEmployeeId}/${Date.now()}_${adjFile.name}`);
+        const snapshot = await uploadBytes(storageRef, adjFile);
+        attachmentUrl = await getDownloadURL(snapshot.ref);
+        attachmentName = adjFile.name;
+      } catch (e) {
+        toast({ variant: 'destructive', title: 'Erro no anexo' });
+      }
+    }
+
     const newAdj: TimeAdjustment = {
       id: crypto.randomUUID(),
       date: Timestamp.fromDate(adjDate),
       type: adjType,
       description: adjNotes,
+      attachmentUrl,
+      attachmentName,
     };
+
     const updatedAdj = [...(formData.adjustments || []), newAdj];
     handleUpdateField('adjustments', updatedAdj);
+    
+    // Save to Firestore
+    const employeeRef = doc(firestore, 'employees', selectedEmployeeId);
+    updateDocumentNonBlocking(employeeRef, { adjustments: updatedAdj });
+
     setIsAdjDialogOpen(false);
     setAdjNotes('');
+    setAdjFile(null);
+    setIsSaving(false);
     toast({ title: 'Ocorrência lançada' });
   };
 
   const handleDeleteAdjustment = (id: string) => {
-    handleUpdateField('adjustments', formData.adjustments?.filter(a => a.id !== id));
+    const updated = formData.adjustments?.filter(a => a.id !== id);
+    handleUpdateField('adjustments', updated);
+    if (firestore && selectedEmployeeId) {
+      updateDocumentNonBlocking(doc(firestore, 'employees', selectedEmployeeId), { adjustments: updated });
+    }
   };
 
-  const handleAddDiscount = () => {
-    const newDiscount = { id: crypto.randomUUID(), name: '', percentage: 0 };
-    handleUpdateField('discounts', [...(formData.discounts || []), newDiscount]);
+  const handleManualPunch = () => {
+    if (!firestore || !selectedEmployee || !user) return;
+    
+    const [h, m] = manualPunchTime.split(':');
+    const punchTimestamp = new Date(manualPunchDate);
+    punchTimestamp.setHours(parseInt(h), parseInt(m), 0, 0);
+
+    const recordData: Omit<AttendanceRecord, 'id'> = {
+      employeeId: selectedEmployee.id,
+      employeeName: selectedEmployee.fullName,
+      timestamp: Timestamp.fromDate(punchTimestamp),
+      type: manualPunchType,
+      manual: true,
+      notes: manualPunchNotes,
+      updatedBy: user.uid,
+      updatedByName: user.displayName || 'Gestor'
+    };
+
+    addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), recordData);
+    
+    setIsManualPunchOpen(false);
+    setManualPunchNotes('');
+    toast({ title: 'Batida Manual Registrada' });
+  };
+
+  const handleEditPunchSubmit = () => {
+    if (!firestore || !editingPunch || !user) return;
+
+    const [h, m] = editPunchTime.split(':');
+    const newDate = editingPunch.timestamp.toDate();
+    newDate.setHours(parseInt(h), parseInt(m), 0, 0);
+
+    updateDocumentNonBlocking(doc(firestore, 'attendanceRecords', editingPunch.id), {
+      timestamp: Timestamp.fromDate(newDate),
+      notes: editPunchNotes,
+      updatedBy: user.uid,
+      updatedByName: user.displayName || 'Gestor'
+    });
+
+    setIsEditPunchOpen(false);
+    setEditingPunch(null);
+    toast({ title: 'Horário Atualizado' });
+  };
+
+  const handleDeletePunch = (id: string) => {
+    if (!firestore) return;
+    if (confirm('Deseja realmente excluir esta marcação de ponto?')) {
+      deleteDocumentNonBlocking(doc(firestore, 'attendanceRecords', id));
+      toast({ title: 'Batida Removida' });
+    }
   };
 
   const fullHistory = useMemo(() => {
@@ -278,6 +377,7 @@ function HRTimesheetContent() {
 
   return (
     <div className="space-y-8 print:space-y-4">
+      {/* Dialog: Ocorrência / Atestado */}
       <Dialog open={isAdjDialogOpen} onOpenChange={setIsAdjDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -304,17 +404,89 @@ function HRTimesheetContent() {
               <Label>Observações</Label>
               <Textarea value={adjNotes} onChange={(e) => setAdjNotes(e.target.value)} placeholder="Ex: Protocolo atestado 12345..." />
             </div>
+            <div className="space-y-2">
+              <Label>Anexo (Opcional)</Label>
+              <Input type="file" onChange={e => setAdjFile(e.target.files?.[0] || null)} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsAdjDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddAdjustment}>Salvar</Button>
+            <Button onClick={handleAddAdjustment} disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Batida Manual */}
+      <Dialog open={isManualPunchOpen} onOpenChange={setIsManualPunchOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lançamento Manual de Ponto</DialogTitle>
+            <DialogDescription>Insira uma batida de ponto retroativa para o colaborador.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Data</Label>
+                <Input type="date" value={format(manualPunchDate, 'yyyy-MM-dd')} onChange={e => setManualPunchDate(new Date(e.target.value + 'T12:00:00'))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Horário</Label>
+                <Input type="time" value={manualPunchTime} onChange={e => setManualPunchTime(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Marcação</Label>
+              <Select value={manualPunchType} onValueChange={(v: AttendanceType) => setManualPunchType(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ATTENDANCE_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Justificativa do Lançamento</Label>
+              <Textarea value={manualPunchNotes} onChange={e => setManualPunchNotes(e.target.value)} placeholder="Ex: Colaborador esqueceu de registrar o ponto..." required />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsManualPunchOpen(false)}>Cancelar</Button>
+            <Button onClick={handleManualPunch} disabled={!manualPunchNotes}>Salvar Batida</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Editar Batida */}
+      <Dialog open={isEditPunchOpen} onOpenChange={setIsEditPunchOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ajustar Horário de Ponto</DialogTitle>
+            <DialogDescription>Corrija o horário registrado pelo colaborador.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Novo Horário</Label>
+              <Input type="time" value={editPunchTime} onChange={e => setEditPunchTime(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Justificativa do Ajuste</Label>
+              <Textarea value={editPunchNotes} onChange={e => setEditPunchNotes(e.target.value)} placeholder="Ex: Ajuste solicitado pelo colaborador..." required />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsEditPunchOpen(false)}>Cancelar</Button>
+            <Button onClick={handleEditPunchSubmit} disabled={!editPunchNotes}>Salvar Alteração</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print:hidden">
         <div>
-          <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Gestão de Horários</h1>
+          <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Controle de Funcionários</h1>
           <p className="text-muted-foreground">Ficha completa e espelho de ponto CLT.</p>
         </div>
         <div className="flex gap-2">
@@ -364,12 +536,89 @@ function HRTimesheetContent() {
       {selectedEmployee ? (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6 h-auto p-1 bg-muted/50 print:hidden">
-            <TabsTrigger value="contract" className="py-2">Ficha & Escala</TabsTrigger>
             <TabsTrigger value="attendance" className="py-2">Folha Ponto</TabsTrigger>
+            <TabsTrigger value="contract" className="py-2">Ficha & Escala</TabsTrigger>
             <TabsTrigger value="adjustments" className="py-2">Ocorrências</TabsTrigger>
             <TabsTrigger value="finance" className="py-2">Financeiro</TabsTrigger>
             <TabsTrigger value="documents" className="py-2">Arquivos</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="attendance" className="space-y-6">
+            <Card className="print:border-none print:shadow-none">
+              <CardHeader className="flex flex-row items-center justify-between print:hidden">
+                <div>
+                  <CardTitle className="text-lg">Folha Mensal</CardTitle>
+                  <CardDescription>Cálculo de horas baseado em Batidas + Ocorrências.</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setIsManualPunchOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Lançar Ponto Manual
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setIsAdjDialogOpen(true)}>
+                    <Stethoscope className="mr-2 h-4 w-4" /> Lançar Atestado
+                  </Button>
+                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700">Saldo: {formatMinutes(fullHistory.reduce((acc, day) => acc + calculateHours(day.records, day.date, day.adjustment).balance, 0))}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 sm:p-6">
+                <Table className="print:text-[10px]">
+                  <TableHeader className="bg-muted/50 print:bg-slate-100">
+                    <TableRow>
+                      <TableHead className="w-32">Data</TableHead>
+                      <TableHead>Batidas</TableHead>
+                      <TableHead className="text-center">Trab.</TableHead>
+                      <TableHead className="text-center">Saldo</TableHead>
+                      <TableHead>Ocorrência</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fullHistory.map((day) => {
+                      const stats = calculateHours(day.records, day.date, day.adjustment);
+                      return (
+                        <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/20")}>
+                          <TableCell className="font-medium">{format(day.date, "dd/MM (eee)", { locale: ptBR })}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-2">
+                              {day.records.length > 0 ? day.records.map(r => (
+                                <Badge key={r.id} variant="secondary" className="group/punch relative pr-8">
+                                  {r.timestamp ? format(r.timestamp.toDate(), 'HH:mm') : '--:--'}
+                                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex opacity-0 group-hover/punch:opacity-100 transition-opacity">
+                                    <button 
+                                      onClick={() => {
+                                        setEditingPunch(r);
+                                        setEditPunchTime(format(r.timestamp.toDate(), 'HH:mm'));
+                                        setIsEditPunchOpen(true);
+                                      }}
+                                      className="p-0.5 hover:text-primary"
+                                    >
+                                      <Edit className="h-3 w-3" />
+                                    </button>
+                                    <button 
+                                      onClick={() => handleDeletePunch(r.id)}
+                                      className="p-0.5 hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </Badge>
+                              )) : '--:--'}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">{formatMinutes(stats.worked)}</TableCell>
+                          <TableCell className={cn("text-center font-bold", stats.balance > 0 ? "text-emerald-600" : stats.balance < 0 ? "text-red-600" : "")}>{formatMinutes(stats.balance)}</TableCell>
+                          <TableCell>{day.adjustment ? <Badge variant="outline" className="text-[10px] uppercase">{ADJUSTMENT_LABELS[day.adjustment.type]}</Badge> : ''}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                <div className="hidden print:grid grid-cols-2 gap-20 mt-16 text-center text-sm">
+                  <div className="border-t border-black pt-2"><p>{selectedEmployee?.fullName}</p><p className="text-[10px]">Assinatura do Colaborador</p></div>
+                  <div className="border-t border-black pt-2"><p>Ethera Longevidade</p><p className="text-[10px]">Assinatura do Gestor</p></div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="contract" className="space-y-6 print:hidden">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -454,53 +703,6 @@ function HRTimesheetContent() {
             </div>
           </TabsContent>
 
-          <TabsContent value="attendance" className="space-y-6">
-            <Card className="print:border-none print:shadow-none">
-              <CardHeader className="flex flex-row items-center justify-between print:hidden">
-                <div>
-                  <CardTitle className="text-lg">Folha Mensal</CardTitle>
-                  <CardDescription>Cálculo de horas baseado em Batidas + Ocorrências.</CardDescription>
-                </div>
-                <Badge variant="outline" className="bg-emerald-50 text-emerald-700">Saldo: {formatMinutes(fullHistory.reduce((acc, day) => acc + calculateHours(day.records, day.date, day.adjustment).balance, 0))}</Badge>
-              </CardHeader>
-              <CardContent className="p-0 sm:p-6">
-                <Table className="print:text-[10px]">
-                  <TableHeader className="bg-muted/50 print:bg-slate-100">
-                    <TableRow>
-                      <TableHead className="w-32">Data</TableHead>
-                      <TableHead>Batidas</TableHead>
-                      <TableHead className="text-center">Trab.</TableHead>
-                      <TableHead className="text-center">Saldo</TableHead>
-                      <TableHead>Ocorrência</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {fullHistory.map((day) => {
-                      const stats = calculateHours(day.records, day.date, day.adjustment);
-                      return (
-                        <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/20")}>
-                          <TableCell className="font-medium">{format(day.date, "dd/MM (eee)", { locale: ptBR })}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              {day.records.length > 0 ? day.records.map(r => r.timestamp ? format(r.timestamp instanceof Timestamp ? r.timestamp.toDate() : new Date(r.timestamp), 'HH:mm') : '--:--').join(' - ') : '--:--'}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">{formatMinutes(stats.worked)}</TableCell>
-                          <TableCell className={cn("text-center font-bold", stats.balance > 0 ? "text-emerald-600" : stats.balance < 0 ? "text-red-600" : "")}>{formatMinutes(stats.balance)}</TableCell>
-                          <TableCell>{day.adjustment ? <Badge variant="outline" className="text-[10px] uppercase">{ADJUSTMENT_LABELS[day.adjustment.type]}</Badge> : ''}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-                <div className="hidden print:grid grid-cols-2 gap-20 mt-16 text-center text-sm">
-                  <div className="border-t border-black pt-2"><p>{selectedEmployee?.fullName}</p><p className="text-[10px]">Assinatura do Colaborador</p></div>
-                  <div className="border-t border-black pt-2"><p>Ethera Longevidade</p><p className="text-[10px]">Assinatura do Gestor</p></div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="finance" className="space-y-6 print:hidden">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -545,12 +747,13 @@ function HRTimesheetContent() {
                         <TableHead>Data</TableHead>
                         <TableHead>Tipo</TableHead>
                         <TableHead>Descrição</TableHead>
+                        <TableHead>Doc.</TableHead>
                         <TableHead className="text-right">Ação</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {formData.adjustments?.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nenhuma ocorrência registrada.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhuma ocorrência registrada.</TableCell></TableRow>
                       ) : (
                         formData.adjustments?.sort((a,b) => {
                           const tA = a.date instanceof Timestamp ? a.date.toMillis() : (a.date ? new Date(a.date).getTime() : 0);
@@ -563,6 +766,15 @@ function HRTimesheetContent() {
                             </TableCell>
                             <TableCell><Badge variant="outline">{ADJUSTMENT_LABELS[adj.type]}</Badge></TableCell>
                             <TableCell className="max-w-xs truncate">{adj.description || '-'}</TableCell>
+                            <TableCell>
+                              {adj.attachmentUrl ? (
+                                <Button variant="ghost" size="icon" asChild>
+                                  <Link href={adj.attachmentUrl} target="_blank">
+                                    <Download className="h-4 w-4" />
+                                  </Link>
+                                </Button>
+                              ) : '-'}
+                            </TableCell>
                             <TableCell className="text-right">
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteAdjustment(adj.id)}><Trash2 className="h-4 w-4" /></Button>
                             </TableCell>

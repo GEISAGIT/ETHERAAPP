@@ -60,7 +60,7 @@ const financialMenuItems = [
 const hrMenuItems = [
   { key: 'timeTracking' as MenuItemKey, href: '/hr/attendance', label: 'Controle de Ponto', icon: Clock },
   { key: 'employees' as MenuItemKey, href: '/hr/employees', label: 'Cadastro de Funcionários', icon: Users },
-  { key: 'hrTimesheet' as MenuItemKey, href: '/hr/timesheet', label: 'Gestão de Horários', icon: ClipboardList },
+  { key: 'hrTimesheet' as MenuItemKey, href: '/hr/timesheet', label: 'Controle de Funcionários', icon: UserCheck },
 ];
 
 const suppliesMenuItems = [
