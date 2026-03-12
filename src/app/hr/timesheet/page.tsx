@@ -479,9 +479,9 @@ function HRTimesheetContent() {
           table { border-collapse: collapse !important; width: 100% !important; margin-bottom: 0 !important; table-layout: fixed; border: 1px solid black !important; }
           th, td { 
             border: 1px solid black !important; 
-            padding: 2px 4px !important; 
-            height: 22px !important; 
-            line-height: 1.2 !important; 
+            padding: 1px 4px !important; 
+            height: 18px !important; 
+            line-height: 1.1 !important; 
             vertical-align: middle !important;
           }
           .tabs-content { margin: 0 !important; padding: 0 !important; }
