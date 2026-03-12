@@ -15,12 +15,17 @@ service cloud.firestore {
     }
 
     function hasPermission(page, action) {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      let userDoc = exists(userPath) ? get(userPath).data : null;
+      
       return isMaster() || (
-        userDoc != null && 
-        userDoc.permissions != null && 
-        userDoc.permissions[page] != null && 
-        userDoc.permissions[page][action] == true
+        userDoc != null && (
+          userDoc.role == 'admin' || (
+            userDoc.permissions != null && 
+            userDoc.permissions[page] != null && 
+            userDoc.permissions[page][action] == true
+          )
+        )
       );
     }
 

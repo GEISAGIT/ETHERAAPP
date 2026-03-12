@@ -69,9 +69,29 @@ export function LoginForm() {
           }
         }
 
-        // Auto-reparo de perfis antigos sem o campo permissions
+        // Auto-reparo de perfis antigos (migração de permissões para novos módulos)
+        const role = currentData.role || 'user';
+        const expectedPermissions = defaultPermissions[role];
+        let permissionsUpdated = false;
+        
         if (!currentData.permissions) {
-          updates.permissions = defaultPermissions[currentData.role || 'user'];
+          updates.permissions = expectedPermissions;
+          permissionsUpdated = true;
+        } else {
+          // Verifica se algum módulo novo está faltando nas permissões atuais
+          const currentPerms = currentData.permissions as any;
+          const newPerms = { ...currentPerms };
+          
+          Object.keys(expectedPermissions).forEach(key => {
+            if (!currentPerms[key]) {
+              newPerms[key] = (expectedPermissions as any)[key];
+              permissionsUpdated = true;
+            }
+          });
+          
+          if (permissionsUpdated) {
+            updates.permissions = newPerms;
+          }
         }
 
         if (Object.keys(updates).length > 0) {
