@@ -80,6 +80,8 @@ function HRTimesheetContent() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   
+  const logoUrl = 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media&token=c68144ba-c10e-4921-8fe7-eb791d34eebe';
+
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [activeTab, setActiveTab] = useState('attendance');
   const [isSaving, setIsSaving] = useState(false);
@@ -398,10 +400,10 @@ function HRTimesheetContent() {
 
   const PunchCell = ({ record, dayDate, type }: { record?: AttendanceRecord, dayDate: Date, type: AttendanceType }) => {
     return (
-      <TableCell className="relative group/cell p-1.5 border-x text-center print:p-0 print:border-x-[0.5px] min-w-[65px] print:min-w-[50px] print:h-[9px] print:leading-none">
+      <TableCell className="relative group/cell border-x text-center print:p-0 print:border-x-[1px] min-w-[65px] print:min-w-[50px]">
         {record ? (
           <div className="flex items-center justify-center gap-1 print:gap-0 print:block">
-            <span className={cn("text-xs font-medium print:text-[6.5pt] print:leading-none", record.manual && "text-amber-600 underline decoration-dotted")}>
+            <span className={cn("text-xs font-medium print:text-[8pt]", record.manual && "text-amber-600 underline decoration-dotted")}>
               {format(record.timestamp.toDate(), 'HH:mm')}
             </span>
             {record.notes && (
@@ -439,7 +441,7 @@ function HRTimesheetContent() {
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center gap-1 print:h-[9px]">
+          <div className="flex items-center justify-center gap-1">
             <span className="text-[10px] text-muted-foreground opacity-30 print:hidden">--:--</span>
             <div className="absolute inset-0 bg-background/80 opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center print:hidden">
               <Button 
@@ -469,18 +471,17 @@ function HRTimesheetContent() {
     <div className="space-y-8 print:space-y-0 print:m-0">
       <style jsx global>{`
         @media print {
-          @page { margin: 0.3cm; size: A4 portrait; }
-          body { background: white !important; font-size: 6.5pt; line-height: 1; }
+          @page { margin: 0.5cm; size: A4 portrait; }
+          body { background: white !important; font-size: 8pt; line-height: 1.2; color: black !important; }
           .app-layout-main { padding: 0 !important; margin: 0 !important; }
           header, .print\:hidden { display: none !important; }
           .card { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
-          table { border-collapse: collapse !important; width: 100% !important; margin-bottom: 0 !important; table-layout: fixed; }
+          table { border-collapse: collapse !important; width: 100% !important; margin-bottom: 0 !important; table-layout: fixed; border: 1px solid black !important; }
           th, td { 
-            border: 0.5px solid #000 !important; 
-            padding: 0 !important; 
-            height: 9px !important; 
-            min-height: 9px !important;
-            line-height: 1 !important; 
+            border: 1px solid black !important; 
+            padding: 2px 4px !important; 
+            height: 22px !important; 
+            line-height: 1.2 !important; 
             vertical-align: middle !important;
           }
           .tabs-content { margin: 0 !important; padding: 0 !important; }
@@ -609,24 +610,34 @@ function HRTimesheetContent() {
         </div>
       </header>
 
-      {/* Print-only Header (Ultra Compact) */}
-      <div className="hidden print:block border-b border-black pb-0.5 mb-1 leading-none">
-        <div className="flex justify-between items-end">
-          <div>
-            <h1 className="text-[9pt] font-bold text-primary">ETHERA SAÚDE & LONGEVIDADE</h1>
-            <p className="text-[6.5pt] font-semibold uppercase">Espelho de Ponto Mensal - CLT</p>
+      {/* Print-only Header (Elegant & Professional) */}
+      <div className="hidden print:block border-b-2 border-black pb-4 mb-6">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-4">
+            <img src={logoUrl} alt="Logo Ethera" className="w-14 h-14 object-contain" />
+            <div>
+              <h1 className="text-xl font-bold text-primary leading-none tracking-tight">ETHERA</h1>
+              <p className="text-[9pt] font-semibold text-muted-foreground uppercase tracking-widest">Saúde & Longevidade</p>
+            </div>
           </div>
-          <p className="text-[6.5pt] font-bold">MES: {format(new Date(), 'MMMM / yyyy', { locale: ptBR }).toUpperCase()}</p>
+          <div className="text-right">
+            <h2 className="text-lg font-bold uppercase tracking-tight">Espelho de Ponto Mensal</h2>
+            <p className="text-[10pt] font-bold text-primary">{format(new Date(), 'MMMM / yyyy', { locale: ptBR }).toUpperCase()}</p>
+          </div>
         </div>
-        <div className="mt-0.5 grid grid-cols-2 gap-x-2 text-[6pt] leading-tight">
-          <div className="space-y-0">
-            <p><strong>COLABORADOR:</strong> {selectedEmployee?.fullName.toUpperCase()}</p>
-            <p><strong>CPF:</strong> {selectedEmployee?.cpf} | <strong>MATRICULA:</strong> {selectedEmployee?.registrationNumber || '--'}</p>
-            <p><strong>CARGO:</strong> {selectedEmployee?.position?.toUpperCase() || '--'}</p>
+        
+        <div className="grid grid-cols-3 gap-6 text-[8pt] bg-slate-50 p-3 rounded-md border border-black/20">
+          <div className="space-y-1.5">
+            <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Colaborador:</span><br/><span className="text-[9pt] font-bold">{selectedEmployee?.fullName.toUpperCase()}</span></p>
+            <p><span className="font-bold text-slate-500 uppercase text-[7pt]">CPF:</span> {selectedEmployee?.cpf}</p>
           </div>
-          <div className="space-y-0 text-right">
-            <p><strong>PIS:</strong> {selectedEmployee?.pisPasep || '--'} | <strong>CTPS:</strong> {selectedEmployee?.ctps || '--'}</p>
-            <p><strong>ADMISSÃO:</strong> {selectedEmployee?.hireDate ? format(selectedEmployee.hireDate.toDate(), 'dd/MM/yyyy') : '--'} | <strong>VENC. FERIAS:</strong> {selectedEmployee?.vacationExpirationDate ? format(selectedEmployee.vacationExpirationDate.toDate(), 'dd/MM/yyyy') : '--'}</p>
+          <div className="space-y-1.5 border-l border-black/10 pl-6">
+            <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Cargo:</span><br/>{selectedEmployee?.position?.toUpperCase() || '--'}</p>
+            <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Matrícula:</span> {selectedEmployee?.registrationNumber || '--'}</p>
+          </div>
+          <div className="space-y-1.5 border-l border-black/10 pl-6 text-right">
+            <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Admissão:</span> {selectedEmployee?.hireDate ? format(selectedEmployee.hireDate.toDate(), 'dd/MM/yyyy') : '--'}</p>
+            <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Vencimento Férias:</span> {selectedEmployee?.vacationExpirationDate ? format(selectedEmployee.vacationExpirationDate.toDate(), 'dd/MM/yyyy') : '--'}</p>
           </div>
         </div>
       </div>
@@ -669,17 +680,17 @@ function HRTimesheetContent() {
               </CardHeader>
               <CardContent className="p-0 sm:p-0 print:p-0">
                 <div className="overflow-x-auto">
-                  <Table className="print:text-[6.5pt] border-collapse border leading-none">
+                  <Table className="print:text-[8pt] border-collapse border-black leading-none">
                     <TableHeader>
-                      <TableRow className="bg-muted/50 print:bg-slate-100 h-10 print:h-[9px] border-b">
-                        <TableHead className="w-28 print:w-[50px] border-r pl-4 print:pl-0.5 font-bold text-foreground">DATA</TableHead>
-                        <TableHead className="text-center font-bold text-foreground">ENTRADA</TableHead>
-                        <TableHead className="text-center font-bold text-foreground">ALM. (S)</TableHead>
-                        <TableHead className="text-center font-bold text-foreground">ALM. (R)</TableHead>
-                        <TableHead className="text-center border-r font-bold text-foreground">SAIDA</TableHead>
-                        <TableHead className="text-center w-16 print:w-[35px] font-bold text-foreground">TRAB.</TableHead>
-                        <TableHead className="text-center w-16 print:w-[35px] font-bold text-foreground">SALDO</TableHead>
-                        <TableHead className="pl-4 print:pl-0.5 font-bold text-foreground">STATUS</TableHead>
+                      <TableRow className="bg-muted/50 print:bg-slate-100 h-10 border-b-2 border-black">
+                        <TableHead className="w-28 print:w-[60px] border-r border-black pl-4 print:pl-2 font-bold text-foreground">DATA</TableHead>
+                        <TableHead className="text-center font-bold text-foreground border-r border-black">ENTRADA</TableHead>
+                        <TableHead className="text-center font-bold text-foreground border-r border-black">ALM. (S)</TableHead>
+                        <TableHead className="text-center font-bold text-foreground border-r border-black">ALM. (R)</TableHead>
+                        <TableHead className="text-center border-r border-black font-bold text-foreground">SAIDA</TableHead>
+                        <TableHead className="text-center w-16 print:w-[45px] border-r border-black font-bold text-foreground">TRAB.</TableHead>
+                        <TableHead className="text-center w-16 print:w-[45px] border-r border-black font-bold text-foreground">SALDO</TableHead>
+                        <TableHead className="pl-4 print:pl-2 font-bold text-foreground">STATUS / OCORRÊNCIA</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -691,8 +702,8 @@ function HRTimesheetContent() {
                         const clockOut = day.records.find(r => r.type === 'clock_out');
 
                         return (
-                          <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/30 print:bg-slate-50", "h-9 print:h-[9px] border-b border-black leading-none")}>
-                            <TableCell className="font-medium border-r pl-4 print:pl-0.5 whitespace-nowrap print:h-[9px]">
+                          <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/30 print:bg-slate-50", "h-9 border-b border-black")}>
+                            <TableCell className="font-bold border-r border-black pl-4 print:pl-2 whitespace-nowrap">
                               {format(day.date, "dd/MM (eee)", { locale: ptBR })}
                             </TableCell>
                             
@@ -701,12 +712,12 @@ function HRTimesheetContent() {
                             <PunchCell record={breakEnd} dayDate={day.date} type="break_end" />
                             <PunchCell record={clockOut} dayDate={day.date} type="clock_out" />
 
-                            <TableCell className="text-center border-l bg-muted/5 font-mono print:font-bold print:h-[9px]">{formatMinutes(stats.worked)}</TableCell>
-                            <TableCell className={cn("text-center font-bold border-l font-mono print:h-[9px]", stats.balance > 0 ? "text-emerald-600" : stats.balance < 0 ? "text-red-600" : "text-muted-foreground")}>
+                            <TableCell className="text-center border-r border-black bg-muted/5 font-mono print:font-bold">{formatMinutes(stats.worked)}</TableCell>
+                            <TableCell className={cn("text-center font-bold border-r border-black font-mono", stats.balance > 0 ? "text-emerald-600" : stats.balance < 0 ? "text-red-600" : "text-muted-foreground")}>
                               {stats.balance !== 0 ? formatMinutes(stats.balance) : '--:--'}
                             </TableCell>
-                            <TableCell className="pl-4 print:pl-0.5 border-l print:h-[9px]">
-                              <span className={cn("text-[9px] print:text-[6pt] uppercase font-semibold leading-none", 
+                            <TableCell className="pl-4 print:pl-2">
+                              <span className={cn("text-[9px] print:text-[7pt] uppercase font-semibold", 
                                 stats.status === 'Falta' ? 'text-red-600' : 
                                 stats.status.includes('Atestado') ? 'text-blue-600' : 
                                 stats.status.includes('Descanso') ? 'text-muted-foreground' : 'text-foreground'
@@ -721,48 +732,54 @@ function HRTimesheetContent() {
                   </Table>
                 </div>
 
-                {/* Resumo e Assinaturas (Ultra Compacto) */}
-                <div className="grid grid-cols-2 gap-0 border-t border-black print:mt-0.5">
-                  <div className="p-3 print:p-1 bg-muted/10 border-r border-black">
-                    <h3 className="font-bold text-[10px] mb-1 uppercase tracking-widest text-primary flex items-center gap-1 print:hidden">
-                      <History className="h-3 w-3" /> Resumo do Mês
+                {/* Resumo e Assinaturas (Espaçado e Elegante) */}
+                <div className="grid grid-cols-2 gap-0 border-t-2 border-black print:mt-4">
+                  <div className="p-4 print:p-3 bg-muted/10 border-r-2 border-black">
+                    <h3 className="font-bold text-[11px] mb-2 uppercase tracking-widest text-primary flex items-center gap-2">
+                      <History className="h-4 w-4" /> Resumo Consolidado
                     </h3>
-                    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9px] print:text-[6.5pt] leading-none">
-                      <span className="text-muted-foreground">Horas Trabalhadas:</span>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px] print:text-[8pt]">
+                      <span className="text-muted-foreground">Total Horas Trabalhadas:</span>
                       <span className="font-bold text-right font-mono">{formatMinutes(monthlySummary.worked)}</span>
-                      <span className="text-muted-foreground">Créditos:</span>
+                      <span className="text-muted-foreground">Créditos Acumulados:</span>
                       <span className="font-bold text-right text-emerald-600 font-mono">+{formatMinutes(monthlySummary.credits)}</span>
-                      <span className="text-muted-foreground">Débitos:</span>
+                      <span className="text-muted-foreground">Débitos Acumulados:</span>
                       <span className="font-bold text-right text-red-600 font-mono">-{formatMinutes(monthlySummary.debits)}</span>
-                      <div className="col-span-2 border-t border-dashed border-black mt-0.5 pt-0.5 flex justify-between items-center">
-                        <span className="font-bold">SALDO ACUMULADO:</span>
-                        <Badge className={cn("text-[9px] print:text-[6.5pt] font-mono px-1.5 h-4 print:h-3", monthlySummary.balance >= 0 ? "bg-emerald-600" : "bg-red-600")}>
+                      <div className="col-span-2 border-t border-dashed border-black mt-2 pt-2 flex justify-between items-center">
+                        <span className="font-bold text-[11px]">SALDO FINAL DO MÊS:</span>
+                        <Badge className={cn("text-[10px] font-mono px-3 h-6", monthlySummary.balance >= 0 ? "bg-emerald-600" : "bg-red-600")}>
                           {formatMinutes(monthlySummary.balance)}
                         </Badge>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="p-3 print:p-1 bg-primary/5">
-                    <h3 className="font-bold text-[10px] mb-1 uppercase tracking-widest text-primary flex items-center gap-1 print:hidden">
-                      <AlertTriangle className="h-3 w-3" /> Estatísticas
+                  <div className="p-4 print:p-3 bg-primary/5">
+                    <h3 className="font-bold text-[11px] mb-2 uppercase tracking-widest text-primary flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" /> Estatísticas & Avisos
                     </h3>
-                    <div className="space-y-0.5 text-[9px] print:text-[6.5pt] leading-none">
-                      <div className="flex justify-between"><span>Faltas:</span><span className="font-bold">{monthlySummary.absences} dias</span></div>
-                      <div className="flex justify-between"><span>Atestados:</span><span className="font-bold">{monthlySummary.certificates} dias</span></div>
-                      <p className="text-[6pt] text-muted-foreground mt-0.5 italic leading-tight">* Documento gerado conforme Art. 59 da CLT.</p>
+                    <div className="space-y-1.5 text-[10px] print:text-[8pt]">
+                      <div className="flex justify-between"><span>Faltas Injustificadas:</span><span className="font-bold text-red-600">{monthlySummary.absences} dias</span></div>
+                      <div className="flex justify-between"><span>Atestados Médicos:</span><span className="font-bold text-blue-600">{monthlySummary.certificates} dias</span></div>
+                      <p className="text-[7.5pt] text-muted-foreground mt-4 italic leading-snug border-t border-black/10 pt-2">
+                        * Documento gerado eletronicamente conforme Art. 59 da CLT e Portaria 671/2021 do MTP.
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="hidden print:grid grid-cols-2 gap-8 mt-1 text-center text-[6pt]">
-                  <div className="border-t border-black pt-0.5">
-                    <p className="font-bold">{selectedEmployee?.fullName.toUpperCase()}</p>
-                    <p>ASSINATURA DO COLABORADOR</p>
+                <div className="hidden print:grid grid-cols-2 gap-12 mt-12 text-center text-[8pt]">
+                  <div className="space-y-2">
+                    <div className="border-t border-black pt-2">
+                      <p className="font-bold uppercase">{selectedEmployee?.fullName.toUpperCase()}</p>
+                      <p className="text-[7pt] text-muted-foreground uppercase tracking-widest">Assinatura do Colaborador</p>
+                    </div>
                   </div>
-                  <div className="border-t border-black pt-0.5">
-                    <p className="font-bold">ETHERA LONGEVIDADE - RH</p>
-                    <p>CARIMBO E ASSINATURA DA EMPRESA</p>
+                  <div className="space-y-2">
+                    <div className="border-t border-black pt-2">
+                      <p className="font-bold uppercase">ETHERA LONGEVIDADE - RH</p>
+                      <p className="text-[7pt] text-muted-foreground uppercase tracking-widest">Carimbo e Assinatura da Empresa</p>
+                    </div>
                   </div>
                 </div>
               </CardContent>
