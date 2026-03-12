@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -403,7 +404,7 @@ function HRTimesheetContent() {
       <TableCell className="relative group/cell border-x text-center print:p-0 print:border-x-[1px] min-w-[65px] print:min-w-[50px]">
         {record ? (
           <div className="flex items-center justify-center gap-1 print:gap-0 print:block">
-            <span className={cn("text-xs font-medium print:text-[8pt]", record.manual && "text-amber-600 underline decoration-dotted")}>
+            <span className={cn("text-xs font-medium print:text-[7.5pt]", record.manual && "text-amber-600 underline decoration-dotted")}>
               {format(record.timestamp.toDate(), 'HH:mm')}
             </span>
             {record.notes && (
@@ -472,7 +473,7 @@ function HRTimesheetContent() {
       <style jsx global>{`
         @media print {
           @page { margin: 0.5cm; size: A4 portrait; }
-          body { background: white !important; font-size: 8pt; line-height: 1.2; color: black !important; }
+          body { background: white !important; font-size: 8pt; line-height: 1.1; color: black !important; }
           .app-layout-main { padding: 0 !important; margin: 0 !important; }
           header, .print\:hidden { display: none !important; }
           .card { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
@@ -480,7 +481,7 @@ function HRTimesheetContent() {
           th, td { 
             border: 1px solid black !important; 
             padding: 1px 4px !important; 
-            height: 18px !important; 
+            height: 16px !important; 
             line-height: 1.1 !important; 
             vertical-align: middle !important;
           }
@@ -611,13 +612,13 @@ function HRTimesheetContent() {
       </header>
 
       {/* Print-only Header (Elegant & Professional) */}
-      <div className="hidden print:block border-b-2 border-black pb-4 mb-6">
-        <div className="flex justify-between items-center mb-6">
+      <div className="hidden print:block border-b-2 border-black pb-4 mb-4">
+        <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-4">
-            <img src={logoUrl} alt="Logo Ethera" className="w-14 h-14 object-contain" />
+            <img src={logoUrl} alt="Logo Ethera" className="w-12 h-12 object-contain" />
             <div>
               <h1 className="text-xl font-bold text-primary leading-none tracking-tight">ETHERA</h1>
-              <p className="text-[9pt] font-semibold text-muted-foreground uppercase tracking-widest">Saúde & Longevidade</p>
+              <p className="text-[8pt] font-semibold text-muted-foreground uppercase tracking-widest">Saúde & Longevidade</p>
             </div>
           </div>
           <div className="text-right">
@@ -626,16 +627,16 @@ function HRTimesheetContent() {
           </div>
         </div>
         
-        <div className="grid grid-cols-3 gap-6 text-[8pt] bg-slate-50 p-3 rounded-md border border-black/20">
-          <div className="space-y-1.5">
+        <div className="grid grid-cols-3 gap-4 text-[8pt] bg-slate-50 p-2 rounded-md border border-black/20">
+          <div className="space-y-1">
             <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Colaborador:</span><br/><span className="text-[9pt] font-bold">{selectedEmployee?.fullName.toUpperCase()}</span></p>
             <p><span className="font-bold text-slate-500 uppercase text-[7pt]">CPF:</span> {selectedEmployee?.cpf}</p>
           </div>
-          <div className="space-y-1.5 border-l border-black/10 pl-6">
+          <div className="space-y-1 border-l border-black/10 pl-4">
             <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Cargo:</span><br/>{selectedEmployee?.position?.toUpperCase() || '--'}</p>
             <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Matrícula:</span> {selectedEmployee?.registrationNumber || '--'}</p>
           </div>
-          <div className="space-y-1.5 border-l border-black/10 pl-6 text-right">
+          <div className="space-y-1 border-l border-black/10 pl-4 text-right">
             <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Admissão:</span> {selectedEmployee?.hireDate ? format(selectedEmployee.hireDate.toDate(), 'dd/MM/yyyy') : '--'}</p>
             <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Vencimento Férias:</span> {selectedEmployee?.vacationExpirationDate ? format(selectedEmployee.vacationExpirationDate.toDate(), 'dd/MM/yyyy') : '--'}</p>
           </div>
@@ -680,16 +681,16 @@ function HRTimesheetContent() {
               </CardHeader>
               <CardContent className="p-0 sm:p-0 print:p-0">
                 <div className="overflow-x-auto">
-                  <Table className="print:text-[8pt] border-collapse border-black leading-none">
+                  <Table className="print:text-[7.5pt] border-collapse border-black leading-none">
                     <TableHeader>
-                      <TableRow className="bg-muted/50 print:bg-slate-100 h-10 border-b-2 border-black">
-                        <TableHead className="w-28 print:w-[60px] border-r border-black pl-4 print:pl-2 font-bold text-foreground">DATA</TableHead>
+                      <TableRow className="bg-muted/50 print:bg-slate-100 h-8 border-b-2 border-black">
+                        <TableHead className="w-28 print:w-[50px] border-r border-black pl-4 print:pl-2 font-bold text-foreground">DATA</TableHead>
                         <TableHead className="text-center font-bold text-foreground border-r border-black">ENTRADA</TableHead>
                         <TableHead className="text-center font-bold text-foreground border-r border-black">ALM. (S)</TableHead>
                         <TableHead className="text-center font-bold text-foreground border-r border-black">ALM. (R)</TableHead>
                         <TableHead className="text-center border-r border-black font-bold text-foreground">SAIDA</TableHead>
-                        <TableHead className="text-center w-16 print:w-[45px] border-r border-black font-bold text-foreground">TRAB.</TableHead>
-                        <TableHead className="text-center w-16 print:w-[45px] border-r border-black font-bold text-foreground">SALDO</TableHead>
+                        <TableHead className="text-center w-16 print:w-[40px] border-r border-black font-bold text-foreground">TRAB.</TableHead>
+                        <TableHead className="text-center w-16 print:w-[40px] border-r border-black font-bold text-foreground">SALDO</TableHead>
                         <TableHead className="pl-4 print:pl-2 font-bold text-foreground">STATUS / OCORRÊNCIA</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -702,7 +703,7 @@ function HRTimesheetContent() {
                         const clockOut = day.records.find(r => r.type === 'clock_out');
 
                         return (
-                          <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/30 print:bg-slate-50", "h-9 border-b border-black")}>
+                          <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/30 print:bg-slate-50", "h-4 border-b border-black")}>
                             <TableCell className="font-bold border-r border-black pl-4 print:pl-2 whitespace-nowrap">
                               {format(day.date, "dd/MM (eee)", { locale: ptBR })}
                             </TableCell>
@@ -717,7 +718,7 @@ function HRTimesheetContent() {
                               {stats.balance !== 0 ? formatMinutes(stats.balance) : '--:--'}
                             </TableCell>
                             <TableCell className="pl-4 print:pl-2">
-                              <span className={cn("text-[9px] print:text-[7pt] uppercase font-semibold", 
+                              <span className={cn("text-[9px] print:text-[6.5pt] uppercase font-semibold", 
                                 stats.status === 'Falta' ? 'text-red-600' : 
                                 stats.status.includes('Atestado') ? 'text-blue-600' : 
                                 stats.status.includes('Descanso') ? 'text-muted-foreground' : 'text-foreground'
@@ -734,49 +735,49 @@ function HRTimesheetContent() {
 
                 {/* Resumo e Assinaturas (Espaçado e Elegante) */}
                 <div className="grid grid-cols-2 gap-0 border-t-2 border-black print:mt-4">
-                  <div className="p-4 print:p-3 bg-muted/10 border-r-2 border-black">
-                    <h3 className="font-bold text-[11px] mb-2 uppercase tracking-widest text-primary flex items-center gap-2">
+                  <div className="p-4 print:p-2 bg-muted/10 border-r-2 border-black">
+                    <h3 className="font-bold text-[11px] mb-1 uppercase tracking-widest text-primary flex items-center gap-2">
                       <History className="h-4 w-4" /> Resumo Consolidado
                     </h3>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px] print:text-[8pt]">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] print:text-[7.5pt]">
                       <span className="text-muted-foreground">Total Horas Trabalhadas:</span>
                       <span className="font-bold text-right font-mono">{formatMinutes(monthlySummary.worked)}</span>
                       <span className="text-muted-foreground">Créditos Acumulados:</span>
                       <span className="font-bold text-right text-emerald-600 font-mono">+{formatMinutes(monthlySummary.credits)}</span>
                       <span className="text-muted-foreground">Débitos Acumulados:</span>
                       <span className="font-bold text-right text-red-600 font-mono">-{formatMinutes(monthlySummary.debits)}</span>
-                      <div className="col-span-2 border-t border-dashed border-black mt-2 pt-2 flex justify-between items-center">
-                        <span className="font-bold text-[11px]">SALDO FINAL DO MÊS:</span>
-                        <Badge className={cn("text-[10px] font-mono px-3 h-6", monthlySummary.balance >= 0 ? "bg-emerald-600" : "bg-red-600")}>
+                      <div className="col-span-2 border-t border-dashed border-black mt-1 pt-1 flex justify-between items-center">
+                        <span className="font-bold text-[10px]">SALDO FINAL DO MÊS:</span>
+                        <Badge className={cn("text-[10px] font-mono px-3 h-5", monthlySummary.balance >= 0 ? "bg-emerald-600" : "bg-red-600")}>
                           {formatMinutes(monthlySummary.balance)}
                         </Badge>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="p-4 print:p-3 bg-primary/5">
-                    <h3 className="font-bold text-[11px] mb-2 uppercase tracking-widest text-primary flex items-center gap-2">
+                  <div className="p-4 print:p-2 bg-primary/5">
+                    <h3 className="font-bold text-[11px] mb-1 uppercase tracking-widest text-primary flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4" /> Estatísticas & Avisos
                     </h3>
-                    <div className="space-y-1.5 text-[10px] print:text-[8pt]">
+                    <div className="space-y-1 text-[10px] print:text-[7.5pt]">
                       <div className="flex justify-between"><span>Faltas Injustificadas:</span><span className="font-bold text-red-600">{monthlySummary.absences} dias</span></div>
                       <div className="flex justify-between"><span>Atestados Médicos:</span><span className="font-bold text-blue-600">{monthlySummary.certificates} dias</span></div>
-                      <p className="text-[7.5pt] text-muted-foreground mt-4 italic leading-snug border-t border-black/10 pt-2">
+                      <p className="text-[7pt] text-muted-foreground mt-2 italic leading-snug border-t border-black/10 pt-1">
                         * Documento gerado eletronicamente conforme Art. 59 da CLT e Portaria 671/2021 do MTP.
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="hidden print:grid grid-cols-2 gap-12 mt-12 text-center text-[8pt]">
-                  <div className="space-y-2">
-                    <div className="border-t border-black pt-2">
+                <div className="hidden print:grid grid-cols-2 gap-12 mt-8 text-center text-[8pt]">
+                  <div className="space-y-1">
+                    <div className="border-t border-black pt-1">
                       <p className="font-bold uppercase">{selectedEmployee?.fullName.toUpperCase()}</p>
                       <p className="text-[7pt] text-muted-foreground uppercase tracking-widest">Assinatura do Colaborador</p>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <div className="border-t border-black pt-2">
+                  <div className="space-y-1">
+                    <div className="border-t border-black pt-1">
                       <p className="font-bold uppercase">ETHERA LONGEVIDADE - RH</p>
                       <p className="text-[7pt] text-muted-foreground uppercase tracking-widest">Carimbo e Assinatura da Empresa</p>
                     </div>
