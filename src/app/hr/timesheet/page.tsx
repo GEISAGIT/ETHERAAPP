@@ -401,7 +401,7 @@ function HRTimesheetContent() {
 
   const PunchCell = ({ record, dayDate, type }: { record?: AttendanceRecord, dayDate: Date, type: AttendanceType }) => {
     return (
-      <TableCell className="relative group/cell border-x text-center print:p-0 print:border-x-[1px] min-w-[65px] print:min-w-[50px]">
+      <TableCell className="relative group/cell border-x text-center print:p-0 print:border-x-[1px] min-w-[65px] print:min-w-[45px]">
         {record ? (
           <div className="flex items-center justify-center gap-1 print:gap-0 print:block">
             <span className={cn("text-xs font-medium print:text-[7.5pt]", record.manual && "text-amber-600 underline decoration-dotted")}>
@@ -684,13 +684,13 @@ function HRTimesheetContent() {
                   <Table className="print:text-[7.5pt] border-collapse border-black leading-none">
                     <TableHeader>
                       <TableRow className="bg-muted/50 print:bg-slate-100 h-8 border-b-2 border-black">
-                        <TableHead className="w-28 print:w-[50px] border-r border-black pl-4 print:pl-2 font-bold text-foreground">DATA</TableHead>
+                        <TableHead className="w-28 print:w-[70px] border-r border-black pl-4 print:pl-2 font-bold text-foreground">DATA</TableHead>
                         <TableHead className="text-center font-bold text-foreground border-r border-black">ENTRADA</TableHead>
                         <TableHead className="text-center font-bold text-foreground border-r border-black">ALM. (S)</TableHead>
                         <TableHead className="text-center font-bold text-foreground border-r border-black">ALM. (R)</TableHead>
                         <TableHead className="text-center border-r border-black font-bold text-foreground">SAIDA</TableHead>
-                        <TableHead className="text-center w-16 print:w-[40px] border-r border-black font-bold text-foreground">TRAB.</TableHead>
-                        <TableHead className="text-center w-16 print:w-[40px] border-r border-black font-bold text-foreground">SALDO</TableHead>
+                        <TableHead className="text-center w-16 print:w-[50px] border-r border-black font-bold text-foreground">TRAB.</TableHead>
+                        <TableHead className="text-center w-16 print:w-[50px] border-r border-black font-bold text-foreground">SALDO</TableHead>
                         <TableHead className="pl-4 print:pl-2 font-bold text-foreground">STATUS / OCORRÊNCIA</TableHead>
                       </TableRow>
                     </TableHeader>
