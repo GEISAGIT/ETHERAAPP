@@ -366,7 +366,7 @@ function HRTimesheetContent() {
       });
       
       return { date: day, records: dayRecords, adjustment: dayAdj };
-    }).reverse();
+    }); // Mantido cronológico (crescente) conforme solicitado
   }, [rawAttendance, formData.adjustments, isClient]);
 
   const monthlySummary = useMemo(() => {
