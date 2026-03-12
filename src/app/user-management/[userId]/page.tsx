@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Wallet, Briefcase, Settings, ShieldAlert, ChevronDown, ChevronUp, Package, MapPin } from 'lucide-react';
+import { Loader2, Wallet, Briefcase, Settings, ShieldAlert, ChevronDown, ChevronUp, Package, MapPin, ClipboardList } from 'lucide-react';
 import type { UserProfile, Permissions, CrudActions } from '@/lib/types';
 import { useEffect, useState, Suspense } from 'react';
 import { defaultPermissions } from '@/lib/data';
@@ -43,7 +43,14 @@ const modules: ModuleConfig[] = [
     permissions: [
       { key: 'timeTracking', label: 'Controle de Ponto' },
       { key: 'employees', label: 'Cadastro de Funcionários' },
-      { key: 'hrTimesheet', label: 'Gestão de Horários' },
+      { key: 'hrTimesheet', label: 'Controle de Funcionários' },
+    ]
+  },
+  {
+    title: 'Operacional',
+    icon: ClipboardList,
+    permissions: [
+      { key: 'activities', label: 'Gestão de Atividades' },
     ]
   },
   {
@@ -91,6 +98,7 @@ function UserAccessControlContent() {
   const [openModules, setOpenModules] = useState<Record<string, boolean>>({
     'Financeiro': true,
     'Recursos Humanos': false,
+    'Operacional': true,
     'Suprimentos': false,
     'Administração': false,
     'Geral & Configurações': false,
