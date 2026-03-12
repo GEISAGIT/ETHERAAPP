@@ -398,10 +398,10 @@ function HRTimesheetContent() {
 
   const PunchCell = ({ record, dayDate, type }: { record?: AttendanceRecord, dayDate: Date, type: AttendanceType }) => {
     return (
-      <TableCell className="relative group/cell p-1.5 border-x text-center print:p-0 print:border-x-[0.5px] min-w-[65px] print:min-w-[50px] print:h-4">
+      <TableCell className="relative group/cell p-1.5 border-x text-center print:p-0 print:border-x-[0.5px] min-w-[65px] print:min-w-[50px] print:h-[12px]">
         {record ? (
           <div className="flex items-center justify-center gap-1 print:gap-0">
-            <span className={cn("text-xs font-medium print:text-[8pt]", record.manual && "text-amber-600 underline decoration-dotted")}>
+            <span className={cn("text-xs font-medium print:text-[7pt]", record.manual && "text-amber-600 underline decoration-dotted")}>
               {format(record.timestamp.toDate(), 'HH:mm')}
             </span>
             {record.notes && (
@@ -469,13 +469,13 @@ function HRTimesheetContent() {
     <div className="space-y-8 print:space-y-0 print:m-0">
       <style jsx global>{`
         @media print {
-          @page { margin: 0.4cm; }
-          body { background: white !important; font-size: 8pt; line-height: 1.1; }
+          @page { margin: 0.3cm; }
+          body { background: white !important; font-size: 7pt; line-height: 1; }
           .app-layout-main { padding: 0 !important; margin: 0 !important; }
-          header, .print\\:hidden { display: none !important; }
+          header, .print\:hidden { display: none !important; }
           .card { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
           .table { border-collapse: collapse !important; width: 100% !important; margin-bottom: 0 !important; }
-          .table th, .table td { border: 0.5px solid #000 !important; padding: 0 !important; height: 14px !important; }
+          .table th, .table td { border: 0.5px solid #000 !important; padding: 0 !important; height: 12px !important; }
           .tabs-content { margin: 0 !important; padding: 0 !important; }
           .card-content { padding: 0 !important; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -662,9 +662,9 @@ function HRTimesheetContent() {
               </CardHeader>
               <CardContent className="p-0 sm:p-0 print:p-0">
                 <div className="overflow-x-auto">
-                  <Table className="print:text-[7.5pt] border-collapse border leading-none">
+                  <Table className="print:text-[7pt] border-collapse border leading-none">
                     <TableHeader>
-                      <TableRow className="bg-muted/50 print:bg-slate-100 h-10 print:h-4 border-b">
+                      <TableRow className="bg-muted/50 print:bg-slate-100 h-10 print:h-[12px] border-b">
                         <TableHead className="w-28 print:w-14 border-r pl-4 print:pl-0.5 font-bold text-foreground">DATA</TableHead>
                         <TableHead className="text-center font-bold text-foreground">ENTRADA</TableHead>
                         <TableHead className="text-center font-bold text-foreground">ALM. (S)</TableHead>
@@ -684,7 +684,7 @@ function HRTimesheetContent() {
                         const clockOut = day.records.find(r => r.type === 'clock_out');
 
                         return (
-                          <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/30 print:bg-slate-50", "h-9 print:h-4 border-b border-black")}>
+                          <TableRow key={day.date.toISOString()} className={cn(stats.isWeekend && "bg-muted/30 print:bg-slate-50", "h-9 print:h-[12px] border-b border-black")}>
                             <TableCell className="font-medium border-r pl-4 print:pl-0.5 whitespace-nowrap">
                               {format(day.date, "dd/MM (eee)", { locale: ptBR })}
                             </TableCell>
@@ -699,7 +699,7 @@ function HRTimesheetContent() {
                               {stats.balance !== 0 ? formatMinutes(stats.balance) : '--:--'}
                             </TableCell>
                             <TableCell className="pl-4 print:pl-0.5 border-l">
-                              <span className={cn("text-[9px] print:text-[6.5pt] uppercase font-semibold", 
+                              <span className={cn("text-[9px] print:text-[6pt] uppercase font-semibold", 
                                 stats.status === 'Falta' ? 'text-red-600' : 
                                 stats.status.includes('Atestado') ? 'text-blue-600' : 
                                 stats.status.includes('Descanso') ? 'text-muted-foreground' : 'text-foreground'
@@ -748,7 +748,7 @@ function HRTimesheetContent() {
                   </div>
                 </div>
 
-                <div className="hidden print:grid grid-cols-2 gap-8 mt-2 text-center text-[6.5pt]">
+                <div className="hidden print:grid grid-cols-2 gap-8 mt-1 text-center text-[6.5pt]">
                   <div className="border-t border-black pt-0.5">
                     <p className="font-bold">{selectedEmployee?.fullName.toUpperCase()}</p>
                     <p>ASSINATURA DO COLABORADOR</p>
