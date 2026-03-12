@@ -30,7 +30,11 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'view'));
+      // allow get para o próprio usuário ou admin
+      allow get: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'view'));
+      // allow list para qualquer logado (necessário para selecionar responsáveis em atividades/filtros)
+      allow list: if isSignedIn();
+      // allow write apenas para o próprio ou master/admin
       allow write: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'edit'));
     }
 

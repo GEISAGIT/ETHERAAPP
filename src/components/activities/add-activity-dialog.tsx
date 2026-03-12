@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, UserPlus } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -34,9 +34,9 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, useCollection, addDocumentNonBlocking } from '@/firebase';
-import { collection, serverTimestamp, query, orderBy } from 'firebase/firestore';
-import type { ActivityPriority, UserManagement } from '@/lib/types';
+import { useFirestore, useUser, useCollection, addDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { collection, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
+import type { UserManagement } from '@/lib/types';
 
 const formSchema = z.object({
   title: z.string().min(3, 'O título deve ter pelo menos 3 caracteres.'),
@@ -52,10 +52,11 @@ export function AddActivityDialog({ open, onOpenChange }: { open: boolean, onOpe
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
 
+  // Buscar usuários apenas se o diálogo estiver aberto
   const usersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !open) return null;
     return query(collection(firestore, 'users'), orderBy('displayName', 'asc'));
-  }, [firestore]);
+  }, [firestore, open]);
 
   const { data: users } = useCollection<UserManagement>(usersQuery);
 
@@ -86,8 +87,8 @@ export function AddActivityDialog({ open, onOpenChange }: { open: boolean, onOpe
         status: 'pending',
         requesterId: currentUser.uid,
         requesterName: currentUser.displayName || 'Usuário',
-        assigneeId: values.assigneeId || null,
-        assigneeName: selectedAssignee?.displayName || null,
+        assigneeId: values.assigneeId && values.assigneeId !== 'none' ? values.assigneeId : null,
+        assigneeName: values.assigneeId && values.assigneeId !== 'none' ? (selectedAssignee?.displayName || 'Responsável') : null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         history: [{
@@ -171,8 +172,8 @@ export function AddActivityDialog({ open, onOpenChange }: { open: boolean, onOpe
                       <FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="none">Aguardando executor</SelectItem>
-                        {users?.map(user => (
-                          <SelectItem key={user.uid} value={user.uid}>{user.displayName}</SelectItem>
+                        {users?.map(u => (
+                          <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -195,7 +196,3 @@ export function AddActivityDialog({ open, onOpenChange }: { open: boolean, onOpe
     </Dialog>
   );
 }
-
-// Utility imports for activity data
-import { Timestamp } from 'firebase/firestore';
-import { useMemoFirebase } from '@/firebase/provider';
