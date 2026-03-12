@@ -29,6 +29,14 @@ service cloud.firestore {
       allow write: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'edit'));
     }
 
+    // Gestão de Atividades
+    match /activities/{activityId} {
+      allow read: if isSignedIn() && (isMaster() || hasPermission('activities', 'view'));
+      allow create: if isSignedIn() && (isMaster() || hasPermission('activities', 'create'));
+      allow update: if isSignedIn() && (isMaster() || hasPermission('activities', 'edit'));
+      allow delete: if isSignedIn() && (isMaster() || hasPermission('activities', 'delete'));
+    }
+
     // Registros de Cartão de Ponto
     match /timeEntries/{entryId} {
       allow list: if isSignedIn() && (
