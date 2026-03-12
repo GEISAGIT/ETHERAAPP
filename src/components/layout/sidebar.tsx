@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -31,7 +32,9 @@ import {
   Tags,
   Package,
   Boxes,
-  MapPin
+  MapPin,
+  ClipboardList,
+  CheckCircle
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -62,6 +65,10 @@ const hrMenuItems = [
 const suppliesMenuItems = [
   { key: 'suppliesStock' as MenuItemKey, href: '/supplies/stock', label: 'Controle de Estoque', icon: Boxes },
   { key: 'addresses' as MenuItemKey, href: '/settings/addresses', label: 'Locais de Armazenamento', icon: MapPin },
+];
+
+const operationMenuItems = [
+  { key: 'activities' as MenuItemKey, href: '/activities', label: 'Gestão de Atividades', icon: ClipboardList },
 ];
 
 const managementMenuItems = [
@@ -106,6 +113,7 @@ export function AppSidebar() {
   const financialItems = useMemo(() => filterMenuItems(financialMenuItems), [userProfile, user]);
   const hrItems = useMemo(() => filterMenuItems(hrMenuItems), [userProfile, user]);
   const suppliesItems = useMemo(() => filterMenuItems(suppliesMenuItems), [userProfile, user]);
+  const operationItems = useMemo(() => filterMenuItems(operationMenuItems), [userProfile, user]);
   const managementItems = useMemo(() => filterMenuItems(managementMenuItems), [userProfile, user]);
   const userItems = useMemo(() => filterMenuItems(userMenuItems), [userProfile, user]);
 
@@ -142,6 +150,33 @@ export function AppSidebar() {
             )}
           </SidebarMenu>
         </SidebarGroup>
+
+        {operationItems.length > 0 && (
+          <Collapsible asChild defaultOpen={true} className="group/collapsible">
+            <SidebarGroup>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">
+                  <CheckCircle className="h-3.5 w-3.5 text-primary" />
+                  <span>Operacional</span>
+                  <ChevronRight className="ml-auto h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {operationItems.map(({ href, label, icon: Icon }) => (
+                      <SidebarMenuItem key={href}>
+                        <SidebarMenuButton asChild isActive={isActive(href)} className={isActive(href) ? 'text-primary font-bold' : 'text-primary'}>
+                          <Link href={href}><Icon /><span>{label}</span></Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        )}
 
         {financialItems.length > 0 && (
           <Collapsible asChild defaultOpen={true} className="group/collapsible">

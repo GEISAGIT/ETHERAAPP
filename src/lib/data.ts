@@ -1,3 +1,4 @@
+
 import type { Permissions, ExpenseCategoryGroup, CrudActions } from './types';
 
 const fullCrud: CrudActions = { view: true, create: true, edit: true, delete: true };
@@ -23,6 +24,7 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     timeTracking: fullCrud,
     suppliesStock: fullCrud,
     addresses: fullCrud,
+    activities: fullCrud,
   },
   user: {
     home: viewOnly,
@@ -42,6 +44,7 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     timeTracking: { view: true, create: true, edit: false, delete: false },
     suppliesStock: noCrud,
     addresses: noCrud,
+    activities: { view: true, create: true, edit: true, delete: false },
   },
 };
 

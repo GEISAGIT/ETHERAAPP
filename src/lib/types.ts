@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Timestamp } from 'firebase/firestore';
@@ -92,6 +93,9 @@ export type Permissions = {
   hrTimesheet: CrudActions;
   // Suprimentos
   suppliesStock: CrudActions;
+  addresses: CrudActions;
+  // Operacional
+  activities: CrudActions;
   // Administração
   upload: CrudActions;
   userManagement: CrudActions;
@@ -99,7 +103,6 @@ export type Permissions = {
   home: CrudActions;
   profile: CrudActions;
   settings: CrudActions;
-  addresses: CrudActions;
 };
 
 export type UserStatus = 'pending' | 'active' | 'rejected';
@@ -267,7 +270,6 @@ export type StorageLocation = {
   updatedAt: Timestamp;
 };
 
-// Map Address to StorageLocation for compatibility
 export type Address = StorageLocation;
 
 export type StockItem = {
@@ -343,4 +345,35 @@ export type CoraPaymentInitiationResponse = {
     status: string;
     amount: number;
     creditor: { name: string };
+};
+
+// --- Activities Types ---
+
+export type ActivityStatus = 'pending' | 'in_progress' | 'waiting_validation' | 'completed' | 'rework';
+export type ActivityPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface ActivityHistoryItem {
+  content: string;
+  timestamp: Timestamp;
+  userName: string;
+  userId: string;
+}
+
+export type Activity = {
+  id: string;
+  title: string;
+  description: string;
+  status: ActivityStatus;
+  priority: ActivityPriority;
+  requesterId: string;
+  requesterName: string;
+  assigneeId?: string;
+  assigneeName?: string;
+  deadline?: Timestamp;
+  startDescription?: string;
+  completionDescription?: string;
+  rejectionReason?: string;
+  history?: ActivityHistoryItem[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 };
