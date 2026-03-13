@@ -4,7 +4,7 @@ import { CoraAuthForm } from '@/components/cora/cora-auth-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText, Copy, Barcode, QrCode } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText, Copy, Barcode, QrCode, ExternalLink } from 'lucide-react';
 import { Suspense, useState, useMemo, useEffect } from 'react';
 import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse, CoraInvoiceRequestBody, CoraInvoiceResponse } from '@/lib/types';
@@ -129,11 +129,12 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
     };
 
     const handlePayTestBoleto = async () => {
-        if (!mainToken || !boletoResult?.bank_slip?.digitable_line) return;
+        const digitableLine = boletoResult?.bank_slip?.digitable_line || boletoResult?.payment_options?.bank_slip?.digitable_line;
+        if (!mainToken || !digitableLine) return;
         setIsInitiatingPayment(true);
         setPaymentResult(null);
 
-        const result = await initiatePayment(mainToken.accessToken, boletoResult.bank_slip.digitable_line);
+        const result = await initiatePayment(mainToken.accessToken, digitableLine);
         if (result.error) {
             toast({ variant: 'destructive', title: 'Erro ao Pagar Boleto', description: result.error });
         } else if (result.data) {
@@ -142,6 +143,8 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
         }
         setIsInitiatingPayment(false);
     };
+
+    const boletoData = boletoResult?.bank_slip || boletoResult?.payment_options?.bank_slip;
 
     return (
         <div className="space-y-6">
@@ -192,10 +195,25 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
                         <AlertDescription>{issuingBoletoError}</AlertDescription>
                       </Alert>
                     )}
-                    {boletoResult && boletoResult.bank_slip && (
-                       <div className="mt-4 space-y-2 text-sm p-3 border rounded-md bg-muted/20">
-                          <p className="font-semibold">Boleto emitido com sucesso!</p>
-                          <p className="font-mono text-xs break-all">{boletoResult.bank_slip.digitable_line}</p>
+                    {boletoResult && boletoData && (
+                       <div className="mt-4 space-y-3 text-sm p-4 border rounded-md bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200">
+                          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
+                             <CheckCircle className="h-4 w-4" />
+                             Boleto emitido com sucesso!
+                          </div>
+                          {boletoData.digitable_line && (
+                            <div className="space-y-1">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Linha Digitável</Label>
+                                <p className="font-mono text-xs break-all bg-background p-2 border rounded">{boletoData.digitable_line}</p>
+                            </div>
+                          )}
+                          {boletoData.url && (
+                            <Button variant="outline" size="sm" asChild className="w-full mt-2">
+                                <a href={boletoData.url} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="mr-2 h-4 w-4" /> Abrir PDF do Boleto
+                                </a>
+                            </Button>
+                          )}
                        </div>
                     )}
                 </CardContent>
@@ -207,8 +225,8 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
                     <CardDescription>Desconecte a conta do Cliente A, conecte a conta do Cliente B (Passo 1), e então clique para pagar o boleto emitido.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <Button onClick={handlePayTestBoleto} disabled={!mainToken || isInitiatingPayment || !boletoResult}>
-                        {isInitiatingPayment ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Pagando...</> : 'Pagar Boleto com Conta Atua'}
+                     <Button onClick={handlePayTestBoleto} disabled={!mainToken || isInitiatingPayment || !boletoData}>
+                        {isInitiatingPayment ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Pagando...</> : 'Pagar Boleto com Conta Atual'}
                     </Button>
                     {paymentResult && (
                         <div className="mt-4 space-y-2 text-sm p-3 border rounded-md bg-muted/20">
@@ -546,6 +564,8 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     }
 
     const isLoading = isBalanceLoading || isAccountDataLoading || isStatementLoading || isInitiatingPayment || isIssuingBoleto || isIssuingPix;
+
+    const currentBoletoData = boletoResult?.bank_slip || boletoResult?.payment_options?.bank_slip;
 
     return (
         <Card>
@@ -973,40 +993,55 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                         </AlertDescription>
                                     </Alert>
                                 )}
-                                {boletoResult && boletoResult.bank_slip && (
-                                    <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4">
+                                {boletoResult && currentBoletoData && (
+                                    <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4 border-green-200">
                                         <div className="flex items-start gap-3">
-                                            <FileText className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
+                                            <div className="bg-green-600 p-2 rounded-full">
+                                                <FileText className="h-5 w-5 text-white" />
+                                            </div>
                                             <div className="flex-1">
                                                 <h4 className="font-semibold text-green-800 dark:text-green-200">Boleto Emitido com Sucesso!</h4>
                                                 <p className="text-sm text-green-700 dark:text-green-300">
-                                                    O boleto foi gerado e está pronto para ser pago.
+                                                    O boleto foi gerado e está pronto para ser pago ou enviado ao cliente.
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="text-sm text-green-700 dark:text-green-300 space-y-3 pl-8">
-                                            {boletoResult.id && <div>
-                                                <Label className="font-medium">ID da Cobrança:</Label>
-                                                <p className="font-mono text-xs">{boletoResult.id}</p>
-                                            </div>}
-                                            {boletoResult.bank_slip.digitable_line && <div>
-                                                <Label className="font-medium">Linha Digitável:</Label>
-                                                <div className="flex items-center gap-2">
-                                                    <Input readOnly value={boletoResult.bank_slip.digitable_line} className="text-xs h-8" />
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.bank_slip!.digitable_line, "Linha digitável copiada.")}>
-                                                        <Copy className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </div>}
-                                            {boletoResult.bank_slip.barcode && <div>
-                                                <Label className="font-medium">Código de Barras:</Label>
-                                                <div className="flex items-center gap-2">
-                                                    <Input readOnly value={boletoResult.bank_slip.barcode} className="text-xs h-8" />
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copyToClipboard(boletoResult.bank_slip!.barcode, "Código de barras copiado.")}>
-                                                        <Copy className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </div>}
+                                        
+                                        <div className="space-y-4 pl-12">
+                                            {currentBoletoData.url && (
+                                                <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white font-bold">
+                                                    <a href={currentBoletoData.url} target="_blank" rel="noopener noreferrer">
+                                                        <ExternalLink className="mr-2 h-4 w-4" /> Visualizar PDF do Boleto
+                                                    </a>
+                                                </Button>
+                                            )}
+
+                                            <div className="grid gap-3 text-sm">
+                                                {boletoResult.id && <div>
+                                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">ID da Cobrança</Label>
+                                                    <p className="font-mono text-[11px] bg-white/50 dark:bg-black/20 p-1.5 rounded truncate">{boletoResult.id}</p>
+                                                </div>}
+                                                
+                                                {currentBoletoData.digitable_line && <div>
+                                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Linha Digitável</Label>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <Input readOnly value={currentBoletoData.digitable_line} className="text-xs h-9 bg-white dark:bg-black/20 font-mono" />
+                                                        <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => copyToClipboard(currentBoletoData.digitable_line, "Linha digitável copiada.")}>
+                                                            <Copy className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>}
+                                                
+                                                {currentBoletoData.barcode && <div>
+                                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Código de Barras</Label>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <Input readOnly value={currentBoletoData.barcode} className="text-xs h-9 bg-white dark:bg-black/20 font-mono" />
+                                                        <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => copyToClipboard(currentBoletoData.barcode, "Código de barras copiado.")}>
+                                                            <Barcode className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>}
+                                            </div>
                                         </div>
                                     </div>
                                 )}
