@@ -370,7 +370,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
         customerAddressCity: "Cidade",
         customerAddressState: "SP",
         customerAddressZipCode: "01001000",
-        dueDate: new Date()
+        dueDate: addDays(new Date(), 1)
       }
     });
 
@@ -384,7 +384,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
         customerAddressCity: "Cidade",
         customerAddressState: "SP",
         customerAddressZipCode: "01001000",
-        dueDate: new Date()
+        dueDate: addDays(new Date(), 1)
       }
     });
 
@@ -894,6 +894,21 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                             </div>
                                             <FormField control={pixForm.control} name="serviceDescription" render={({ field }) => (
                                                 <FormItem><FormLabel>Identificador/Dedução</FormLabel><FormControl><Input placeholder="Ex: Consulta Outubro" {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+                                            <FormField control={pixForm.control} name="dueDate" render={({ field }) => (
+                                                <FormItem className="flex flex-col">
+                                                    <FormLabel>Vencimento</FormLabel>
+                                                    <Popover modal>
+                                                        <PopoverTrigger asChild>
+                                                            <Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                                {field.value ? format(field.value, "PPP", { locale: ptBR }) : <span>Selecione</span>}
+                                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < startOfToday()} initialFocus locale={ptBR} /></PopoverContent>
+                                                    </Popover>
+                                                    <FormMessage />
+                                                </FormItem>
                                             )} />
                                             <Button type="submit" variant="secondary" className="w-full" disabled={isLoading}>
                                                 {isIssuingPix ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Gerando...</> : 'Gerar QR Code Pix'}
