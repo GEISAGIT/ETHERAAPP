@@ -45,7 +45,6 @@ import Link from 'next/link';
 import { Label } from '@/components/ui/label';
 import { v4 as uuidv4 } from 'uuid';
 import { Textarea } from '@/components/ui/textarea';
-import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
@@ -796,6 +795,125 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                     <p className="text-muted-foreground text-center p-4 italic text-sm">Nenhuma transação no período.</p>
                                 )
                             )}
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <Card>
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-lg flex items-center gap-2"><Barcode className="h-5 w-5 text-primary" /> Emissão de Boleto</CardTitle>
+                                    <CardDescription>Gere um boleto registrado para cobrança.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <Form {...boletoForm}>
+                                        <form onSubmit={boletoForm.handleSubmit(onBoletoSubmit)} className="space-y-4">
+                                            <FormField control={boletoForm.control} name="customerName" render={({ field }) => (
+                                                <FormItem><FormLabel>Nome do Cliente</FormLabel><FormControl><Input placeholder="Ex: João da Silva" {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <FormField control={boletoForm.control} name="customerDocument" render={({ field }) => (
+                                                    <FormItem><FormLabel>CPF/CNPJ</FormLabel><FormControl><Input placeholder="Somente números" {...field} /></FormControl><FormMessage /></FormItem>
+                                                )} />
+                                                <FormField control={boletoForm.control} name="amount" render={({ field }) => (
+                                                    <FormItem><FormLabel>Valor (R$)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
+                                                )} />
+                                            </div>
+                                            <FormField control={boletoForm.control} name="serviceDescription" render={({ field }) => (
+                                                <FormItem><FormLabel>Descrição do Serviço</FormLabel><FormControl><Input placeholder="Ex: Honorários Médicos" {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+                                            <FormField control={boletoForm.control} name="dueDate" render={({ field }) => (
+                                                <FormItem className="flex flex-col">
+                                                    <FormLabel>Vencimento</FormLabel>
+                                                    <Popover modal>
+                                                        <PopoverTrigger asChild>
+                                                            <Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                                {field.value ? format(field.value, "PPP", { locale: ptBR }) : <span>Selecione</span>}
+                                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < startOfToday()} initialFocus locale={ptBR} /></PopoverContent>
+                                                    </Popover>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                            {/* Endereço simplificado para o exemplo */}
+                                            <div className="hidden">
+                                                <input {...boletoForm.register("customerEmail")} value="cliente@teste.com" />
+                                                <input {...boletoForm.register("customerAddressStreet")} value="Rua Teste" />
+                                                <input {...boletoForm.register("customerAddressNumber")} value="123" />
+                                                <input {...boletoForm.register("customerAddressDistrict")} value="Centro" />
+                                                <input {...boletoForm.register("customerAddressCity")} value="Cidade" />
+                                                <input {...boletoForm.register("customerAddressState")} value="SP" />
+                                                <input {...boletoForm.register("customerAddressZipCode")} value="01001000" />
+                                            </div>
+                                            <Button type="submit" className="w-full" disabled={isLoading}>
+                                                {isIssuingBoleto ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Emitindo...</> : 'Emitir Boleto'}
+                                            </Button>
+                                        </form>
+                                    </Form>
+                                    {boletoResult && (
+                                        <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-md text-xs space-y-2">
+                                            <p className="font-bold text-emerald-700 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Boleto Gerado!</p>
+                                            {currentBoletoData?.url && (
+                                                <Button size="sm" variant="outline" asChild className="w-full h-7 text-[10px]"><a href={currentBoletoData.url} target="_blank" rel="noopener noreferrer">Ver PDF</a></Button>
+                                            )}
+                                        </div>
+                                    )}
+                                    {issuingBoletoError && <Alert variant="destructive" className="mt-4 py-2 px-3 text-xs"><AlertDescription>{issuingBoletoError}</AlertDescription></Alert>}
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-lg flex items-center gap-2"><QrCode className="h-5 w-5 text-primary" /> Cobrança Pix</CardTitle>
+                                    <CardDescription>Gere um QR Code Pix para recebimento.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <Form {...pixForm}>
+                                        <form onSubmit={pixForm.handleSubmit(onPixSubmit)} className="space-y-4">
+                                            <FormField control={pixForm.control} name="customerName" render={({ field }) => (
+                                                <FormItem><FormLabel>Nome do Pagador</FormLabel><FormControl><Input placeholder="Ex: Maria Santos" {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <FormField control={pixForm.control} name="customerDocument" render={({ field }) => (
+                                                    <FormItem><FormLabel>CPF/CNPJ</FormLabel><FormControl><Input placeholder="Somente números" {...field} /></FormControl><FormMessage /></FormItem>
+                                                )} />
+                                                <FormField control={pixForm.control} name="amount" render={({ field }) => (
+                                                    <FormItem><FormLabel>Valor (R$)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
+                                                )} />
+                                            </div>
+                                            <FormField control={pixForm.control} name="serviceDescription" render={({ field }) => (
+                                                <FormItem><FormLabel>Identificador/Dedução</FormLabel><FormControl><Input placeholder="Ex: Consulta Outubro" {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+                                            {/* Campos ocultos necessários para a API */}
+                                            <div className="hidden">
+                                                <input {...pixForm.register("customerEmail")} value="cliente@teste.com" />
+                                                <input {...pixForm.register("customerAddressStreet")} value="Rua Teste" />
+                                                <input {...pixForm.register("customerAddressNumber")} value="123" />
+                                                <input {...pixForm.register("customerAddressDistrict")} value="Centro" />
+                                                <input {...pixForm.register("customerAddressCity")} value="Cidade" />
+                                                <input {...pixForm.register("customerAddressState")} value="SP" />
+                                                <input {...pixForm.register("customerAddressZipCode")} value="01001000" />
+                                                <input {...pixForm.register("dueDate")} value={format(new Date(), 'yyyy-MM-dd')} />
+                                            </div>
+                                            <Button type="submit" variant="secondary" className="w-full" disabled={isLoading}>
+                                                {isIssuingPix ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Gerando...</> : 'Gerar QR Code Pix'}
+                                            </Button>
+                                        </form>
+                                    </Form>
+                                    {pixResult && (
+                                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-xs space-y-2">
+                                            <p className="font-bold text-blue-700 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Pix Gerado!</p>
+                                            {pixResult.pix?.emv && (
+                                                <div className="space-y-1">
+                                                    <p className="text-[9px] font-mono break-all bg-white p-1 border rounded">{pixResult.pix.emv}</p>
+                                                    <Button size="sm" variant="ghost" className="w-full h-6 text-[9px]" onClick={() => copyToClipboard(pixResult.pix!.emv, 'Copia e Cola copiado!')}><Copy className="mr-1 h-3 w-3"/> Copiar Código Pix</Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {issuingPixError && <Alert variant="destructive" className="mt-4 py-2 px-3 text-xs"><AlertDescription>{issuingPixError}</AlertDescription></Alert>}
+                                </CardContent>
+                            </Card>
                         </div>
 
                         <div className="rounded-md border p-4 space-y-4">
