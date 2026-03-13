@@ -33,6 +33,18 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'api.cora.com.br',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.stage.cora.com.br',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Timestamp } from 'firebase/firestore';
@@ -336,8 +335,8 @@ export type CoraInvoiceRequestBody = {
 export type CoraInvoiceResponse = {
     id: string;
     bank_slip?: { digitable_line: string; barcode: string; url: string };
-    pix?: { emv: string };
-    payment_options?: { bank_slip?: { url: string } };
+    pix?: { emv: string; image_url?: string };
+    payment_options?: { bank_slip?: { url: string }, pix?: { emv: string; image_url?: string } };
 };
 
 export type CoraPaymentInitiationResponse = {

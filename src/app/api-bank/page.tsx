@@ -1,4 +1,3 @@
-
 'use client';
 import { AppLayout } from '@/components/layout/app-layout';
 import { CoraAuthForm } from '@/components/cora/cora-auth-form';
@@ -46,6 +45,7 @@ import { Label } from '@/components/ui/label';
 import { v4 as uuidv4 } from 'uuid';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Image from 'next/image';
 
 
 const formatCurrency = (value: number) => {
@@ -681,6 +681,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
 
     const currentBoletoData = boletoResult?.bank_slip || boletoResult?.payment_options?.bank_slip;
     const currentPixEMV = pixResult?.pix?.emv || (pixResult as any)?.payment_options?.pix?.emv;
+    const currentPixImage = pixResult?.pix?.image_url || (pixResult as any)?.payment_options?.pix?.image_url;
 
     return (
         <Card>
@@ -916,10 +917,24 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                         </form>
                                     </Form>
                                     {pixResult && (
-                                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-xs space-y-2">
+                                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-xs space-y-4">
                                             <p className="font-bold text-blue-700 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Pix Gerado!</p>
+                                            
+                                            {currentPixImage && (
+                                                <div className="flex justify-center bg-white p-4 rounded-md border">
+                                                    <Image 
+                                                        src={currentPixImage} 
+                                                        alt="Pix QR Code" 
+                                                        width={200} 
+                                                        height={200} 
+                                                        className="aspect-square object-contain"
+                                                    />
+                                                </div>
+                                            )}
+
                                             {currentPixEMV && (
                                                 <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Copia e Cola</Label>
                                                     <p className="text-[9px] font-mono break-all bg-white p-1 border rounded">{currentPixEMV}</p>
                                                     <Button size="sm" variant="ghost" className="w-full h-6 text-[9px]" onClick={() => copyToClipboard(currentPixEMV, 'Copia e Cola copiado!')}><Copy className="mr-1 h-3 w-3"/> Copiar Código Pix</Button>
                                                 </div>
