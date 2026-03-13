@@ -36,6 +36,11 @@ service cloud.firestore {
       allow list: if isSignedIn();
       // allow write apenas para o próprio ou master/admin
       allow write: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'edit'));
+
+      // Regras para tokens da Cora (subcoleção)
+      match /coraTokens/{tokenId} {
+        allow read, write: if isSignedIn() && (request.auth.uid == userId || isMaster());
+      }
     }
 
     // Gestão de Atividades
