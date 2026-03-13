@@ -5,7 +5,7 @@ import { CoraAuthForm } from '@/components/cora/cora-auth-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText, Copy, Barcode, QrCode, ExternalLink } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText, Copy, Barcode, QrCode, ExternalLink, Info } from 'lucide-react';
 import { Suspense, useState, useMemo, useEffect } from 'react';
 import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse, CoraInvoiceRequestBody, CoraInvoiceResponse } from '@/lib/types';
@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { format, isWeekend, addDays, startOfToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -80,6 +80,7 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
     const [issuingBoletoError, setIssuingBoletoError] = useState<string | null>(null);
     const [paymentResult, setPaymentResult] = useState<CoraPaymentInitiationResponse | null>(null);
     const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
+    const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
     const { toast } = useToast();
 
     useEffect(() => {
@@ -135,9 +136,15 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
         setIsInitiatingPayment(true);
         setPaymentResult(null);
 
-        const result = await initiatePayment(mainToken.accessToken, digitableLine);
+        const scheduledAtStr = paymentDate ? format(paymentDate, 'yyyy-MM-dd') : undefined;
+
+        const result = await initiatePayment(mainToken.accessToken, digitableLine, scheduledAtStr);
         if (result.error) {
-            toast({ variant: 'destructive', title: 'Erro ao Pagar Boleto', description: result.error });
+            let errorMsg = result.error;
+            if (errorMsg.includes('PAY-0004')) {
+                errorMsg = "Data indisponível para pagamento (PAY-0004). Tente selecionar o próximo dia útil no calendário abaixo.";
+            }
+            toast({ variant: 'destructive', title: 'Erro ao Pagar Boleto', description: errorMsg });
         } else if (result.data) {
             setPaymentResult(result.data);
             toast({ title: 'Pagamento Iniciado!', description: 'O pagamento foi enviado para processamento.' });
@@ -149,30 +156,34 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
 
     return (
         <div className="space-y-6">
-            <h3 className="font-headline text-2xl">Fluxo de Teste Guiado</h3>
+            <h3 className="font-headline text-2xl text-primary">Fluxo de Teste Guiado</h3>
             <p className="text-muted-foreground">Siga os passos abaixo para simular o fluxo completo de emissão e pagamento, conforme as instruções da Cora.</p>
 
-            <Card>
+            <Card className={cn(!mainToken && "border-primary shadow-lg bg-primary/5")}>
                 <CardHeader>
-                    <CardTitle>Passo 1: Autorizar conta</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <Badge variant="outline" className="h-6 w-6 rounded-full p-0 flex items-center justify-center font-bold">1</Badge>
+                        Autorizar Conta
+                    </CardTitle>
                     <CardDescription>
-                        Clique para conectar a conta Cora que deseja usar (Emissor ou Pagador). Você será redirecionado para a tela de login da Cora.
-                        <ul className="list-disc pl-5 mt-2 text-xs">
-                            <li><span className="font-semibold">Cliente A (Emissor):</span> CPF `42343487324` / Senha `12345678`</li>
-                            <li><span className="font-semibold">Cliente B (Pagador):</span> CPF `34452343104` / Senha `12345678`</li>
-                        </ul>
+                        Clique para conectar a conta Cora que deseja usar. Você será redirecionado para a tela de login da Cora.
+                        <div className="mt-3 p-3 bg-muted/50 rounded-md border text-xs space-y-1">
+                            <p className="font-bold text-foreground">Credenciais de Teste:</p>
+                            <p><span className="font-semibold">Cliente A (Emissor):</span> CPF `42343487324` / Senha `12345678`</p>
+                            <p><span className="font-semibold">Cliente B (Pagador):</span> CPF `34452343104` / Senha `12345678`</p>
+                        </div>
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isLoadingAccount ? (
                         <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Verificando...</div>
                     ) : mainToken && accountData ? (
-                        <div className="flex items-center justify-between p-3 bg-primary/10 rounded-md">
+                        <div className="flex items-center justify-between p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-md">
                             <div className='text-sm'>
-                               <p className="font-semibold text-primary">Conta Conectada:</p>
-                               <p>{accountData.bankName} | Ag: {accountData.agency} | CC: {accountData.accountNumber}-{accountData.accountDigit}</p>
+                               <p className="font-semibold text-emerald-700 dark:text-emerald-400">Conta Ativa no Momento:</p>
+                               <p className="font-mono text-xs">{accountData.bankName} | Ag: {accountData.agency} | CC: {accountData.accountNumber}-{accountData.accountDigit}</p>
                             </div>
-                            <Button variant="destructive" size="sm" onClick={onDisconnect}>Desconectar</Button>
+                            <Button variant="outline" size="sm" onClick={onDisconnect} className="text-destructive border-destructive/20 hover:bg-destructive/10">Desconectar</Button>
                         </div>
                     ) : (
                         <CoraAuthForm />
@@ -180,10 +191,13 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card className={cn(mainToken && !boletoResult && "border-primary shadow-lg bg-primary/5")}>
                 <CardHeader>
-                    <CardTitle>Passo 2: Emitir Boleto (com Cliente A)</CardTitle>
-                    <CardDescription>Com a conta do Cliente A conectada, clique no botão para emitir um boleto de R$ 150,00 para o Cliente B.</CardDescription>
+                    <CardTitle className="flex items-center gap-2">
+                        <Badge variant="outline" className="h-6 w-6 rounded-full p-0 flex items-center justify-center font-bold">2</Badge>
+                        Emitir Boleto (com Cliente A)
+                    </CardTitle>
+                    <CardDescription>Com a conta do <span className="font-bold">Cliente A</span> conectada, clique no botão para emitir um boleto de R$ 150,00 para o Cliente B.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Button onClick={handleIssueTestBoleto} disabled={!mainToken || isIssuingBoleto}>
@@ -198,15 +212,15 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
                     )}
                     {boletoResult && (
                        <div className="mt-4 space-y-3 text-sm p-4 border rounded-md bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200">
-                          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
-                             <CheckCircle className="h-4 w-4" />
+                          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold text-base">
+                             <CheckCircle className="h-5 w-5" />
                              Boleto emitido com sucesso!
                           </div>
                           
                           {boletoData?.url && (
-                            <Button variant="default" size="sm" asChild className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700">
+                            <Button variant="default" size="sm" asChild className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 shadow-md">
                                 <a href={boletoData.url} target="_blank" rel="noopener noreferrer">
-                                    <ExternalLink className="mr-2 h-4 w-4" /> Visualizar PDF do Boleto
+                                    <ExternalLink className="mr-2 h-5 w-5" /> Visualizar PDF do Boleto
                                 </a>
                             </Button>
                           )}
@@ -215,8 +229,8 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
                             <div className="space-y-1 mt-2">
                                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">Linha Digitável</Label>
                                 <div className="flex items-center gap-2">
-                                    <p className="font-mono text-xs break-all bg-background p-2 border rounded flex-1">{boletoData.digitable_line}</p>
-                                    <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => {
+                                    <p className="font-mono text-xs break-all bg-background p-2 border rounded flex-1 select-all">{boletoData.digitable_line}</p>
+                                    <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={() => {
                                         navigator.clipboard.writeText(boletoData.digitable_line!);
                                         toast({ title: "Copiado!" });
                                     }}><Copy className="h-3 w-3"/></Button>
@@ -228,21 +242,74 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
                 </CardContent>
             </Card>
 
-            <Card>
+            <Card className={cn(boletoResult && !paymentResult && "border-primary shadow-lg bg-primary/5")}>
                 <CardHeader>
-                    <CardTitle>Passo 3: Pagar Boleto (com Cliente B)</CardTitle>
-                    <CardDescription>Desconecte a conta do Cliente A, conecte a conta do Cliente B (Passo 1), e então clique para pagar o boleto emitido.</CardDescription>
+                    <CardTitle className="flex items-center gap-2">
+                        <Badge variant="outline" className="h-6 w-6 rounded-full p-0 flex items-center justify-center font-bold">3</Badge>
+                        Pagar Boleto (com Cliente B)
+                    </CardTitle>
+                    <CardDescription>
+                        <span className="text-destructive font-bold uppercase underline">Importante:</span><br/>
+                        1. <span className="font-bold">Desconecte</span> a conta do Cliente A no Passo 1.<br/>
+                        2. <span className="font-bold">Conecte</span> a conta do <span className="font-bold text-primary">Cliente B (Pagador)</span>.<br/>
+                        3. Escolha a data e clique para pagar o boleto emitido.
+                    </CardDescription>
                 </CardHeader>
-                <CardContent>
-                     <Button onClick={handlePayTestBoleto} disabled={!mainToken || isInitiatingPayment || !boletoData}>
-                        {isInitiatingPayment ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Pagando...</> : 'Pagar Boleto com Conta Atual'}
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label className="text-sm font-semibold">Data do Pagamento:</Label>
+                        <Popover modal>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className={cn(
+                                        "w-full justify-start text-left font-normal",
+                                        !paymentDate && "text-muted-foreground"
+                                    )}
+                                    disabled={!mainToken || !boletoData}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {paymentDate ? format(paymentDate, "PPP", { locale: ptBR }) : <span>Selecione a data</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={paymentDate}
+                                    onSelect={setPaymentDate}
+                                    initialFocus
+                                    locale={ptBR}
+                                    disabled={(date) => date < startOfToday()}
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        <p className="text-[10px] text-muted-foreground italic">Dica: Se hoje for fim de semana ou feriado, selecione o próximo dia útil.</p>
+                    </div>
+
+                    <Button onClick={handlePayTestBoleto} disabled={!mainToken || isInitiatingPayment || !boletoData} className="w-full">
+                        {isInitiatingPayment ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Processando Pagamento...</> : 'Confirmar Pagamento com Conta Atual'}
                     </Button>
+
                     {paymentResult && (
-                        <div className="mt-4 space-y-2 text-sm p-3 border rounded-md bg-muted/20">
-                          <p className="font-semibold">Pagamento iniciado!</p>
-                          <p>Status: <Badge>{paymentResult.status}</Badge></p>
-                           <p>Beneficiário: {paymentResult.creditor.name}</p>
-                           <p>Valor: {formatCurrencyFromCents(paymentResult.amount)}</p>
+                        <div className="mt-4 space-y-2 text-sm p-4 border rounded-md bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200">
+                          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
+                             <CheckCircle className="h-4 w-4" />
+                             Pagamento iniciado com sucesso!
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t">
+                             <div>
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground">Status</p>
+                                <Badge variant="outline" className="bg-white/50">{paymentResult.status}</Badge>
+                             </div>
+                             <div>
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground">Valor</p>
+                                <p className="font-bold">{formatCurrencyFromCents(paymentResult.amount)}</p>
+                             </div>
+                             <div className="col-span-2">
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground">Beneficiário</p>
+                                <p className="truncate">{paymentResult.creditor.name}</p>
+                             </div>
+                          </div>
                        </div>
                     )}
                 </CardContent>
@@ -436,7 +503,11 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
             if (result.isTokenError) {
                 await handleRefreshToken((newAccessToken) => handleInitiatePayment(newAccessToken, values));
             } else {
-                toast({ variant: 'destructive', title: 'Erro ao Iniciar Pagamento', description: result.error });
+                let errorMsg = result.error;
+                if (errorMsg.includes('PAY-0004')) {
+                    errorMsg = "Data indisponível para este pagamento hoje. Tente agendar para o próximo dia útil.";
+                }
+                toast({ variant: 'destructive', title: 'Erro ao Iniciar Pagamento', description: errorMsg });
                 setIsInitiatingPayment(false);
             }
         } else if (result.data) {
@@ -579,715 +650,212 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Conta Cora Conectada</CardTitle>
-                <CardDescription>Sua conta está conectada. Use as ações abaixo para interagir com a API.</CardDescription>
+                <CardTitle>Painel Administrativo Cora</CardTitle>
+                <CardDescription>Sua conta está conectada. Use as abas abaixo para gerenciar ou testar a integração.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Tabs defaultValue="v2">
-                    <TabsList>
-                        <TabsTrigger value="v2">API v2 (Oficial)</TabsTrigger>
-                        <TabsTrigger value="new_tests">Novos Testes</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="v2">Ações da Conta</TabsTrigger>
+                        <TabsTrigger value="new_tests">Fluxo de Teste Guiado</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="v2" className="mt-4">
-                        <div className="space-y-4">
-                            <div className="rounded-md border p-4 space-y-2">
-                                <h3 className="font-semibold">Saldo da Conta</h3>
+                    <TabsContent value="v2" className="mt-4 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="rounded-md border p-4 space-y-2 bg-muted/10">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                    <Badge variant="outline" className="bg-primary/10">Saldo</Badge>
+                                </h3>
                                 {balance === null ? (
-                                    <p className="text-muted-foreground">Clique no botão para buscar seu saldo atual.</p>
+                                    <p className="text-muted-foreground text-xs italic">Clique para verificar o saldo atual.</p>
                                 ) : (
-                                    <p className="text-2xl font-bold text-primary">{formatCurrency(balance)}</p>
+                                    <p className="text-2xl font-bold text-primary font-mono">{formatCurrency(balance)}</p>
                                 )}
-                                <Button onClick={() => handleGetBalance(token.accessToken)} disabled={isLoading}>
+                                <Button size="sm" variant="secondary" className="w-full" onClick={() => handleGetBalance(token.accessToken)} disabled={isLoading}>
                                     {isBalanceLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {isBalanceLoading ? 'Buscando Saldo...' : 'Buscar Saldo'}
+                                    {isBalanceLoading ? 'Buscando...' : 'Atualizar Saldo'}
                                 </Button>
                             </div>
                             
-                            <div className="rounded-md border p-4 space-y-2">
-                                <h3 className="font-semibold">Dados da Conta</h3>
+                            <div className="rounded-md border p-4 space-y-2 bg-muted/10">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                    <Badge variant="outline" className="bg-primary/10">Dados Bancários</Badge>
+                                </h3>
                                 {accountData ? (
-                                    <div className="text-sm space-y-1">
-                                        <p><span className="font-medium text-muted-foreground">Banco:</span> {accountData.bankCode} - {accountData.bankName}</p>
-                                        <p><span className="font-medium text-muted-foreground">Agência:</span> {accountData.agency}</p>
-                                        <p><span className="font-medium text-muted-foreground">Conta:</span> {accountData.accountNumber}-{accountData.accountDigit}</p>
+                                    <div className="text-xs space-y-1 font-mono">
+                                        <p><span className="text-muted-foreground">BANCO:</span> {accountData.bankName}</p>
+                                        <p><span className="text-muted-foreground">AG/CC:</span> {accountData.agency} / {accountData.accountNumber}-{accountData.accountDigit}</p>
                                     </div>
                                 ) : (
-                                    <p className="text-muted-foreground">Clique no botão para buscar os dados da sua conta.</p>
+                                    <p className="text-muted-foreground text-xs italic">Verifique os detalhes da conta.</p>
                                 )}
-                                <Button onClick={() => handleGetAccountData(token.accessToken)} disabled={isLoading}>
+                                <Button size="sm" variant="secondary" className="w-full" onClick={() => handleGetAccountData(token.accessToken)} disabled={isLoading}>
                                     {isAccountDataLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {isAccountDataLoading ? 'Buscando Dados...' : 'Buscar Dados da Conta'}
+                                    {isAccountDataLoading ? 'Buscando...' : 'Ver Detalhes'}
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="rounded-md border p-4 space-y-4">
+                            <h3 className="font-semibold flex items-center gap-2 text-primary">
+                                <ArrowRightLeft className="h-4 w-4" /> Extrato da Conta
+                            </h3>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal sm:w-auto",
+                                            !dateRange && "text-muted-foreground"
+                                        )}
+                                        >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {dateRange?.from ? (
+                                            dateRange.to ? (
+                                            <>
+                                                {format(dateRange.from, "dd/MM/yy", { locale: ptBR })} - {format(dateRange.to, "dd/MM/yy", { locale: ptBR })}
+                                            </>
+                                            ) : (
+                                            format(dateRange.from, "dd/MM/yy", { locale: ptBR })
+                                            )
+                                        ) : (
+                                            <span>Selecione um período</span>
+                                        )}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                        initialFocus
+                                        mode="range"
+                                        defaultMonth={dateRange?.from}
+                                        selected={dateRange}
+                                        onSelect={setDateRange}
+                                        numberOfMonths={2}
+                                        locale={ptBR}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                                <Button onClick={() => handleGetStatement(token.accessToken)} disabled={isLoading || !dateRange?.from}>
+                                    {isStatementLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    {isStatementLoading ? 'Buscando Extrato...' : 'Buscar Extrato'}
                                 </Button>
                             </div>
 
-                            <div className="rounded-md border p-4 space-y-4">
-                                <h3 className="font-semibold">Extrato da Conta</h3>
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                            id="date"
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal sm:w-auto",
-                                                !dateRange && "text-muted-foreground"
-                                            )}
-                                            >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateRange?.from ? (
-                                                dateRange.to ? (
-                                                <>
-                                                    {format(dateRange.from, "dd/MM/yy", { locale: ptBR })} - {format(dateRange.to, "dd/MM/yy", { locale: ptBR })}
-                                                </>
-                                                ) : (
-                                                format(dateRange.from, "dd/MM/yy", { locale: ptBR })
-                                                )
-                                            ) : (
-                                                <span>Selecione um período</span>
-                                            )}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                            initialFocus
-                                            mode="range"
-                                            defaultMonth={dateRange?.from}
-                                            selected={dateRange}
-                                            onSelect={setDateRange}
-                                            numberOfMonths={2}
-                                            locale={ptBR}
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                    <Button onClick={() => handleGetStatement(token.accessToken)} disabled={isLoading || !dateRange?.from}>
-                                        {isStatementLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        {isStatementLoading ? 'Buscando Extrato...' : 'Buscar Extrato'}
-                                    </Button>
-                                </div>
+                            {statement && (
+                                statement.entries.length > 0 ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Data</TableHead>
+                                            <TableHead>Descrição</TableHead>
+                                            <TableHead className="text-right">Valor</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {statement.entries.map((entry) => {
+                                            const date = new Date(entry.createdAt);
+                                            const formattedDate = !isNaN(date.getTime()) 
+                                            ? format(date, "dd/MM/yyyy HH:mm", { locale: ptBR }) 
+                                            : 'N/A';
 
-                                {isStatementLoading && (
-                                    <div className="flex items-center justify-center p-8">
-                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                    </div>
-                                )}
-                                
-                                {statement && (
-                                    statement.entries.length > 0 ? (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Data</TableHead>
-                                                <TableHead>Descrição</TableHead>
-                                                <TableHead className="text-right">Valor</TableHead>
+                                            return (
+                                            <TableRow key={entry.id}>
+                                                <TableCell>{formattedDate}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        {entry.type === 'CREDIT' ? <ArrowUpCircle className="h-4 w-4 text-emerald-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium text-xs sm:text-sm">{entry.transaction?.description ?? 'N/A'}</span>
+                                                            <span className="text-[10px] text-muted-foreground">{entry.transaction?.counterParty?.name ?? ''}</span>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className={`text-right font-mono font-bold ${entry.type === 'CREDIT' ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                    {formatCurrencyFromCents(entry.amount)}
+                                                </TableCell>
                                             </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {statement.entries.map((entry) => {
-                                                const date = new Date(entry.createdAt);
-                                                const formattedDate = !isNaN(date.getTime()) 
-                                                ? format(date, "dd/MM/yyyy HH:mm", { locale: ptBR }) 
-                                                : 'N/A';
+                                        )})}
+                                    </TableBody>
+                                </Table>
+                                ) : (
+                                    <p className="text-muted-foreground text-center p-4 italic text-sm">Nenhuma transação no período.</p>
+                                )
+                            )}
+                        </div>
 
-                                                return (
-                                                <TableRow key={entry.id}>
-                                                    <TableCell>{formattedDate}</TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            {entry.type === 'CREDIT' ? <ArrowUpCircle className="h-4 w-4 text-emerald-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
-                                                            <div className="flex flex-col">
-                                                                <span className="font-medium">{entry.transaction?.description ?? 'Descrição não disponível'}</span>
-                                                                <span className="text-xs text-muted-foreground">{entry.transaction?.counterParty?.name ?? 'Contraparte não disponível'}</span>
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className={`text-right font-mono ${entry.type === 'CREDIT' ? 'text-emerald-500' : 'text-red-500'}`}>
-                                                        {formatCurrencyFromCents(entry.amount)}
-                                                    </TableCell>
-                                                </TableRow>
-                                            )})}
-                                        </TableBody>
-                                    </Table>
-                                    ) : (
-                                        <p className="text-muted-foreground text-center p-4">Nenhuma transação encontrada para o período selecionado.</p>
-                                    )
-                                )}
-                            </div>
-
-                            <div className="rounded-md border p-4 space-y-4">
-                                <h3 className="font-semibold">Iniciar Pagamento de Boleto</h3>
-                                <Form {...paymentForm}>
-                                    <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
-                                        <FormField
-                                            control={paymentForm.control}
-                                            name="digitableLine"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Linha Digitável</FormLabel>
-                                                    <FormControl>
-                                                        <Input placeholder="00000.00000 00000.000000..." {...field} />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={paymentForm.control}
-                                            name="scheduledAt"
-                                            render={({ field }) => (
-                                                <FormItem className="flex flex-col">
-                                                <FormLabel>Agendar para (Opcional)</FormLabel>
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                    <FormControl>
-                                                        <Button
-                                                        variant={"outline"}
-                                                        className={cn(
-                                                            "w-full pl-3 text-left font-normal",
-                                                            !field.value && "text-muted-foreground"
-                                                        )}
-                                                        >
-                                                        {field.value ? (
-                                                            format(field.value, "PPP", { locale: ptBR })
-                                                        ) : (
-                                                            <span>Escolha uma data</span>
-                                                        )}
-                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                        </Button>
-                                                    </FormControl>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0" align="start">
-                                                    <Calendar
-                                                        mode="single"
-                                                        selected={field.value}
-                                                        onSelect={field.onChange}
-                                                        disabled={(date) => date < new Date()}
-                                                        initialFocus
-                                                        locale={ptBR}
-                                                    />
-                                                    </PopoverContent>
-                                                </Popover>
+                        <div className="rounded-md border p-4 space-y-4">
+                            <h3 className="font-semibold flex items-center gap-2 text-primary">
+                                <Barcode className="h-4 w-4" /> Pagamento de Boleto Manual
+                            </h3>
+                            <Form {...paymentForm}>
+                                <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
+                                    <FormField
+                                        control={paymentForm.control}
+                                        name="digitableLine"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Linha Digitável</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="00000.00000 00000.000000..." {...field} />
+                                                </FormControl>
                                                 <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <Button type="submit" disabled={isLoading}>
-                                            {isInitiatingPayment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            {isInitiatingPayment ? 'Iniciando...' : 'Iniciar Pagamento'}
-                                        </Button>
-                                    </form>
-                                </Form>
-                                {paymentResult && (
-                                    <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-3 mt-4">
-                                        <div className="flex items-start gap-3">
-                                            <ClipboardCheck className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
-                                            <div className="flex-1">
-                                                <h4 className="font-semibold text-green-800 dark:text-green-200">Pagamento Iniciado com Sucesso!</h4>
-                                                <p className="text-sm text-green-700 dark:text-green-300">
-                                                    O pagamento foi iniciado e aguarda sua aprovação no aplicativo da Cora.
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="text-xs text-green-700 dark:text-green-300 space-y-1 pl-8">
-                                            <p><span className="font-medium">Beneficiário:</span> {paymentResult.creditor.name}</p>
-                                            <p><span className="font-medium">Valor:</span> {formatCurrencyFromCents(paymentResult.amount)}</p>
-                                            <p><span className="font-medium">Status:</span> <Badge variant="secondary">{paymentResult.status}</Badge></p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="rounded-md border p-4 space-y-4">
-                                <h3 className="font-semibold">Emitir Boleto de Cobrança (V2)</h3>
-                                <Form {...boletoForm}>
-                                    <form onSubmit={boletoForm.handleSubmit(onBoletoSubmit)} className="space-y-4">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <FormField
-                                                control={boletoForm.control}
-                                                name="customerName"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Nome do Cliente</FormLabel>
-                                                        <FormControl><Input placeholder="Ex: João da Silva" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={boletoForm.control}
-                                                name="customerEmail"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Email do Cliente</FormLabel>
-                                                        <FormControl><Input placeholder="email@exemplo.com" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                        <FormField
-                                            control={boletoForm.control}
-                                            name="customerDocument"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>CPF/CNPJ do Cliente</FormLabel>
-                                                    <FormControl><Input placeholder="Apenas números" {...field} /></FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <div className="space-y-2 rounded-md border p-4">
-                                            <h4 className="font-medium text-sm">Endereço do Cliente</h4>
-                                            <FormField
-                                                control={boletoForm.control}
-                                                name="customerAddressStreet"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Rua</FormLabel>
-                                                        <FormControl><Input placeholder="Ex: Rua das Flores" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                                <FormField
-                                                    control={boletoForm.control}
-                                                    name="customerAddressNumber"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Número</FormLabel>
-                                                            <FormControl><Input placeholder="123" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={paymentForm.control}
+                                        name="scheduledAt"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                            <FormLabel>Agendar para (Opcional)</FormLabel>
+                                            <Popover modal>
+                                                <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button
+                                                    variant={"outline"}
+                                                    className={cn(
+                                                        "w-full pl-3 text-left font-normal",
+                                                        !field.value && "text-muted-foreground"
                                                     )}
+                                                    >
+                                                    {field.value ? (
+                                                        format(field.value, "PPP", { locale: ptBR })
+                                                    ) : (
+                                                        <span>Hoje (Imediato)</span>
+                                                    )}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={field.value}
+                                                    onSelect={field.onChange}
+                                                    disabled={(date) => date < startOfToday()}
+                                                    initialFocus
+                                                    locale={ptBR}
                                                 />
-                                                <FormField
-                                                    control={boletoForm.control}
-                                                    name="customerAddressComplement"
-                                                    render={({ field }) => (
-                                                        <FormItem className="sm:col-span-2">
-                                                            <FormLabel>Complemento (Opcional)</FormLabel>
-                                                            <FormControl><Input placeholder="Apto 101" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            </div>
-                                            <FormField
-                                                control={boletoForm.control}
-                                                name="customerAddressDistrict"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Bairro</FormLabel>
-                                                        <FormControl><Input placeholder="Centro" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                                <FormField
-                                                    control={boletoForm.control}
-                                                    name="customerAddressCity"
-                                                    render={({ field }) => (
-                                                        <FormItem className="sm:col-span-2">
-                                                            <FormLabel>Cidade</FormLabel>
-                                                            <FormControl><Input placeholder="São Paulo" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <FormField
-                                                    control={boletoForm.control}
-                                                    name="customerAddressState"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Estado (UF)</FormLabel>
-                                                            <FormControl><Input placeholder="SP" maxLength={2} {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            </div>
-                                            <FormField
-                                                control={boletoForm.control}
-                                                name="customerAddressZipCode"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>CEP</FormLabel>
-                                                        <FormControl><Input placeholder="00000-000" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-
-                                        <FormField
-                                            control={boletoForm.control}
-                                            name="serviceDescription"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Descrição do Serviço/Produto</FormLabel>
-                                                    <FormControl><Textarea placeholder="Ex: Consulta de rotina" {...field} /></FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <FormField
-                                                control={boletoForm.control}
-                                                name="amount"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Valor (R$)</FormLabel>
-                                                        <FormControl><Input type="number" step="0.01" placeholder="150.00" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={boletoForm.control}
-                                                name="dueDate"
-                                                render={({ field }) => (
-                                                    <FormItem className="flex flex-col">
-                                                    <FormLabel>Data de Vencimento</FormLabel>
-                                                    <Popover>
-                                                        <PopoverTrigger asChild>
-                                                        <FormControl>
-                                                            <Button
-                                                            variant={"outline"}
-                                                            className={cn(
-                                                                "w-full pl-3 text-left font-normal",
-                                                                !field.value && "text-muted-foreground"
-                                                            )}
-                                                            >
-                                                            {field.value ? (
-                                                                format(field.value, "PPP", { locale: ptBR })
-                                                            ) : (
-                                                                <span>Escolha uma data</span>
-                                                            )}
-                                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                            </Button>
-                                                        </FormControl>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-auto p-0" align="start">
-                                                        <Calendar
-                                                            mode="single"
-                                                            selected={field.value}
-                                                            onSelect={field.onChange}
-                                                            disabled={(date) => date < new Date(new Date().setDate(new Date().getDate()))}
-                                                            initialFocus
-                                                            locale={ptBR}
-                                                        />
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                    <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                        <Button type="submit" disabled={isLoading}>
-                                            {isIssuingBoleto && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            {isIssuingBoleto ? 'Emitindo...' : 'Emitir Boleto'}
-                                        </Button>
-                                    </form>
-                                </Form>
-                                {issuingBoletoError && (
-                                    <Alert variant="destructive" className="mt-4">
-                                        <AlertTriangle className="h-4 w-4" />
-                                        <AlertTitle>Falha na Emissão do Boleto</AlertTitle>
-                                        <AlertDescription>
-                                            <p className="mb-2">A API da Cora retornou um erro. Detalhes abaixo:</p>
-                                            <pre className="mt-2 whitespace-pre-wrap rounded-md bg-destructive/10 p-2 font-mono text-xs">
-                                            {issuingBoletoError}
-                                            </pre>
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
-                                {boletoResult && (
-                                    <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4 border-green-200">
-                                        <div className="flex items-start gap-3">
-                                            <div className="bg-green-600 p-2 rounded-full">
-                                                <FileText className="h-5 w-5 text-white" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h4 className="font-semibold text-green-800 dark:text-green-200">Boleto Emitido com Sucesso!</h4>
-                                                <p className="text-sm text-green-700 dark:text-green-300">
-                                                    O boleto foi gerado e está pronto para ser pago ou enviado ao cliente.
-                                                </p>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="space-y-4 pl-12">
-                                            {currentBoletoData?.url && (
-                                                <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12">
-                                                    <a href={currentBoletoData.url} target="_blank" rel="noopener noreferrer">
-                                                        <ExternalLink className="mr-2 h-5 w-5" /> Visualizar PDF do Boleto
-                                                    </a>
-                                                </Button>
-                                            )}
-
-                                            <div className="grid gap-3 text-sm">
-                                                {boletoResult.id && <div>
-                                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">ID da Cobrança</Label>
-                                                    <p className="font-mono text-[11px] bg-white/50 dark:bg-black/20 p-1.5 rounded truncate">{boletoResult.id}</p>
-                                                </div>}
-                                                
-                                                {currentBoletoData?.digitable_line && <div>
-                                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Linha Digitável</Label>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <Input readOnly value={currentBoletoData.digitable_line} className="text-xs h-9 bg-white dark:bg-black/20 font-mono" />
-                                                        <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => copyToClipboard(currentBoletoData.digitable_line!, "Linha digitável copiada.")}>
-                                                            <Copy className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>}
-                                                
-                                                {currentBoletoData?.barcode && <div>
-                                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Código de Barras</Label>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <Input readOnly value={currentBoletoData.barcode} className="text-xs h-9 bg-white dark:bg-black/20 font-mono" />
-                                                        <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => copyToClipboard(currentBoletoData.barcode!, "Código de barras copiado.")}>
-                                                            <Barcode className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="rounded-md border p-4 space-y-4">
-                                <h3 className="font-semibold">Emitir QR Code Pix (V2)</h3>
-                                <Form {...pixForm}>
-                                    <form onSubmit={pixForm.handleSubmit(onPixSubmit)} className="space-y-4">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <FormField
-                                                control={pixForm.control}
-                                                name="customerName"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Nome do Cliente</FormLabel>
-                                                        <FormControl><Input placeholder="Ex: Maria Souza" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={pixForm.control}
-                                                name="customerEmail"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Email do Cliente</FormLabel>
-                                                        <FormControl><Input placeholder="email@exemplo.com" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                        <FormField
-                                            control={pixForm.control}
-                                            name="customerDocument"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>CPF/CNPJ do Cliente</FormLabel>
-                                                    <FormControl><Input placeholder="Apenas números" {...field} /></FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <div className="space-y-2 rounded-md border p-4">
-                                            <h4 className="font-medium text-sm">Endereço do Cliente</h4>
-                                            <FormField
-                                                control={pixForm.control}
-                                                name="customerAddressStreet"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Rua</FormLabel>
-                                                        <FormControl><Input placeholder="Ex: Rua das Palmeiras" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                                <FormField
-                                                    control={pixForm.control}
-                                                    name="customerAddressNumber"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Número</FormLabel>
-                                                            <FormControl><Input placeholder="456" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <FormField
-                                                    control={pixForm.control}
-                                                    name="customerAddressComplement"
-                                                    render={({ field }) => (
-                                                        <FormItem className="sm:col-span-2">
-                                                            <FormLabel>Complemento (Opcional)</FormLabel>
-                                                            <FormControl><Input placeholder="Casa 2" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            </div>
-                                            <FormField
-                                                control={pixForm.control}
-                                                name="customerAddressDistrict"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Bairro</FormLabel>
-                                                        <FormControl><Input placeholder="Vila Madalena" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                                <FormField
-                                                    control={pixForm.control}
-                                                    name="customerAddressCity"
-                                                    render={({ field }) => (
-                                                        <FormItem className="sm:col-span-2">
-                                                            <Label>Cidade</Label>
-                                                            <FormControl><Input placeholder="São Paulo" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <FormField
-                                                    control={pixForm.control}
-                                                    name="customerAddressState"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Estado (UF)</FormLabel>
-                                                            <FormControl><Input placeholder="SP" maxLength={2} {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            </div>
-                                            <FormField
-                                                control={pixForm.control}
-                                                name="customerAddressZipCode"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>CEP</FormLabel>
-                                                        <FormControl><Input placeholder="00000-000" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                        <FormField
-                                            control={pixForm.control}
-                                            name="serviceDescription"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Descrição da Cobrança</FormLabel>
-                                                    <FormControl><Textarea placeholder="Ex: Cobrança de consulta" {...field} /></FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <FormField
-                                                control={pixForm.control}
-                                                name="amount"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Valor (R$)</FormLabel>
-                                                        <FormControl><Input type="number" step="0.01" placeholder="50.00" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={pixForm.control}
-                                                name="dueDate"
-                                                render={({ field }) => (
-                                                    <FormItem className="flex flex-col">
-                                                    <FormLabel>Data de Vencimento</FormLabel>
-                                                    <Popover>
-                                                        <PopoverTrigger asChild>
-                                                        <FormControl>
-                                                            <Button
-                                                            variant={"outline"}
-                                                            className={cn(
-                                                                "w-full pl-3 text-left font-normal",
-                                                                !field.value && "text-muted-foreground"
-                                                            )}
-                                                            >
-                                                            {field.value ? (
-                                                                format(field.value, "PPP", { locale: ptBR })
-                                                            ) : (
-                                                                <span>Escolha uma data</span>
-                                                            )}
-                                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                            </Button>
-                                                        </FormControl>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-auto p-0" align="start">
-                                                        <Calendar
-                                                            mode="single"
-                                                            selected={field.value}
-                                                            onSelect={field.onChange}
-                                                            disabled={(date) => date < new Date(new Date().setDate(new Date().getDate()))}
-                                                            initialFocus
-                                                            locale={ptBR}
-                                                        />
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                    <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                        <Button type="submit" disabled={isLoading}>
-                                            {isIssuingPix && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            {isIssuingPix ? 'Gerando...' : 'Gerar QR Code Pix'}
-                                        </Button>
-                                    </form>
-                                </Form>
-                                {issuingPixError && (
-                                    <Alert variant="destructive" className="mt-4">
-                                        <AlertTriangle className="h-4 w-4" />
-                                        <AlertTitle>Falha ao Gerar QR Code Pix</AlertTitle>
-                                        <AlertDescription>
-                                            <p>A API da Cora retornou um erro. Verifique o console do navegador para mais detalhes e confirme se o endpoint e a estrutura dos dados estão corretos para a emissão de Pix.</p>
-                                            <pre className="mt-2 whitespace-pre-wrap rounded-md bg-destructive/10 p-2 font-mono text-xs">
-                                            {issuingPixError}
-                                            </pre>
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
-                                {pixResult && pixResult.pix?.emv && (
-                                    <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4">
-                                        <div className="flex items-start gap-3">
-                                            <QrCode className="h-5 w-5 text-green-600 dark:text-green-400 mt-1" />
-                                            <div className="flex-1">
-                                                <h4 className="font-semibold text-green-800 dark:text-green-200">QR Code Pix Gerado!</h4>
-                                                <div className="flex flex-col sm:flex-row gap-4 mt-2 items-center">
-                                                    {pixResult.payment_options?.bank_slip?.url && (
-                                                        <div className="w-32 h-32 relative border p-1 bg-white rounded-md">
-                                                            <img src={pixResult.payment_options.bank_slip.url} alt="QR Code Pix" className="w-full h-full" />
-                                                        </div>
-                                                    )}
-                                                    <div className="flex-1">
-                                                        <Label htmlFor="pix-copy-paste">Copia e Cola</Label>
-                                                        <div className="flex items-center gap-2">
-                                                            <Textarea id="pix-copy-paste" readOnly value={pixResult.pix.emv} className="text-xs h-24 bg-background/50" />
-                                                            <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(pixResult.pix!.emv, "Código Pix 'Copia e Cola' copiado.")}>
-                                                                <Copy className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <Button type="submit" disabled={isLoading} className="w-full">
+                                        {isInitiatingPayment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        {isInitiatingPayment ? 'Iniciando...' : 'Iniciar Pagamento'}
+                                    </Button>
+                                </form>
+                            </Form>
+                            {paymentResult && (
+                                <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/30 p-4 space-y-2 mt-4 border-emerald-200">
+                                    <p className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+                                        <CheckCircle className="h-4 w-4" /> Pagamento Iniciado!
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">Aprove a transação no seu aplicativo Cora para concluir.</p>
+                                </div>
+                            )}
                         </div>
                     </TabsContent>
                     <TabsContent value="new_tests" className="mt-4">
@@ -1322,7 +890,7 @@ function ApiBankContent() {
   const isLoading = isUserLoading || isTokenLoading;
 
   if (isLoading) {
-    return <Loader2 className="h-8 w-8 animate-spin text-primary" />;
+    return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
@@ -1332,7 +900,7 @@ function ApiBankContent() {
           API BANK (BETA)
         </h1>
         <p className="text-muted-foreground">
-          Conecte suas contas e automatize suas finanças.
+          Conecte suas contas e automatize suas finanças com a Cora.
         </p>
       </header>
 
