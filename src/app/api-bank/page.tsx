@@ -335,7 +335,7 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
 
 function CoraAccountDetails({ token }: { token: CoraToken }) {
     const [balance, setBalance] = useState<number | null>(null);
-    const [isBalanceLoading, setIsBalanceLoading] = useState(false);
+    const [isBalanceLoading, setIsLoadingAccount] = useState(false);
     const [accountData, setAccountData] = useState<CoraAccountData | null>(null);
     const [isAccountDataLoading, setIsAccountDataLoading] = useState(false);
     const [statement, setStatement] = useState<CoraStatement | null>(null);
@@ -362,10 +362,30 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
 
     const boletoForm = useForm<z.infer<typeof invoiceFormSchema>>({
       resolver: zodResolver(invoiceFormSchema),
+      defaultValues: {
+        customerEmail: "cliente@teste.com",
+        customerAddressStreet: "Rua Teste",
+        customerAddressNumber: "123",
+        customerAddressDistrict: "Centro",
+        customerAddressCity: "Cidade",
+        customerAddressState: "SP",
+        customerAddressZipCode: "01001000",
+        dueDate: new Date()
+      }
     });
 
     const pixForm = useForm<z.infer<typeof invoiceFormSchema>>({
       resolver: zodResolver(invoiceFormSchema),
+      defaultValues: {
+        customerEmail: "cliente@teste.com",
+        customerAddressStreet: "Rua Teste",
+        customerAddressNumber: "123",
+        customerAddressDistrict: "Centro",
+        customerAddressCity: "Cidade",
+        customerAddressState: "SP",
+        customerAddressZipCode: "01001000",
+        dueDate: new Date()
+      }
     });
 
     const copyToClipboard = (textToCopy: string, successMessage: string) => {
@@ -396,7 +416,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
 
         if (result.error) {
              toast({ variant: 'destructive', title: 'Falha ao atualizar token', description: result.error });
-             setIsBalanceLoading(false);
+             setIsLoadingAccount(false);
              setIsAccountDataLoading(false);
              setIsStatementLoading(false);
              setIsInitiatingPayment(false);
@@ -422,7 +442,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     }
 
     const handleGetBalance = async (accessToken: string) => {
-        setIsBalanceLoading(true);
+        setIsLoadingAccount(true);
         const result = await getAccountBalance(accessToken);
         
         if (result.error) {
@@ -434,19 +454,19 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                     title: 'Erro ao buscar saldo',
                     description: result.error || 'Não foi possível buscar o saldo.'
                 });
-                setIsBalanceLoading(false);
+                setIsLoadingAccount(false);
             }
         } else if (result.data && result.data.balance !== undefined) {
             const balanceValue = typeof result.data.balance === 'string' ? parseFloat(result.data.balance) : result.data.balance;
             setBalance(balanceValue);
-            setIsBalanceLoading(false);
+            setIsLoadingAccount(false);
         } else {
              toast({
                 variant: 'destructive',
                 title: 'Resposta inesperada',
                 description: 'Não foi possível encontrar o saldo na resposta da API.'
             });
-            setIsBalanceLoading(false);
+            setIsLoadingAccount(false);
         }
     }
 
@@ -660,6 +680,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
     const isLoading = isBalanceLoading || isAccountDataLoading || isStatementLoading || isInitiatingPayment || isIssuingBoleto || isIssuingPix;
 
     const currentBoletoData = boletoResult?.bank_slip || boletoResult?.payment_options?.bank_slip;
+    const currentPixEMV = pixResult?.pix?.emv || (pixResult as any)?.payment_options?.pix?.emv;
 
     return (
         <Card>
@@ -835,16 +856,6 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                                     <FormMessage />
                                                 </FormItem>
                                             )} />
-                                            {/* Endereço simplificado para o exemplo */}
-                                            <div className="hidden">
-                                                <input {...boletoForm.register("customerEmail")} value="cliente@teste.com" />
-                                                <input {...boletoForm.register("customerAddressStreet")} value="Rua Teste" />
-                                                <input {...boletoForm.register("customerAddressNumber")} value="123" />
-                                                <input {...boletoForm.register("customerAddressDistrict")} value="Centro" />
-                                                <input {...boletoForm.register("customerAddressCity")} value="Cidade" />
-                                                <input {...boletoForm.register("customerAddressState")} value="SP" />
-                                                <input {...boletoForm.register("customerAddressZipCode")} value="01001000" />
-                                            </div>
                                             <Button type="submit" className="w-full" disabled={isLoading}>
                                                 {isIssuingBoleto ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Emitindo...</> : 'Emitir Boleto'}
                                             </Button>
@@ -884,17 +895,6 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                             <FormField control={pixForm.control} name="serviceDescription" render={({ field }) => (
                                                 <FormItem><FormLabel>Identificador/Dedução</FormLabel><FormControl><Input placeholder="Ex: Consulta Outubro" {...field} /></FormControl><FormMessage /></FormItem>
                                             )} />
-                                            {/* Campos ocultos necessários para a API */}
-                                            <div className="hidden">
-                                                <input {...pixForm.register("customerEmail")} value="cliente@teste.com" />
-                                                <input {...pixForm.register("customerAddressStreet")} value="Rua Teste" />
-                                                <input {...pixForm.register("customerAddressNumber")} value="123" />
-                                                <input {...pixForm.register("customerAddressDistrict")} value="Centro" />
-                                                <input {...pixForm.register("customerAddressCity")} value="Cidade" />
-                                                <input {...pixForm.register("customerAddressState")} value="SP" />
-                                                <input {...pixForm.register("customerAddressZipCode")} value="01001000" />
-                                                <input {...pixForm.register("dueDate")} value={format(new Date(), 'yyyy-MM-dd')} />
-                                            </div>
                                             <Button type="submit" variant="secondary" className="w-full" disabled={isLoading}>
                                                 {isIssuingPix ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/> Gerando...</> : 'Gerar QR Code Pix'}
                                             </Button>
@@ -903,10 +903,10 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                     {pixResult && (
                                         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-xs space-y-2">
                                             <p className="font-bold text-blue-700 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Pix Gerado!</p>
-                                            {pixResult.pix?.emv && (
+                                            {currentPixEMV && (
                                                 <div className="space-y-1">
-                                                    <p className="text-[9px] font-mono break-all bg-white p-1 border rounded">{pixResult.pix.emv}</p>
-                                                    <Button size="sm" variant="ghost" className="w-full h-6 text-[9px]" onClick={() => copyToClipboard(pixResult.pix!.emv, 'Copia e Cola copiado!')}><Copy className="mr-1 h-3 w-3"/> Copiar Código Pix</Button>
+                                                    <p className="text-[9px] font-mono break-all bg-white p-1 border rounded">{currentPixEMV}</p>
+                                                    <Button size="sm" variant="ghost" className="w-full h-6 text-[9px]" onClick={() => copyToClipboard(currentPixEMV, 'Copia e Cola copiado!')}><Copy className="mr-1 h-3 w-3"/> Copiar Código Pix</Button>
                                                 </div>
                                             )}
                                         </div>
