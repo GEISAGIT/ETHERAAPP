@@ -1,3 +1,4 @@
+
 'use client';
 import { AppLayout } from '@/components/layout/app-layout';
 import { CoraAuthForm } from '@/components/cora/cora-auth-form';
@@ -195,24 +196,32 @@ function GuidedTestFlow({ mainToken, onDisconnect }: { mainToken: CoraToken | nu
                         <AlertDescription>{issuingBoletoError}</AlertDescription>
                       </Alert>
                     )}
-                    {boletoResult && boletoData && (
+                    {boletoResult && (
                        <div className="mt-4 space-y-3 text-sm p-4 border rounded-md bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200">
                           <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold">
                              <CheckCircle className="h-4 w-4" />
                              Boleto emitido com sucesso!
                           </div>
-                          {boletoData.digitable_line && (
-                            <div className="space-y-1">
-                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Linha Digitável</Label>
-                                <p className="font-mono text-xs break-all bg-background p-2 border rounded">{boletoData.digitable_line}</p>
-                            </div>
-                          )}
-                          {boletoData.url && (
-                            <Button variant="outline" size="sm" asChild className="w-full mt-2">
+                          
+                          {boletoData?.url && (
+                            <Button variant="default" size="sm" asChild className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700">
                                 <a href={boletoData.url} target="_blank" rel="noopener noreferrer">
-                                    <ExternalLink className="mr-2 h-4 w-4" /> Abrir PDF do Boleto
+                                    <ExternalLink className="mr-2 h-4 w-4" /> Visualizar PDF do Boleto
                                 </a>
                             </Button>
+                          )}
+
+                          {boletoData?.digitable_line && (
+                            <div className="space-y-1 mt-2">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Linha Digitável</Label>
+                                <div className="flex items-center gap-2">
+                                    <p className="font-mono text-xs break-all bg-background p-2 border rounded flex-1">{boletoData.digitable_line}</p>
+                                    <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => {
+                                        navigator.clipboard.writeText(boletoData.digitable_line!);
+                                        toast({ title: "Copiado!" });
+                                    }}><Copy className="h-3 w-3"/></Button>
+                                </div>
+                            </div>
                           )}
                        </div>
                     )}
@@ -993,7 +1002,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                         </AlertDescription>
                                     </Alert>
                                 )}
-                                {boletoResult && currentBoletoData && (
+                                {boletoResult && (
                                     <div className="rounded-lg border bg-green-50 dark:bg-green-950 p-4 space-y-4 mt-4 border-green-200">
                                         <div className="flex items-start gap-3">
                                             <div className="bg-green-600 p-2 rounded-full">
@@ -1008,10 +1017,10 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                         </div>
                                         
                                         <div className="space-y-4 pl-12">
-                                            {currentBoletoData.url && (
-                                                <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white font-bold">
+                                            {currentBoletoData?.url && (
+                                                <Button asChild className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12">
                                                     <a href={currentBoletoData.url} target="_blank" rel="noopener noreferrer">
-                                                        <ExternalLink className="mr-2 h-4 w-4" /> Visualizar PDF do Boleto
+                                                        <ExternalLink className="mr-2 h-5 w-5" /> Visualizar PDF do Boleto
                                                     </a>
                                                 </Button>
                                             )}
@@ -1022,21 +1031,21 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                                     <p className="font-mono text-[11px] bg-white/50 dark:bg-black/20 p-1.5 rounded truncate">{boletoResult.id}</p>
                                                 </div>}
                                                 
-                                                {currentBoletoData.digitable_line && <div>
+                                                {currentBoletoData?.digitable_line && <div>
                                                     <Label className="text-[10px] uppercase font-bold text-muted-foreground">Linha Digitável</Label>
                                                     <div className="flex items-center gap-2 mt-1">
                                                         <Input readOnly value={currentBoletoData.digitable_line} className="text-xs h-9 bg-white dark:bg-black/20 font-mono" />
-                                                        <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => copyToClipboard(currentBoletoData.digitable_line, "Linha digitável copiada.")}>
+                                                        <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => copyToClipboard(currentBoletoData.digitable_line!, "Linha digitável copiada.")}>
                                                             <Copy className="h-4 w-4" />
                                                         </Button>
                                                     </div>
                                                 </div>}
                                                 
-                                                {currentBoletoData.barcode && <div>
+                                                {currentBoletoData?.barcode && <div>
                                                     <Label className="text-[10px] uppercase font-bold text-muted-foreground">Código de Barras</Label>
                                                     <div className="flex items-center gap-2 mt-1">
                                                         <Input readOnly value={currentBoletoData.barcode} className="text-xs h-9 bg-white dark:bg-black/20 font-mono" />
-                                                        <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => copyToClipboard(currentBoletoData.barcode, "Código de barras copiado.")}>
+                                                        <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => copyToClipboard(currentBoletoData.barcode!, "Código de barras copiado.")}>
                                                             <Barcode className="h-4 w-4" />
                                                         </Button>
                                                     </div>
@@ -1140,7 +1149,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                                     name="customerAddressCity"
                                                     render={({ field }) => (
                                                         <FormItem className="sm:col-span-2">
-                                                            <FormLabel>Cidade</FormLabel>
+                                                            <Label>Cidade</Label>
                                                             <FormControl><Input placeholder="São Paulo" {...field} /></FormControl>
                                                             <FormMessage />
                                                         </FormItem>
@@ -1319,7 +1328,7 @@ function ApiBankContent() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="font-headline text-3xl font-bold tracking-tight">
+        <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">
           API BANK (BETA)
         </h1>
         <p className="text-muted-foreground">
