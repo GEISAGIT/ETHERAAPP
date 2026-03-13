@@ -5,7 +5,22 @@ import { CoraAuthForm } from '@/components/cora/cora-auth-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { CheckCircle, AlertTriangle, Loader2, CalendarIcon, ArrowDownCircle, ArrowUpCircle, ClipboardCheck, FileText, Copy, Barcode, QrCode, ExternalLink, Info } from 'lucide-react';
+import { 
+  CheckCircle, 
+  AlertTriangle, 
+  Loader2, 
+  CalendarIcon, 
+  ArrowDownCircle, 
+  ArrowUpCircle, 
+  ClipboardCheck, 
+  FileText, 
+  Copy, 
+  Barcode, 
+  QrCode, 
+  ExternalLink, 
+  Info,
+  ArrowRightLeft
+} from 'lucide-react';
 import { Suspense, useState, useMemo, useEffect } from 'react';
 import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse, CoraInvoiceRequestBody, CoraInvoiceResponse } from '@/lib/types';
