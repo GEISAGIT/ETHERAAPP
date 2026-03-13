@@ -18,7 +18,8 @@ import {
   QrCode, 
   ExternalLink, 
   Info,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Download
 } from 'lucide-react';
 import { Suspense, useState, useMemo, useEffect } from 'react';
 import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
@@ -401,6 +402,25 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                 description: 'Não foi possível copiar o texto.',
             });
         });
+    }
+
+    const handleDownloadPix = async (imageUrl: string) => {
+        try {
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `pix-qrcode-${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            toast({ title: 'Download iniciado!' });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Erro ao baixar', description: 'Não foi possível baixar a imagem diretamente.' });
+            window.open(imageUrl, '_blank');
+        }
     }
 
     // The retryAction is a function that will be called with the new access token
@@ -921,22 +941,36 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                             <p className="font-bold text-blue-700 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Pix Gerado!</p>
                                             
                                             {currentPixImage && (
-                                                <div className="flex justify-center bg-white p-4 rounded-md border">
-                                                    <Image 
-                                                        src={currentPixImage} 
-                                                        alt="Pix QR Code" 
-                                                        width={200} 
-                                                        height={200} 
-                                                        className="aspect-square object-contain"
-                                                    />
+                                                <div className="space-y-3">
+                                                    <div className="flex justify-center bg-white p-4 rounded-md border shadow-inner">
+                                                        <Image 
+                                                            src={currentPixImage} 
+                                                            alt="Pix QR Code" 
+                                                            width={200} 
+                                                            height={200} 
+                                                            className="aspect-square object-contain"
+                                                        />
+                                                    </div>
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className="w-full h-9 bg-white hover:bg-slate-50 font-semibold"
+                                                        onClick={() => handleDownloadPix(currentPixImage)}
+                                                    >
+                                                        <Download className="mr-2 h-4 w-4" /> Baixar Imagem do QR Code
+                                                    </Button>
                                                 </div>
                                             )}
 
                                             {currentPixEMV && (
                                                 <div className="space-y-1">
                                                     <Label className="text-[10px] uppercase font-bold text-muted-foreground">Copia e Cola</Label>
-                                                    <p className="text-[9px] font-mono break-all bg-white p-1 border rounded">{currentPixEMV}</p>
-                                                    <Button size="sm" variant="ghost" className="w-full h-6 text-[9px]" onClick={() => copyToClipboard(currentPixEMV, 'Copia e Cola copiado!')}><Copy className="mr-1 h-3 w-3"/> Copiar Código Pix</Button>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-[9px] font-mono break-all bg-white p-2 border rounded flex-1 select-all">{currentPixEMV}</p>
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(currentPixEMV, 'Código Pix copiado!')}>
+                                                            <Copy className="h-3 w-3"/>
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
