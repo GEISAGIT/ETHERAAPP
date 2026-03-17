@@ -31,7 +31,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'view'));
-      allow list: if isSignedIn() && (isMaster() || hasPermission('userManagement', 'view'));
+      // Permitimos a listagem para todos os logados para possibilitar a seleção de responsáveis/visualizadores em atividades
+      allow list: if isSignedIn();
       allow write: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'edit'));
 
       match /coraTokens/{tokenId} {

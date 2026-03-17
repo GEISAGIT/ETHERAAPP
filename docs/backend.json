@@ -11,6 +11,7 @@
         "email": { "type": "string", "format": "email" },
         "fullName": { "type": "string" },
         "role": { "type": "string", "enum": ["admin", "user"] },
+        "status": { "type": "string", "enum": ["active", "pending", "rejected"] },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -28,6 +29,7 @@
         "requesterId": { "type": "string" },
         "assigneeId": { "type": "string" },
         "isPrivate": { "type": "boolean" },
+        "viewerIds": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
