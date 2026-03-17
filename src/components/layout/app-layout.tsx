@@ -10,7 +10,7 @@ type AppLayoutProps = {
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar collapsible="icon">
         <AppSidebar />
       </Sidebar>
       <SidebarInset className="flex flex-col">
