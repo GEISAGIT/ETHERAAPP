@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Timestamp } from 'firebase/firestore';
@@ -391,6 +392,7 @@ export type Activity = {
   requesterName: string;
   assigneeId?: string;
   assigneeName?: string;
+  isPrivate?: boolean;
   deadline?: Timestamp;
   startDescription?: string;
   completionDescription?: string;

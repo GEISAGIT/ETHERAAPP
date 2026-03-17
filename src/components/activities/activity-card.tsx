@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Clock, MessageSquare, AlertTriangle, CheckCircle2, RotateCcw, User, Eye, Play, Check, X } from 'lucide-react';
+import { Clock, MessageSquare, AlertTriangle, CheckCircle2, RotateCcw, User, Eye, Play, Check, X, Lock } from 'lucide-react';
 import { useState } from 'react';
 import { ActivityActionDialog } from './activity-action-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -46,13 +46,26 @@ export function ActivityCard({ activity, currentUser }: { activity: Activity, cu
         "group hover:shadow-md transition-all border-l-4 overflow-hidden",
         activity.status === 'rework' ? "border-l-red-500" : 
         activity.priority === 'urgent' ? "border-l-red-500 shadow-sm" : 
-        activity.priority === 'high' ? "border-l-amber-500" : "border-l-primary/30"
+        activity.priority === 'high' ? "border-l-amber-500" : "border-l-primary/30",
+        activity.isPrivate && "bg-amber-50/30 dark:bg-amber-950/10"
       )}>
         <CardHeader className="p-4 pb-2 space-y-2">
           <div className="flex justify-between items-start">
-            <Badge variant="outline" className={cn("text-[10px] uppercase font-bold px-1.5 py-0", priorityConfig[activity.priority].color)}>
-              {priorityConfig[activity.priority].label}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={cn("text-[10px] uppercase font-bold px-1.5 py-0", priorityConfig[activity.priority].color)}>
+                {priorityConfig[activity.priority].label}
+              </Badge>
+              {activity.isPrivate && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Lock className="h-3 w-3 text-amber-600" />
+                    </TooltipTrigger>
+                    <TooltipContent><p className="text-xs">Atividade Privada</p></TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
             {activity.status === 'rework' && (
               <Badge variant="destructive" className="text-[9px] h-4 animate-pulse">RETRABALHO</Badge>
             )}

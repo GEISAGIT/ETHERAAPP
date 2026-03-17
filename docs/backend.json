@@ -27,6 +27,7 @@
         "priority": { "type": "string", "enum": ["low", "medium", "high", "urgent"] },
         "requesterId": { "type": "string" },
         "assigneeId": { "type": "string" },
+        "isPrivate": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
