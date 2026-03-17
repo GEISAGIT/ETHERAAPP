@@ -33,8 +33,8 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, serverTimestamp, query } from 'firebase/firestore';
-import type { StockCategory } from '@/lib/types';
+import { collection, serverTimestamp, query, getDocs } from 'firebase/firestore';
+import type { StockCategory, StockItem } from '@/lib/types';
 
 const formSchema = z.object({
   name: z.string().min(2, 'O nome do item é obrigatório.'),
@@ -53,7 +53,6 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
   const firestore = useFirestore();
   const { user } = useUser();
 
-  // Buscar categorias de suprimentos
   const categoriesQuery = useMemoFirebase(() => {
     if (!firestore || !open) return null;
     return query(collection(firestore, 'stockCategories'));
@@ -91,23 +90,51 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
     }
   }, [open, form]);
 
-  // Reset dependent fields when category changes
   useEffect(() => {
     form.setValue('subCategory', '');
     form.setValue('derivation', '');
   }, [selectedCategoryName, form]);
 
-  // Reset dependent field when subcategory changes
   useEffect(() => {
     form.setValue('derivation', '');
   }, [selectedSubCategoryName, form]);
+
+  const generateAutomaticCode = async (categoryName: string) => {
+    if (!firestore) return '00000';
+    
+    let prefix = '9'; // Outros
+    const cat = categoryName.toUpperCase();
+    
+    if (cat.includes('MEDICAMENTO')) prefix = '1';
+    else if (cat.includes('LIMPEZA')) prefix = '2';
+    else if (cat.includes('ESCRITÓRIO') || cat.includes('PAPELARIA')) prefix = '3';
+    else if (cat.includes('INFRA')) prefix = '4';
+
+    const stockSnap = await getDocs(collection(firestore, 'stock'));
+    const codes = stockSnap.docs
+      .map(doc => (doc.data() as StockItem).code)
+      .filter(code => code?.startsWith(prefix));
+
+    let nextNumber = 1;
+    if (codes.length > 0) {
+      const numbers = codes.map(c => parseInt(c.substring(1), 10)).filter(n => !isNaN(n));
+      if (numbers.length > 0) {
+        nextNumber = Math.max(...numbers) + 1;
+      }
+    }
+
+    return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+  };
 
   const onSubmit = async (values: FormValues) => {
     if (!user || !firestore) return;
 
     try {
+      const automaticCode = await generateAutomaticCode(values.category);
+
       const stockData = {
         ...values,
+        code: automaticCode,
         updatedAt: serverTimestamp(),
         updatedBy: user.displayName || 'Usuário',
         lastRestock: serverTimestamp(),
@@ -120,7 +147,7 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
 
       addDocumentNonBlocking(collection(firestore, 'stock'), stockData);
       
-      toast({ title: 'Item Cadastrado', description: `${values.name} foi adicionado ao sistema.` });
+      toast({ title: 'Item Cadastrado', description: `Item ${automaticCode} - ${values.name} foi adicionado.` });
       onOpenChange(false);
     } catch (error) {
       console.error(error);
@@ -136,7 +163,7 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
             <PlusCircle className="h-5 w-5" />
             Cadastrar Novo Item
           </DialogTitle>
-          <DialogDescription>Identifique o produto para iniciar o controle de estoque.</DialogDescription>
+          <DialogDescription>Identifique o produto. O código SKU será gerado automaticamente pela família.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -157,7 +184,7 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Categoria Principal</FormLabel>
+                  <FormLabel>Categoria Principal (Família)</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
                     <SelectContent>

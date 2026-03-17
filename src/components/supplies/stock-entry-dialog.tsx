@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, ArrowUpCircle, Check, ChevronsUpDown, CalendarIcon, Box, Pill, Truck } from 'lucide-react';
+import { Loader2, ArrowUpCircle, Check, ChevronsUpDown, CalendarIcon, Box, Pill, Truck, Hash } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -144,6 +144,7 @@ export function StockEntryDialog({
 
       // CRIAÇÃO DE UM NOVO REGISTRO PARA O NOVO LOTE/ENDEREÇO
       const newStockData: any = {
+        code: selectedTemplate.code || '00000', // Herda o código do modelo
         name: selectedTemplate.name,
         category: selectedTemplate.category,
         subCategory: selectedTemplate.subCategory || '',
@@ -170,7 +171,7 @@ export function StockEntryDialog({
       
       toast({ 
         title: 'Lote Cadastrado', 
-        description: `Novo lote ${values.batch} de ${selectedTemplate.name} registrado com sucesso.` 
+        description: `Novo lote ${values.batch} de ${selectedTemplate.name} (Cód: ${newStockData.code}) registrado com sucesso.` 
       });
       onOpenChange(false);
     } catch (error) {
@@ -188,7 +189,7 @@ export function StockEntryDialog({
             Entrada de Estoque (Novo Lote)
           </DialogTitle>
           <DialogDescription>
-            Cada entrada gera um novo registro para controle individual de validade e lote.
+            Cada entrada gera um novo registro. O SKU será herdado do produto selecionado.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -242,7 +243,10 @@ export function StockEntryDialog({
                                   )}
                                 />
                                 <div className="flex flex-col">
-                                    <span>{item.name}</span>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className="text-[9px] h-4 font-mono">{item.code || '---'}</Badge>
+                                        <span>{item.name}</span>
+                                    </div>
                                     <span className="text-[10px] text-muted-foreground uppercase">{item.category} | Modelo base</span>
                                 </div>
                               </CommandItem>

@@ -274,6 +274,7 @@ export type Address = StorageLocation;
 
 export type StockItem = {
   id: string;
+  code: string;
   name: string;
   category: string;
   subCategory?: string;

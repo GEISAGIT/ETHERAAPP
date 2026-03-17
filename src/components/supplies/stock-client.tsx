@@ -19,7 +19,8 @@ import {
     XCircle,
     CheckCircle2,
     Hash,
-    Truck
+    Truck,
+    Barcode
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +67,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
     return data.filter(item => 
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.code && item.code.includes(searchTerm)) ||
         (item.locationName && item.locationName.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (item.batch && item.batch.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -125,7 +127,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Controle de Estoque</h1>
-          <p className="text-muted-foreground">Gerencie o inventário com controle de localização, lote e validade.</p>
+          <p className="text-muted-foreground">Gerencie o inventário com SKU automático, controle de lote e validade.</p>
         </div>
         <div className="flex items-center gap-2">
           {canCreate && (
@@ -150,7 +152,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-primary/5 border-primary/20">
             <CardHeader className="pb-2">
-                <CardDescription className="text-xs uppercase font-bold text-primary">Total de Itens</CardDescription>
+                <CardDescription className="text-xs uppercase font-bold text-primary">Total de Lotes</CardDescription>
                 <CardTitle className="text-2xl font-headline">{data.length}</CardTitle>
             </CardHeader>
         </Card>
@@ -176,7 +178,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por item, lote, local ou fornecedor..."
+            placeholder="Buscar por SKU, item, lote ou local..."
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -189,6 +191,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-24">Código/SKU</TableHead>
                 <TableHead>Item / Categoria</TableHead>
                 <TableHead>Lote</TableHead>
                 <TableHead>Local / Fornecedor</TableHead>
@@ -201,7 +204,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
             <TableBody>
               {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                     Nenhum item encontrado no estoque.
                   </TableCell>
                 </TableRow>
@@ -210,6 +213,12 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
                   const isLow = item.quantity <= item.minQuantity;
                   return (
                     <TableRow key={item.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                            <Barcode className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="font-mono font-bold text-xs">{item.code || '---'}</span>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-bold text-foreground">{item.name}</span>
