@@ -200,8 +200,8 @@ export function StockClient({ stockData, catalogData, userProfile }: StockClient
                                   </TooltipTrigger>
                                   <TooltipContent>
                                     <div className="text-[10px] space-y-1">
-                                      {item.vialVolume ? <p>Volume Frasco: <b>{item.vialVolume} ml/mg</b></p> : null}
-                                      {item.doseVolume ? <p>Volume Dose: <b>{item.doseVolume} ml/mg</b></p> : null}
+                                      {item.vialVolume ? <p>Volume Frasco: <b>{item.vialVolume} mg/ml</b></p> : null}
+                                      {item.doseVolume ? <p>Volume Dose: <b>{item.doseVolume} ml</b></p> : null}
                                     </div>
                                   </TooltipContent>
                                 </Tooltip>

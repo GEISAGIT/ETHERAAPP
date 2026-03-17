@@ -160,14 +160,14 @@ export function StockEntryDialog({ open, onOpenChange, items }: { open: boolean,
                 <div className="col-span-2 text-[10px] uppercase font-bold text-primary mb-1">Composição do Medicamento</div>
                 <FormField control={form.control} name="vialVolume" render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs">Volume do Frasco (ml/mg)</FormLabel>
+                    <FormLabel className="text-xs">Volume do frasco (mg/ml)</FormLabel>
                     <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="doseVolume" render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-xs">Volume da Dose (ml/mg)</FormLabel>
+                    <FormLabel className="text-xs">Volume da dose (ml)</FormLabel>
                     <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
