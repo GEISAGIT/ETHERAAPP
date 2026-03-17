@@ -1,10 +1,11 @@
+
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase, useDoc, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, Timestamp, limit, doc } from 'firebase/firestore';
 import { useState, useRef, useEffect, Suspense, useMemo } from 'react';
-import { Camera, Clock, Loader2, History, Fingerprint, CalendarDays, ArrowRightLeft, AlertCircle, Trash2, Eraser } from 'lucide-react';
+import { Camera, Clock, Loader2, History, Fingerprint, CalendarDays, ArrowRightLeft, AlertCircle, Trash2, Eraser, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { AttendanceRecord, AttendanceType, UserProfile } from '@/lib/types';
 import { cn } from '@/lib/utils';
+
+const ATTENDANCE_LABELS: Record<AttendanceType, string> = {
+  clock_in: 'Entrada',
+  clock_out: 'Saída',
+  break_start: 'Saída Almoço',
+  break_end: 'Retorno Almoço'
+};
 
 function TimeTrackingContent() {
   const { user, isUserLoading } = useUser();
@@ -138,20 +146,10 @@ function TimeTrackingContent() {
     
     toast({ 
       title: 'Ponto Registrado!', 
-      description: `${getAttendanceTypeLabel(nextPointType.type)} às ${format(new Date(), 'HH:mm')}.` 
+      description: `${ATTENDANCE_LABELS[nextPointType.type]} às ${format(new Date(), 'HH:mm')}.` 
     });
 
     setTimeout(() => setIsRecording(false), 600);
-  };
-
-  const getAttendanceTypeLabel = (type: AttendanceType) => {
-    const labels: Record<AttendanceType, string> = {
-      clock_in: 'Entrada', 
-      clock_out: 'Saída', 
-      break_start: 'Saída Almoço', 
-      break_end: 'Retorno Almoço'
-    };
-    return labels[type] || 'Ponto';
   };
 
   const handleConfirmDelete = () => {
@@ -194,6 +192,19 @@ function TimeTrackingContent() {
     })).sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [allRecords]);
 
+  // Coleta as batidas justificadas para a legenda
+  const justifiedPunches = useMemo(() => {
+    const list: { date: Date; type: AttendanceType; notes: string }[] = [];
+    groupedHistory.forEach(day => {
+      day.records.forEach(r => {
+        if (r.notes) {
+          list.push({ date: day.date, type: r.type, notes: r.notes });
+        }
+      });
+    });
+    return list;
+  }, [groupedHistory]);
+
   const calculateTotalHours = (records: AttendanceRecord[]) => {
     const clockIn = records.find(r => r.type === 'clock_in')?.timestamp.toDate();
     const breakStart = records.find(r => r.type === 'break_start')?.timestamp.toDate();
@@ -218,7 +229,14 @@ function TimeTrackingContent() {
   const formatRecordTime = (record?: AttendanceRecord) => {
     if (!record) return '--:--';
     const date = record.timestamp instanceof Timestamp ? record.timestamp.toDate() : new Date(record.timestamp);
-    return format(date, 'HH:mm');
+    const time = format(date, 'HH:mm');
+    const isJustified = record.manual || record.notes;
+    return (
+      <span className="flex items-center gap-0.5">
+        {time}
+        {isJustified && <span className="text-[10px] align-top text-primary font-bold">*</span>}
+      </span>
+    );
   };
 
   if (isUserLoading || profileLoading) return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -348,7 +366,7 @@ function TimeTrackingContent() {
                             <Clock className="h-4 w-4" />
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-sm font-semibold">{getAttendanceTypeLabel(record.type)}</span>
+                            <span className="text-sm font-semibold">{ATTENDANCE_LABELS[record.type]}</span>
                             <span className="text-xs text-muted-foreground">{formatRecordTime(record)}</span>
                           </div>
                         </div>
@@ -395,7 +413,7 @@ function TimeTrackingContent() {
                 </Button>
               )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
               {recordsLoading ? (
                 <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
               ) : groupedHistory.length === 0 ? (
@@ -403,60 +421,78 @@ function TimeTrackingContent() {
                   <p>Nenhum histórico encontrado para este mês.</p>
                 </div>
               ) : (
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead className="w-[150px]">Data</TableHead>
-                        <TableHead>Entrada</TableHead>
-                        <TableHead>Almoço</TableHead>
-                        <TableHead>Retorno</TableHead>
-                        <TableHead>Saída</TableHead>
-                        <TableHead className="text-right">Horas Líquidas</TableHead>
-                        {canDelete && <TableHead className="w-[50px]"></TableHead>}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {groupedHistory.map((day) => {
-                        const clockIn = day.records.find(r => r.type === 'clock_in');
-                        const breakStart = day.records.find(r => r.type === 'break_start');
-                        const breakEnd = day.records.find(r => r.type === 'break_end');
-                        const clockOut = day.records.find(r => r.type === 'clock_out');
+                <>
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="w-[150px]">Data</TableHead>
+                          <TableHead>Entrada</TableHead>
+                          <TableHead>Almoço</TableHead>
+                          <TableHead>Retorno</TableHead>
+                          <TableHead>Saída</TableHead>
+                          <TableHead className="text-right">Horas Líquidas</TableHead>
+                          {canDelete && <TableHead className="w-[50px]"></TableHead>}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {groupedHistory.map((day) => {
+                          const clockIn = day.records.find(r => r.type === 'clock_in');
+                          const breakStart = day.records.find(r => r.type === 'break_start');
+                          const breakEnd = day.records.find(r => r.type === 'break_end');
+                          const clockOut = day.records.find(r => r.type === 'clock_out');
 
-                        return (
-                          <TableRow key={day.date.toISOString()}>
-                            <TableCell className="font-medium">
-                              {format(day.date, "dd/MM (eee)", { locale: ptBR })}
-                            </TableCell>
-                            <TableCell>{formatRecordTime(clockIn)}</TableCell>
-                            <TableCell>{formatRecordTime(breakStart)}</TableCell>
-                            <TableCell>{formatRecordTime(breakEnd)}</TableCell>
-                            <TableCell>{formatRecordTime(clockOut)}</TableCell>
-                            <TableCell className="text-right font-mono font-bold text-primary">
-                              {calculateTotalHours(day.records)}
-                            </TableCell>
-                            {canDelete && (
-                              <TableCell>
-                                <Button 
-                                  variant="ghost" size="icon" 
-                                  className="h-8 w-8 text-destructive"
-                                  onClick={() => {
-                                      // Exclui todos os registros desse dia específico
-                                      day.records.forEach(r => deleteDocumentNonBlocking(doc(firestore!, 'attendanceRecords', r.id)));
-                                      toast({ title: 'Dia Limpo' });
-                                  }}
-                                  title="Limpar dia"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                          return (
+                            <TableRow key={day.date.toISOString()}>
+                              <TableCell className="font-medium">
+                                {format(day.date, "dd/MM (eee)", { locale: ptBR })}
                               </TableCell>
-                            )}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                              <TableCell>{formatRecordTime(clockIn)}</TableCell>
+                              <TableCell>{formatRecordTime(breakStart)}</TableCell>
+                              <TableCell>{formatRecordTime(breakEnd)}</TableCell>
+                              <TableCell>{formatRecordTime(clockOut)}</TableCell>
+                              <TableCell className="text-right font-mono font-bold text-primary">
+                                {calculateTotalHours(day.records)}
+                              </TableCell>
+                              {canDelete && (
+                                <TableCell>
+                                  <Button 
+                                    variant="ghost" size="icon" 
+                                    className="h-8 w-8 text-destructive"
+                                    onClick={() => {
+                                        // Exclui todos os registros desse dia específico
+                                        day.records.forEach(r => deleteDocumentNonBlocking(doc(firestore!, 'attendanceRecords', r.id)));
+                                        toast({ title: 'Dia Limpo' });
+                                    }}
+                                    title="Limpar dia"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Legenda de Justificativas */}
+                  {justifiedPunches.length > 0 && (
+                    <div className="p-4 bg-muted/20 rounded-lg border border-primary/10">
+                      <h4 className="text-xs font-bold uppercase mb-2 flex items-center gap-2 text-primary">
+                        <MessageSquare className="h-3 w-3" /> Notas Explicativas de Ajustes
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
+                        {justifiedPunches.map((jp, i) => (
+                          <p key={i} className="text-[11px] text-muted-foreground italic leading-tight">
+                            <span className="font-bold text-primary">*</span> {format(jp.date, 'dd/MM')} - {ATTENDANCE_LABELS[jp.type]}: {jp.notes}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

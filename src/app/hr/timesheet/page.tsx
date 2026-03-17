@@ -207,14 +207,6 @@ function HRTimesheetContent() {
     toast({ title: 'Ocorrência lançada' });
   };
 
-  const handleDeleteAdjustment = (id: string) => {
-    const updated = formData.adjustments?.filter(a => a.id !== id);
-    handleUpdateField('adjustments', updated);
-    if (firestore && selectedEmployeeId) {
-      updateDocumentNonBlocking(doc(firestore, 'employees', selectedEmployeeId), { adjustments: updated });
-    }
-  };
-
   const handleManualPunch = () => {
     if (!firestore || !selectedEmployee || !user) return;
     
@@ -383,6 +375,19 @@ function HRTimesheetContent() {
     };
   }, [fullHistory, formData.workSchedule, formData.adjustments]);
 
+  // Coleta todas as batidas que possuem justificativa (manual ou editada)
+  const justifiedPunches = useMemo(() => {
+    const list: { date: Date; type: AttendanceType; notes: string }[] = [];
+    fullHistory.forEach(day => {
+      day.records.forEach(r => {
+        if (r.notes) {
+          list.push({ date: day.date, type: r.type, notes: r.notes });
+        }
+      });
+    });
+    return list;
+  }, [fullHistory]);
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !storage || !selectedEmployeeId) return;
@@ -400,12 +405,15 @@ function HRTimesheetContent() {
   };
 
   const PunchCell = ({ record, dayDate, type }: { record?: AttendanceRecord, dayDate: Date, type: AttendanceType }) => {
+    const isJustified = record && (record.manual || record.notes);
+    
     return (
       <TableCell className="relative group/cell border-x text-center print:p-0 print:border-x-[1px] min-w-[65px] print:min-w-[40px]">
         {record ? (
           <div className="flex items-center justify-center gap-1 print:gap-0 print:block">
-            <span className={cn("text-xs font-medium print:text-[7.5pt]", record.manual && "text-amber-600 underline decoration-dotted")}>
+            <span className={cn("text-xs font-medium print:text-[7.5pt]", record.manual && "text-amber-600")}>
               {format(record.timestamp.toDate(), 'HH:mm')}
+              {isJustified && <span className="text-[10px] ml-0.5 align-top text-primary font-bold">*</span>}
             </span>
             {record.notes && (
               <TooltipProvider>
@@ -768,6 +776,22 @@ function HRTimesheetContent() {
                     </div>
                   </div>
                 </div>
+
+                {/* Seção de Notas Explicativas (Asteriscos) */}
+                {justifiedPunches.length > 0 && (
+                  <div className="mt-4 p-4 border-t border-black print:mt-2 print:p-2">
+                    <h4 className="text-[10px] font-bold uppercase mb-2 flex items-center gap-2">
+                      <MessageSquare className="h-3 w-3" /> Observações e Justificativas de Ajustes
+                    </h4>
+                    <div className="grid grid-cols-1 gap-1">
+                      {justifiedPunches.map((jp, i) => (
+                        <p key={i} className="text-[9px] print:text-[7pt] text-muted-foreground italic">
+                          <span className="font-bold text-primary">*</span> {format(jp.date, 'dd/MM')} - {ATTENDANCE_LABELS[jp.type]}: {jp.notes}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="hidden print:grid grid-cols-2 gap-12 mt-8 text-center text-[8pt]">
                   <div className="space-y-1">
