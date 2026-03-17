@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -62,7 +61,8 @@ const formSchema = z.object({
   supplier: z.string().min(1, 'Informe o fornecedor.'),
   manufacturingDate: z.date().optional(),
   expiryDate: z.date().optional(),
-  doseQuantity: z.coerce.number().optional(),
+  vialVolume: z.coerce.number().optional(),
+  doseVolume: z.coerce.number().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -82,7 +82,15 @@ export function StockEntryDialog({ open, onOpenChange, items }: { open: boolean,
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { catalogItemId: '', addedQuantity: 0, locationId: '', batch: '', supplier: '', doseQuantity: 0 },
+    defaultValues: { 
+      catalogItemId: '', 
+      addedQuantity: 0, 
+      locationId: '', 
+      batch: '', 
+      supplier: '', 
+      vialVolume: 0, 
+      doseVolume: 0 
+    },
   });
 
   const selectedItemId = useWatch({ control: form.control, name: 'catalogItemId' });
@@ -110,7 +118,8 @@ export function StockEntryDialog({ open, onOpenChange, items }: { open: boolean,
         supplier: values.supplier,
         manufacturingDate: values.manufacturingDate ? Timestamp.fromDate(values.manufacturingDate) : null,
         expiryDate: values.expiryDate ? Timestamp.fromDate(values.expiryDate) : null,
-        doseQuantity: values.doseQuantity || 0,
+        vialVolume: values.vialVolume || 0,
+        doseVolume: values.doseVolume || 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         updatedBy: user.displayName || 'Usuário',
@@ -145,7 +154,27 @@ export function StockEntryDialog({ open, onOpenChange, items }: { open: boolean,
                 <FormField control={form.control} name="batch" render={({ field }) => (<FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Ex: LT-123" {...field} /></FormControl><FormMessage /></FormItem>)} />
             </div>
             <FormField control={form.control} name="supplier" render={({ field }) => (<FormItem><FormLabel><Truck className="h-3 w-3 inline mr-1" /> Fornecedor</FormLabel><FormControl><Input placeholder="Nome do fornecedor" {...field} /></FormControl><FormMessage /></FormItem>)} />
-            {isMedication && (<FormField control={form.control} name="doseQuantity" render={({ field }) => (<FormItem><FormLabel>Volume Dose/Frasco (ml/mg)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />)}
+            
+            {isMedication && (
+              <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg border border-dashed border-primary/30">
+                <div className="col-span-2 text-[10px] uppercase font-bold text-primary mb-1">Composição do Medicamento</div>
+                <FormField control={form.control} name="vialVolume" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Volume do Frasco (ml/mg)</FormLabel>
+                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="doseVolume" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs">Volume da Dose (ml/mg)</FormLabel>
+                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+            )}
+
             <FormField control={form.control} name="locationId" render={({ field }) => (
                 <FormItem><FormLabel>Local de Armazenamento</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Onde guardar?" /></SelectTrigger></FormControl>
