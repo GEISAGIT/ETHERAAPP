@@ -293,7 +293,14 @@ function HRTimesheetContent() {
       }
     }
 
-    const balance = workedMinutes - expectedMinutes;
+    let balance = workedMinutes - expectedMinutes;
+    
+    // Tolerância de 10 minutos (Art. 58, § 1º da CLT)
+    // Se o saldo do dia for de até 10 minutos (atrasos ou extras), consideramos como tempo neutro.
+    if (isWorkDay && Math.abs(balance) <= 10) {
+      balance = 0;
+    }
+
     const isWeekend = !isWorkDay;
 
     let status = 'Jornada Normal';
@@ -777,7 +784,7 @@ function HRTimesheetContent() {
                       <div className="flex justify-between"><span>Faltas Injustificadas:</span><span className="font-bold text-red-600">{monthlySummary.absences} dias</span></div>
                       <div className="flex justify-between"><span>Atestados Médicos:</span><span className="font-bold text-blue-600">{monthlySummary.certificates} dias</span></div>
                       <p className="text-[7pt] text-muted-foreground mt-2 italic leading-snug border-t border-black/10 pt-1">
-                        * Documento gerado eletronicamente conforme Art. 59 da CLT e Portaria 671/2021 do MTP.
+                        * Documento gerado eletronicamente conforme Art. 59 da CLT e Portaria 671/2021 do MTP (incluindo tolerância de 10 min).
                       </p>
                     </div>
                   </div>
