@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, ArrowUpCircle, Check, ChevronsUpDown, CalendarIcon, Box, Pill } from 'lucide-react';
+import { Loader2, ArrowUpCircle, Check, ChevronsUpDown, CalendarIcon, Box, Pill, Truck } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -58,6 +58,7 @@ const formSchema = z.object({
   addedQuantity: z.coerce.number().positive('A quantidade deve ser maior que zero.'),
   locationId: z.string().min(1, 'Selecione o local de armazenamento.'),
   batch: z.string().min(1, 'Informe o lote da mercadoria.'),
+  supplier: z.string().optional(),
   manufacturingDate: z.date().optional(),
   expiryDate: z.date().optional(),
   doseQuantity: z.coerce.number().optional(),
@@ -96,6 +97,7 @@ export function StockEntryDialog({
       addedQuantity: 0,
       locationId: '',
       batch: '',
+      supplier: '',
       doseQuantity: 0,
     },
   });
@@ -116,6 +118,7 @@ export function StockEntryDialog({
         addedQuantity: 0,
         locationId: initialItem?.locationId || '',
         batch: initialItem?.batch || '',
+        supplier: initialItem?.supplier || '',
         doseQuantity: initialItem?.doseQuantity || 0,
       });
     }
@@ -134,6 +137,7 @@ export function StockEntryDialog({
         locationId: values.locationId,
         locationName: locations?.find(l => l.id === values.locationId)?.name || 'Não definido',
         batch: values.batch,
+        supplier: values.supplier || '',
         manufacturingDate: values.manufacturingDate ? Timestamp.fromDate(values.manufacturingDate) : null,
         expiryDate: values.expiryDate ? Timestamp.fromDate(values.expiryDate) : null,
         updatedAt: serverTimestamp(),
@@ -262,6 +266,22 @@ export function StockEntryDialog({
                 )}
                 />
             </div>
+
+            <FormField
+              control={form.control}
+              name="supplier"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <Truck className="h-3 w-3" /> Fornecedor
+                  </FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: Farmácia Central, Distribuidora X" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {isMedication && (
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">

@@ -18,7 +18,8 @@ import {
     Calendar,
     XCircle,
     CheckCircle2,
-    Hash
+    Hash,
+    Truck
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -66,7 +67,8 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.locationName && item.locationName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (item.batch && item.batch.toLowerCase().includes(searchTerm.toLowerCase()))
+        (item.batch && item.batch.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.supplier && item.supplier.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [data, searchTerm]);
 
@@ -174,7 +176,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por item, lote ou local..."
+            placeholder="Buscar por item, lote, local ou fornecedor..."
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -189,7 +191,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
               <TableRow>
                 <TableHead>Item / Categoria</TableHead>
                 <TableHead>Lote</TableHead>
-                <TableHead>Localização</TableHead>
+                <TableHead>Local / Fornecedor</TableHead>
                 <TableHead className="text-center">Saldo Atual</TableHead>
                 <TableHead>Validade</TableHead>
                 <TableHead>Status</TableHead>
@@ -221,9 +223,17 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2 text-sm text-primary font-medium">
-                            <Box className="h-3.5 w-3.5" />
-                            {item.locationName || 'N/A'}
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2 text-sm text-primary font-medium">
+                                <Box className="h-3.5 w-3.5" />
+                                {item.locationName || 'N/A'}
+                            </div>
+                            {item.supplier && (
+                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground italic">
+                                    <Truck className="h-3 w-3" />
+                                    {item.supplier}
+                                </div>
+                            )}
                         </div>
                       </TableCell>
                       <TableCell className="text-center">

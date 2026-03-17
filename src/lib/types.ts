@@ -284,6 +284,7 @@ export type StockItem = {
   locationId: string;
   locationName?: string;
   batch?: string;
+  supplier?: string;
   manufacturingDate?: Timestamp;
   expiryDate?: Timestamp;
   lastRestock?: Timestamp;
