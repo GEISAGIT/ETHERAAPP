@@ -11,19 +11,17 @@ import {
   CalendarIcon, 
   ArrowDownCircle, 
   ArrowUpCircle, 
-  ClipboardCheck, 
   FileText, 
   Copy, 
   Barcode, 
   QrCode, 
   ExternalLink, 
-  Info,
   ArrowRightLeft,
   Download
 } from 'lucide-react';
-import { Suspense, useState, useMemo, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useUser, useDoc, useMemoFirebase, useFirestore, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import type { CoraToken, CoraAccountData, CoraStatement, CoraStatementEntry, CoraPaymentInitiationResponse, CoraInvoiceRequestBody, CoraInvoiceResponse } from '@/lib/types';
+import type { CoraToken, CoraAccountData, CoraStatement, CoraPaymentInitiationResponse, CoraInvoiceRequestBody, CoraInvoiceResponse } from '@/lib/types';
 import { doc, Timestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { getAccountBalance, getAccountData, getBankStatement, refreshCoraToken, initiatePayment, issueInvoice } from './actions';
@@ -31,7 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, isWeekend, addDays, startOfToday } from 'date-fns';
+import { format, addDays, startOfToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -41,10 +39,8 @@ import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
 import { Label } from '@/components/ui/label';
 import { v4 as uuidv4 } from 'uuid';
-import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Image from 'next/image';
 
@@ -798,7 +794,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                             </div>
 
                             {statement && (
-                                statement.entries.length > 0 ? (
+                                (statement.entries?.length ?? 0) > 0 ? (
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -808,7 +804,7 @@ function CoraAccountDetails({ token }: { token: CoraToken }) {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {statement.entries.map((entry) => {
+                                        {statement.entries!.map((entry) => {
                                             const date = new Date(entry.createdAt);
                                             const formattedDate = !isNaN(date.getTime()) 
                                             ? format(date, "dd/MM/yyyy HH:mm", { locale: ptBR }) 
