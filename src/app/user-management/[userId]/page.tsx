@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -57,7 +58,8 @@ const modules: ModuleConfig[] = [
     title: 'Suprimentos',
     icon: Package,
     permissions: [
-      { key: 'suppliesStock', label: 'Controle de Estoque' },
+      { key: 'suppliesStock', label: 'Cadastro de Itens' },
+      { key: 'stockCategories', label: 'Cadastro de Categorias' },
       { key: 'addresses', label: 'Locais de Armazenamento' },
     ]
   },
@@ -99,7 +101,7 @@ function UserAccessControlContent() {
     'Financeiro': true,
     'Recursos Humanos': false,
     'Operacional': true,
-    'Suprimentos': false,
+    'Suprimentos': true,
     'Administração': false,
     'Geral & Configurações': false,
   });

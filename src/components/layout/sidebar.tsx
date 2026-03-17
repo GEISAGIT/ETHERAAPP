@@ -34,7 +34,8 @@ import {
   Boxes,
   MapPin,
   ClipboardList,
-  CheckCircle
+  CheckCircle,
+  Tag
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -63,7 +64,8 @@ const hrMenuItems = [
 ];
 
 const suppliesMenuItems = [
-  { key: 'suppliesStock' as MenuItemKey, href: '/supplies/stock', label: 'Controle de Estoque', icon: Boxes },
+  { key: 'suppliesStock' as MenuItemKey, href: '/supplies/stock', label: 'Cadastro de Itens', icon: Boxes },
+  { key: 'stockCategories' as MenuItemKey, href: '/supplies/categories', label: 'Cadastro de Categorias', icon: Tag },
   { key: 'addresses' as MenuItemKey, href: '/settings/addresses', label: 'Locais de Armazenamento', icon: MapPin },
 ];
 
@@ -233,7 +235,7 @@ export function AppSidebar() {
         )}
 
         {suppliesItems.length > 0 && (
-          <Collapsible asChild defaultOpen={false} className="group/collapsible">
+          <Collapsible asChild defaultOpen={true} className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 text-primary font-bold uppercase tracking-wider text-[11px] cursor-pointer hover:bg-sidebar-accent/50 rounded-sm transition-colors py-2">

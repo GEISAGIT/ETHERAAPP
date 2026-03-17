@@ -12,7 +12,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, PlusCircle, CalendarIcon, Box } from 'lucide-react';
+import { Loader2, PlusCircle, CalendarIcon, Box, Tag } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -40,7 +40,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { StorageLocation } from '@/lib/types';
+import type { StorageLocation, StockCategory } from '@/lib/types';
 
 const formSchema = z.object({
   name: z.string().min(2, 'O nome do item é obrigatório.'),
@@ -60,13 +60,21 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
   const firestore = useFirestore();
   const { user } = useUser();
 
-  // Buscar locais de armazenamento para o Select
+  // Buscar locais de armazenamento
   const locationsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'storageLocations'));
   }, [firestore, user]);
 
   const { data: locations } = useCollection<StorageLocation>(locationsQuery);
+
+  // Buscar categorias de suprimentos
+  const categoriesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'stockCategories'));
+  }, [firestore, user]);
+
+  const { data: categories } = useCollection<StockCategory>(categoriesQuery);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -141,11 +149,12 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
                         <SelectContent>
-                        <SelectItem value="Materiais Médicos">Materiais Médicos</SelectItem>
-                        <SelectItem value="Medicamentos">Medicamentos</SelectItem>
-                        <SelectItem value="Escritório">Escritório</SelectItem>
-                        <SelectItem value="Limpeza">Limpeza</SelectItem>
-                        <SelectItem value="Outros">Outros</SelectItem>
+                        {categories?.map(cat => (
+                            <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                        ))}
+                        {(!categories || categories.length === 0) && (
+                            <SelectItem value="none" disabled>Nenhuma categoria cadastrada</SelectItem>
+                        )}
                         </SelectContent>
                     </Select>
                     <FormMessage />

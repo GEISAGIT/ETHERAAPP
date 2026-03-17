@@ -84,6 +84,15 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "title", "requesterId", "status"]
+    },
+    "StockCategory": {
+      "title": "Stock Category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"]
     }
   },
   "auth": {
@@ -100,6 +109,10 @@
     "/users/{userId}": {
       "schema": "#/backend/entities/User",
       "description": "User profiles and permissions."
+    },
+    "/stockCategories/{categoryId}": {
+      "schema": "#/backend/entities/StockCategory",
+      "description": "Categories for stock items."
     }
   }
 }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Timestamp } from 'firebase/firestore';
@@ -92,6 +93,7 @@ export type Permissions = {
   hrTimesheet: CrudActions;
   // Suprimentos
   suppliesStock: CrudActions;
+  stockCategories: CrudActions;
   addresses: CrudActions;
   // Operacional
   activities: CrudActions;
@@ -287,6 +289,11 @@ export type StockItem = {
   updatedBy: string;
 }
 
+export type StockCategory = {
+  id: string;
+  name: string;
+}
+
 export type CoraToken = {
     userId: string;
     accessToken: string;
@@ -345,8 +352,6 @@ export type CoraPaymentInitiationResponse = {
     amount: number;
     creditor: { name: string };
 };
-
-// --- Activities Types ---
 
 export type ActivityStatus = 'pending' | 'in_progress' | 'waiting_validation' | 'completed' | 'rework';
 export type ActivityPriority = 'low' | 'medium' | 'high' | 'urgent';

@@ -30,20 +30,15 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // allow get para o próprio usuário ou admin
       allow get: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'view'));
-      // allow list para qualquer logado (necessário para selecionar responsáveis em atividades/filtros)
       allow list: if isSignedIn();
-      // allow write apenas para o próprio ou master/admin
       allow write: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'edit'));
 
-      // Regras para tokens da Cora (subcoleção)
       match /coraTokens/{tokenId} {
         allow read, write: if isSignedIn() && (request.auth.uid == userId || isMaster());
       }
     }
 
-    // Gestão de Atividades
     match /activities/{activityId} {
       allow read: if isSignedIn() && (isMaster() || hasPermission('activities', 'view'));
       allow create: if isSignedIn() && (isMaster() || hasPermission('activities', 'create'));
@@ -51,7 +46,6 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (isMaster() || hasPermission('activities', 'delete'));
     }
 
-    // Registros de Cartão de Ponto
     match /timeEntries/{entryId} {
       allow list: if isSignedIn() && (
         isMaster() || 
@@ -74,7 +68,6 @@ service cloud.firestore {
       allow delete: if isMaster() || hasPermission('hrTimesheet', 'delete') || hasPermission('timeCard', 'delete');
     }
 
-    // Registros de Controle de Ponto (Biometria/Foto)
     match /attendanceRecords/{recordId} {
       allow list: if isSignedIn() && (
         isMaster() || 
@@ -115,28 +108,26 @@ service cloud.firestore {
       allow read: if isSignedIn() && (isMaster() || hasPermission('contracts', 'view'));
       allow create: if isMaster() || hasPermission('contracts', 'create');
       allow update: if isMaster() || hasPermission('contracts', 'edit');
-      allow delete: if isMaster() || hasPermission('contracts', 'delete');
-    }
-
-    match /budgets/{docId} {
-      allow read: if isSignedIn() && (isMaster() || hasPermission('budgets', 'view'));
-      allow create: if isMaster() || hasPermission('budgets', 'create');
-      allow update: if isMaster() || hasPermission('budgets', 'edit');
-      allow delete: if isMaster() || hasPermission('budgets', 'delete');
+      allow delete: if isMaster() || hasPermission('contracts', 'delete'));
     }
 
     match /stock/{docId} {
       allow read: if isSignedIn() && (isMaster() || hasPermission('suppliesStock', 'view'));
       allow create: if isMaster() || hasPermission('suppliesStock', 'create');
       allow update: if isMaster() || hasPermission('suppliesStock', 'edit');
-      allow delete: if isMaster() || hasPermission('suppliesStock', 'delete');
+      allow delete: if isMaster() || hasPermission('suppliesStock', 'delete'));
+    }
+
+    match /stockCategories/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isMaster() || hasPermission('suppliesStock', 'edit');
     }
 
     match /storageLocations/{docId} {
       allow read: if isSignedIn() && (isMaster() || hasPermission('addresses', 'view'));
       allow create: if isMaster() || hasPermission('addresses', 'create');
       allow update: if isMaster() || hasPermission('addresses', 'edit');
-      allow delete: if isMaster() || hasPermission('addresses', 'delete');
+      allow delete: if isMaster() || hasPermission('addresses', 'delete'));
     }
 
     match /incomeCategories/{docId} { 
@@ -153,7 +144,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && (isMaster() || hasPermission('employees', 'view') || hasPermission('hrTimesheet', 'view')); 
       allow create: if isMaster() || hasPermission('employees', 'create') || hasPermission('hrTimesheet', 'create');
       allow update: if isMaster() || hasPermission('employees', 'edit') || hasPermission('hrTimesheet', 'edit');
-      allow delete: if isMaster() || hasPermission('employees', 'delete') || hasPermission('hrTimesheet', 'delete');
+      allow delete: if isMaster() || hasPermission('employees', 'delete') || hasPermission('hrTimesheet', 'delete'));
     }
     
     match /roles/{docId} { 
