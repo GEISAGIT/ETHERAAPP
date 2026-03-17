@@ -60,7 +60,6 @@ const formSchema = z.object({
   batch: z.string().min(1, 'Informe o lote da mercadoria.'),
   manufacturingDate: z.date().optional(),
   expiryDate: z.date().optional(),
-  ampuleQuantity: z.coerce.number().optional(),
   doseQuantity: z.coerce.number().optional(),
 });
 
@@ -97,7 +96,6 @@ export function StockEntryDialog({
       addedQuantity: 0,
       locationId: '',
       batch: '',
-      ampuleQuantity: 0,
       doseQuantity: 0,
     },
   });
@@ -118,7 +116,6 @@ export function StockEntryDialog({
         addedQuantity: 0,
         locationId: initialItem?.locationId || '',
         batch: initialItem?.batch || '',
-        ampuleQuantity: initialItem?.ampuleQuantity || 0,
         doseQuantity: initialItem?.doseQuantity || 0,
       });
     }
@@ -132,7 +129,6 @@ export function StockEntryDialog({
 
       const stockRef = doc(firestore, 'stock', values.itemId);
       
-      // A quantidade adicionada é somada ao saldo total (quantity)
       const updateData: any = {
         quantity: increment(values.addedQuantity),
         locationId: values.locationId,
@@ -146,7 +142,6 @@ export function StockEntryDialog({
       };
 
       if (isMedication) {
-        updateData.ampuleQuantity = values.ampuleQuantity;
         updateData.doseQuantity = values.doseQuantity;
       }
 
@@ -171,7 +166,7 @@ export function StockEntryDialog({
             <ArrowUpCircle className="h-5 w-5" />
             Entrada de Estoque
           </DialogTitle>
-          <DialogDescription>A quantidade abaixo será somada ao saldo atual do item.</DialogDescription>
+          <DialogDescription>O valor informado abaixo será somado ao saldo atual disponível.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -245,7 +240,7 @@ export function StockEntryDialog({
                 name="addedQuantity"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Quantidade que Entrou</FormLabel>
+                    <FormLabel>Quantidade Final ({selectedItem?.unit || 'un'})</FormLabel>
                     <FormControl>
                         <Input type="number" placeholder="0" {...field} />
                     </FormControl>
@@ -269,39 +264,25 @@ export function StockEntryDialog({
             </div>
 
             {isMedication && (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-4">
-                <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
-                  <Pill className="h-4 w-4" />
-                  Composição do Medicamento
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-primary font-bold text-[10px] uppercase tracking-wider mb-2">
+                  <Pill className="h-3.5 w-3.5" />
+                  Especificação do Medicamento
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="ampuleQuantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-[11px] uppercase text-muted-foreground">Qtd. Ampolas/Frascos p/ un.</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="Ex: 10" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="doseQuantity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-[11px] uppercase text-muted-foreground">Volume da Dose (ml/mg)</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="Ex: 5" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="doseQuantity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[11px] uppercase text-muted-foreground">Volume da Dose / Frasco (ml/mg)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="Ex: 5" {...field} />
+                      </FormControl>
+                      <p className="text-[9px] text-muted-foreground italic">Apenas informativo. O saldo é controlado pela Quantidade Final acima.</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             )}
 
@@ -310,7 +291,7 @@ export function StockEntryDialog({
               name="locationId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Onde será armazenado?</FormLabel>
+                  <FormLabel>Local de Armazenamento</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Selecione o local..." /></SelectTrigger></FormControl>
                     <SelectContent>
