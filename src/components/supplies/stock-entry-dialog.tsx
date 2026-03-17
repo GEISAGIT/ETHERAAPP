@@ -51,6 +51,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
+import { Badge } from '@/components/ui/badge';
 import type { StockItem, StorageLocation } from '@/lib/types';
 
 const formSchema = z.object({
