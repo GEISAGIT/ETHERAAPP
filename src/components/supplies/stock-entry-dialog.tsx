@@ -69,11 +69,13 @@ type FormValues = z.infer<typeof formSchema>;
 export function StockEntryDialog({ 
   open, 
   onOpenChange, 
-  items 
+  items,
+  initialItem 
 }: { 
   open: boolean, 
   onOpenChange: (open: boolean) => void,
-  items: StockItem[]
+  items: StockItem[],
+  initialItem?: StockItem | null
 }) {
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -91,7 +93,7 @@ export function StockEntryDialog({
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      itemId: '',
+      itemId: initialItem?.id || '',
       addedQuantity: 0,
       locationId: '',
       batch: '',
@@ -101,16 +103,26 @@ export function StockEntryDialog({
   });
 
   const selectedItemId = useWatch({ control: form.control, name: 'itemId' });
-  const selectedItem = useMemo(() => items.find(i => i.id === selectedItemId), [items, selectedItemId]);
+  const selectedItem = useMemo(() => 
+    items.find(i => i.id === selectedItemId) || initialItem
+  , [items, selectedItemId, initialItem]);
+
   const isMedication = useMemo(() => 
     selectedItem?.category.toUpperCase().includes('MEDICAMENTO')
   , [selectedItem]);
 
   useEffect(() => {
-    if (!open) {
-      form.reset();
+    if (open) {
+      form.reset({
+        itemId: initialItem?.id || '',
+        addedQuantity: 0,
+        locationId: initialItem?.locationId || '',
+        batch: initialItem?.batch || '',
+        ampuleQuantity: initialItem?.ampuleQuantity || 0,
+        doseQuantity: initialItem?.doseQuantity || 0,
+      });
     }
-  }, [open, form]);
+  }, [open, initialItem, form]);
 
   const onSubmit = async (values: FormValues) => {
     if (!user || !firestore) return;
@@ -120,6 +132,7 @@ export function StockEntryDialog({
 
       const stockRef = doc(firestore, 'stock', values.itemId);
       
+      // A quantidade adicionada é somada ao saldo total (quantity)
       const updateData: any = {
         quantity: increment(values.addedQuantity),
         locationId: values.locationId,
@@ -154,11 +167,11 @@ export function StockEntryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-headline flex items-center gap-2 text-primary">
+          <DialogTitle className="font-headline flex items-center gap-2 text-emerald-600">
             <ArrowUpCircle className="h-5 w-5" />
             Entrada de Estoque
           </DialogTitle>
-          <DialogDescription>Atualize o saldo, local e validade do item.</DialogDescription>
+          <DialogDescription>A quantidade abaixo será somada ao saldo atual do item.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -167,7 +180,7 @@ export function StockEntryDialog({
               name="itemId"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Localizar Item</FormLabel>
+                  <FormLabel>Item para Reposição</FormLabel>
                   <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -178,6 +191,7 @@ export function StockEntryDialog({
                             "w-full justify-between",
                             !field.value && "text-muted-foreground"
                           )}
+                          disabled={!!initialItem}
                         >
                           {field.value
                             ? items.find((item) => item.id === field.value)?.name
@@ -211,7 +225,7 @@ export function StockEntryDialog({
                                 />
                                 <div className="flex flex-col">
                                     <span>{item.name}</span>
-                                    <span className="text-[10px] text-muted-foreground uppercase">{item.category} | Atual: {item.quantity} {item.unit}</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase">{item.category} | Saldo: {item.quantity} {item.unit}</span>
                                 </div>
                               </CommandItem>
                             ))}
@@ -231,7 +245,7 @@ export function StockEntryDialog({
                 name="addedQuantity"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Qtd. Entrada</FormLabel>
+                    <FormLabel>Quantidade que Entrou</FormLabel>
                     <FormControl>
                         <Input type="number" placeholder="0" {...field} />
                     </FormControl>
@@ -244,7 +258,7 @@ export function StockEntryDialog({
                 name="batch"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Lote</FormLabel>
+                    <FormLabel>Número do Lote</FormLabel>
                     <FormControl>
                         <Input placeholder="Ex: LT-2024" {...field} />
                     </FormControl>
@@ -266,7 +280,7 @@ export function StockEntryDialog({
                     name="ampuleQuantity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-[11px] uppercase text-muted-foreground">Qtd. Ampolas/Frascos</FormLabel>
+                        <FormLabel className="text-[11px] uppercase text-muted-foreground">Qtd. Ampolas/Frascos p/ un.</FormLabel>
                         <FormControl>
                           <Input type="number" placeholder="Ex: 10" {...field} />
                         </FormControl>
@@ -296,8 +310,8 @@ export function StockEntryDialog({
               name="locationId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Destino (Local de Armazenamento)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormLabel>Onde será armazenado?</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Selecione o local..." /></SelectTrigger></FormControl>
                     <SelectContent>
                       {locations?.map(loc => (
@@ -317,7 +331,7 @@ export function StockEntryDialog({
                 name="manufacturingDate"
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
-                    <FormLabel>Data de Fabricação</FormLabel>
+                    <FormLabel>Fabricação</FormLabel>
                     <Popover modal>
                         <PopoverTrigger asChild>
                         <FormControl>
@@ -340,7 +354,7 @@ export function StockEntryDialog({
                 name="expiryDate"
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
-                    <FormLabel>Data de Validade</FormLabel>
+                    <FormLabel>Validade</FormLabel>
                     <Popover modal>
                         <PopoverTrigger asChild>
                         <FormControl>
@@ -362,7 +376,7 @@ export function StockEntryDialog({
 
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="ghost">Cancelar</Button></DialogClose>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" disabled={form.formState.isSubmitting} className="bg-emerald-600 hover:bg-emerald-700">
                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Confirmar Entrada
               </Button>

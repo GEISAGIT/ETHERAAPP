@@ -13,6 +13,7 @@ import {
     Package, 
     AlertTriangle, 
     ArrowUpCircle, 
+    ArrowDownCircle,
     Box,
     Calendar,
     XCircle,
@@ -38,6 +39,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AddStockItemDialog } from './add-stock-item-dialog';
 import { StockEntryDialog } from './stock-entry-dialog';
+import { StockOutDialog } from './stock-out-dialog';
 import { useFirestore, deleteDocumentNonBlocking } from '@/firebase';
 import { doc, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +50,8 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEntryOpen, setIsEntryOpen] = useState(false);
+  const [isOutOpen, setIsOutOpen] = useState(false);
+  const [selectedItemForAction, setSelectedItemForAction] = useState<StockItem | null>(null);
 
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -90,10 +94,31 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
     return <Badge variant="secondary" className="text-emerald-600 bg-emerald-500/10 border-emerald-500/20 gap-1 px-1.5 py-0 text-[10px]"><CheckCircle2 className="h-3 w-3" /> No Prazo</Badge>;
   };
 
+  const handleOpenEntry = (item?: StockItem) => {
+    setSelectedItemForAction(item || null);
+    setIsEntryOpen(true);
+  };
+
+  const handleOpenOut = (item?: StockItem) => {
+    setSelectedItemForAction(item || null);
+    setIsOutOpen(true);
+  };
+
   return (
     <div className="space-y-8">
       <AddStockItemDialog open={isAddOpen} onOpenChange={setIsAddOpen} />
-      <StockEntryDialog open={isEntryOpen} onOpenChange={setIsEntryOpen} items={data} />
+      <StockEntryDialog 
+        open={isEntryOpen} 
+        onOpenChange={setIsEntryOpen} 
+        items={data} 
+        initialItem={selectedItemForAction} 
+      />
+      <StockOutDialog 
+        open={isOutOpen} 
+        onOpenChange={setIsOutOpen} 
+        items={data} 
+        initialItem={selectedItemForAction} 
+      />
 
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
@@ -103,7 +128,11 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
         <div className="flex items-center gap-2">
           {canCreate && (
             <>
-              <Button variant="outline" onClick={() => setIsEntryOpen(true)}>
+              <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleOpenOut()}>
+                <ArrowDownCircle className="mr-2 h-4 w-4" />
+                Registrar Saída
+              </Button>
+              <Button variant="outline" className="text-emerald-600 border-emerald-200 hover:bg-emerald-50" onClick={() => handleOpenEntry()}>
                 <ArrowUpCircle className="mr-2 h-4 w-4" />
                 Entrada de Estoque
               </Button>
@@ -161,7 +190,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
                 <TableHead>Item / Categoria</TableHead>
                 <TableHead>Lote</TableHead>
                 <TableHead>Localização</TableHead>
-                <TableHead className="text-center">Qtd.</TableHead>
+                <TableHead className="text-center">Saldo Atual</TableHead>
                 <TableHead>Validade</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
@@ -237,12 +266,14 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Gerenciar Item</DropdownMenuLabel>
-                              {canEdit && (
-                                <DropdownMenuItem onClick={() => setIsEntryOpen(true)}>
-                                  <ArrowUpCircle className="mr-2 h-4 w-4 text-emerald-600" />
-                                  Registrar Entrada
-                                </DropdownMenuItem>
-                              )}
+                              <DropdownMenuItem onClick={() => handleOpenOut(item)}>
+                                <ArrowDownCircle className="mr-2 h-4 w-4 text-red-600" />
+                                Registrar Saída
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenEntry(item)}>
+                                <ArrowUpCircle className="mr-2 h-4 w-4 text-emerald-600" />
+                                Registrar Entrada
+                              </DropdownMenuItem>
                               {canDelete && (
                                 <DropdownMenuItem onClick={() => handleDelete(item)} className="text-red-600 focus:text-red-600">
                                   <Trash2 className="mr-2 h-4 w-4" />
