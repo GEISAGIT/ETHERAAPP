@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, ArrowUpCircle, Check, ChevronsUpDown, CalendarIcon, Tag, Package } from 'lucide-react';
+import { Loader2, ArrowUpCircle, Check, ChevronsUpDown, CalendarIcon, Box } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -34,21 +34,29 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, updateDocumentNonBlocking } from '@/firebase';
-import { doc, increment, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { useFirestore, useUser, updateDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, increment, serverTimestamp, Timestamp, query, doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar';
-import type { StockItem } from '@/lib/types';
+import type { StockItem, StorageLocation } from '@/lib/types';
 
 const formSchema = z.object({
   itemId: z.string().min(1, 'Selecione um item.'),
   addedQuantity: z.coerce.number().positive('A quantidade deve ser maior que zero.'),
+  locationId: z.string().min(1, 'Selecione o local de armazenamento.'),
   batch: z.string().min(1, 'Informe o lote da mercadoria.'),
   manufacturingDate: z.date().optional(),
   expiryDate: z.date().optional(),
@@ -70,11 +78,20 @@ export function StockEntryDialog({
   const { user } = useUser();
   const [comboboxOpen, setComboboxOpen] = useState(false);
 
+  // Buscar locais de armazenamento
+  const locationsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'storageLocations'));
+  }, [firestore, user]);
+
+  const { data: locations } = useCollection<StorageLocation>(locationsQuery);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       itemId: '',
       addedQuantity: 0,
+      locationId: '',
       batch: '',
     },
   });
@@ -90,12 +107,16 @@ export function StockEntryDialog({
 
     try {
       const selectedItem = items.find(i => i.id === values.itemId);
+      const selectedLocation = locations?.find(l => l.id === values.locationId);
+      
       if (!selectedItem) throw new Error('Item não encontrado');
 
       const stockRef = doc(firestore, 'stock', values.itemId);
       
       updateDocumentNonBlocking(stockRef, {
         quantity: increment(values.addedQuantity),
+        locationId: values.locationId,
+        locationName: selectedLocation?.name || 'Não definido',
         batch: values.batch,
         manufacturingDate: values.manufacturingDate ? Timestamp.fromDate(values.manufacturingDate) : null,
         expiryDate: values.expiryDate ? Timestamp.fromDate(values.expiryDate) : null,
@@ -106,7 +127,7 @@ export function StockEntryDialog({
       
       toast({ 
         title: 'Entrada Registrada', 
-        description: `Adicionado ${values.addedQuantity} ${selectedItem.unit} ao item ${selectedItem.name}. Lote: ${values.batch}` 
+        description: `Adicionado ${values.addedQuantity} ${selectedItem.unit} ao item ${selectedItem.name}.` 
       });
       onOpenChange(false);
     } catch (error) {
@@ -121,9 +142,9 @@ export function StockEntryDialog({
         <DialogHeader>
           <DialogTitle className="font-headline flex items-center gap-2 text-primary">
             <ArrowUpCircle className="h-5 w-5" />
-            Entrada de Estoque (Reposição)
+            Entrada de Estoque
           </DialogTitle>
-          <DialogDescription>Atualize o saldo e as informações de lote de um item existente.</DialogDescription>
+          <DialogDescription>Atualize o saldo, local e validade do item.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -198,7 +219,7 @@ export function StockEntryDialog({
                     <FormItem>
                     <FormLabel>Qtd. Entrada</FormLabel>
                     <FormControl>
-                        <Input type="number" placeholder="Ex: 10" {...field} />
+                        <Input type="number" placeholder="0" {...field} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -209,15 +230,35 @@ export function StockEntryDialog({
                 name="batch"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Número do Lote</FormLabel>
+                    <FormLabel>Lote</FormLabel>
                     <FormControl>
-                        <Input placeholder="Ex: LT-2024-01" {...field} />
+                        <Input placeholder="Ex: LT-2024" {...field} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
                 )}
                 />
             </div>
+
+            <FormField
+              control={form.control}
+              name="locationId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Destino (Local de Armazenamento)</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Selecione o local..." /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      {locations?.map(loc => (
+                        <SelectItem key={loc.id} value={loc.id}>{loc.name} ({loc.description})</SelectItem>
+                      ))}
+                      {(!locations || locations.length === 0) && <SelectItem value="none" disabled>Nenhum local cadastrado</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-dashed">
                 <FormField
@@ -248,7 +289,7 @@ export function StockEntryDialog({
                 name="expiryDate"
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
-                    <FormLabel>Nova Validade</FormLabel>
+                    <FormLabel>Data de Validade</FormLabel>
                     <Popover modal>
                         <PopoverTrigger asChild>
                         <FormControl>
