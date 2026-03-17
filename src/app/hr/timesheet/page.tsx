@@ -81,7 +81,7 @@ function HRTimesheetContent() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   
-  const logoUrl = 'https://firebasestorage.googleapis.com/v0/b/studio-1445297951-c95ca.firebasestorage.app/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media&token=c68144ba-c10e-4921-8fe7-eb791d34eebe';
+  const logoUrl = 'https://firebasestorage.googleapis.com/v0/b/clinicflow-api-banc-3871-3813b.appspot.com/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media';
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [activeTab, setActiveTab] = useState('attendance');
@@ -375,13 +375,19 @@ function HRTimesheetContent() {
     };
   }, [fullHistory, formData.workSchedule, formData.adjustments]);
 
-  // Coleta todas as batidas que possuem justificativa (manual ou editada)
+  // Coleta as batidas justificadas para a legenda detalhada (com horário e data)
   const justifiedPunches = useMemo(() => {
-    const list: { date: Date; type: AttendanceType; notes: string }[] = [];
+    const list: { date: Date; type: AttendanceType; time: string; notes: string }[] = [];
     fullHistory.forEach(day => {
       day.records.forEach(r => {
-        if (r.notes) {
-          list.push({ date: day.date, type: r.type, notes: r.notes });
+        if (r.notes || r.manual) {
+          const time = format(r.timestamp instanceof Timestamp ? r.timestamp.toDate() : new Date(r.timestamp), 'HH:mm');
+          list.push({ 
+            date: day.date, 
+            type: r.type, 
+            time, 
+            notes: r.notes || 'Marcação Manual / Ajuste Administrativo' 
+          });
         }
       });
     });
@@ -412,8 +418,8 @@ function HRTimesheetContent() {
         {record ? (
           <div className="flex items-center justify-center gap-1 print:gap-0 print:block">
             <span className={cn("text-xs font-medium print:text-[7.5pt]", record.manual && "text-amber-600")}>
-              {format(record.timestamp.toDate(), 'HH:mm')}
-              {isJustified && <span className="text-[10px] ml-0.5 align-top text-primary font-bold">*</span>}
+              {format(record.timestamp instanceof Timestamp ? record.timestamp.toDate() : new Date(record.timestamp), 'HH:mm')}
+              {isJustified && <span className="text-[10px] ml-0.5 align-top text-primary font-bold" title="Marcação com justificativa">*</span>}
             </span>
             {record.notes && (
               <TooltipProvider>
@@ -432,7 +438,7 @@ function HRTimesheetContent() {
                 className="h-6 w-6 text-primary hover:bg-primary/10"
                 onClick={() => {
                   setEditingPunch(record);
-                  setEditPunchTime(format(record.timestamp.toDate(), 'HH:mm'));
+                  setEditPunchTime(format(record.timestamp instanceof Timestamp ? record.timestamp.toDate() : new Date(record.timestamp), 'HH:mm'));
                   setEditPunchNotes(record.notes || '');
                   setIsEditPunchOpen(true);
                 }}
@@ -777,16 +783,16 @@ function HRTimesheetContent() {
                   </div>
                 </div>
 
-                {/* Seção de Notas Explicativas (Asteriscos) */}
+                {/* Seção de Notas Explicativas Refinada (Visível na tela e na impressão) */}
                 {justifiedPunches.length > 0 && (
                   <div className="mt-4 p-4 border-t border-black print:mt-2 print:p-2">
-                    <h4 className="text-[10px] font-bold uppercase mb-2 flex items-center gap-2">
+                    <h4 className="text-[10px] font-bold uppercase mb-2 flex items-center gap-2 text-primary">
                       <MessageSquare className="h-3 w-3" /> Observações e Justificativas de Ajustes
                     </h4>
                     <div className="grid grid-cols-1 gap-1">
                       {justifiedPunches.map((jp, i) => (
-                        <p key={i} className="text-[9px] print:text-[7pt] text-muted-foreground italic">
-                          <span className="font-bold text-primary">*</span> {format(jp.date, 'dd/MM')} - {ATTENDANCE_LABELS[jp.type]}: {jp.notes}
+                        <p key={i} className="text-[9px] print:text-[7pt] text-muted-foreground italic leading-tight">
+                          <span className="font-bold text-primary">*</span> {format(jp.date, 'dd/MM')} - {ATTENDANCE_LABELS[jp.type]} às {jp.time}: {jp.notes}
                         </p>
                       ))}
                     </div>

@@ -82,8 +82,8 @@ function TimeTrackingContent() {
         return isSameDay(date, today);
       })
       .sort((a, b) => {
-        const tA = a.timestamp instanceof Timestamp ? a.timestamp.toMillis() : new Date(a.timestamp).getTime();
-        const tB = b.timestamp instanceof Timestamp ? b.timestamp.toMillis() : new Date(b.timestamp).getTime();
+        const tA = a.timestamp instanceof Timestamp ? a.timestamp.toMillis() : new Date(r.timestamp).getTime();
+        const tB = b.timestamp instanceof Timestamp ? b.timestamp.toMillis() : new Date(r.timestamp).getTime();
         return tA - tB;
       });
   }, [allRecords]);
@@ -192,13 +192,19 @@ function TimeTrackingContent() {
     })).sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [allRecords]);
 
-  // Coleta as batidas justificadas para a legenda
+  // Coleta as batidas justificadas para a legenda detalhada
   const justifiedPunches = useMemo(() => {
-    const list: { date: Date; type: AttendanceType; notes: string }[] = [];
+    const list: { date: Date; type: AttendanceType; time: string; notes: string }[] = [];
     groupedHistory.forEach(day => {
       day.records.forEach(r => {
-        if (r.notes) {
-          list.push({ date: day.date, type: r.type, notes: r.notes });
+        if (r.notes || r.manual) {
+          const time = format(r.timestamp instanceof Timestamp ? r.timestamp.toDate() : new Date(r.timestamp), 'HH:mm');
+          list.push({ 
+            date: day.date, 
+            type: r.type, 
+            time, 
+            notes: r.notes || 'Marcação Manual / Ajuste Administrativo' 
+          });
         }
       });
     });
@@ -206,17 +212,22 @@ function TimeTrackingContent() {
   }, [groupedHistory]);
 
   const calculateTotalHours = (records: AttendanceRecord[]) => {
-    const clockIn = records.find(r => r.type === 'clock_in')?.timestamp.toDate();
-    const breakStart = records.find(r => r.type === 'break_start')?.timestamp.toDate();
-    const breakEnd = records.find(r => r.type === 'break_end')?.timestamp.toDate();
-    const clockOut = records.find(r => r.type === 'clock_out')?.timestamp.toDate();
+    const clockIn = records.find(r => r.type === 'clock_in')?.timestamp;
+    const breakStart = records.find(r => r.type === 'break_start')?.timestamp;
+    const breakEnd = records.find(r => r.type === 'break_end')?.timestamp;
+    const clockOut = records.find(r => r.type === 'clock_out')?.timestamp;
 
     if (!clockIn || !clockOut) return "--:--";
 
-    let totalMinutes = differenceInMinutes(clockOut, clockIn);
+    const dIn = clockIn instanceof Timestamp ? clockIn.toDate() : new Date(clockIn);
+    const dOut = clockOut instanceof Timestamp ? clockOut.toDate() : new Date(clockOut);
+
+    let totalMinutes = differenceInMinutes(dOut, dIn);
     
     if (breakStart && breakEnd) {
-      const breakMinutes = differenceInMinutes(breakEnd, breakStart);
+      const dBs = breakStart instanceof Timestamp ? breakStart.toDate() : new Date(breakStart);
+      const dBe = breakEnd instanceof Timestamp ? breakEnd.toDate() : new Date(breakEnd);
+      const breakMinutes = differenceInMinutes(dBe, dBs);
       totalMinutes -= breakMinutes;
     }
 
@@ -234,7 +245,7 @@ function TimeTrackingContent() {
     return (
       <span className="flex items-center gap-0.5">
         {time}
-        {isJustified && <span className="text-[10px] align-top text-primary font-bold">*</span>}
+        {isJustified && <span className="text-[10px] align-top text-primary font-bold" title="Marcação com justificativa">*</span>}
       </span>
     );
   };
@@ -483,10 +494,10 @@ function TimeTrackingContent() {
                       <h4 className="text-xs font-bold uppercase mb-2 flex items-center gap-2 text-primary">
                         <MessageSquare className="h-3 w-3" /> Notas Explicativas de Ajustes
                       </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
+                      <div className="grid grid-cols-1 gap-y-1">
                         {justifiedPunches.map((jp, i) => (
                           <p key={i} className="text-[11px] text-muted-foreground italic leading-tight">
-                            <span className="font-bold text-primary">*</span> {format(jp.date, 'dd/MM')} - {ATTENDANCE_LABELS[jp.type]}: {jp.notes}
+                            <span className="font-bold text-primary">*</span> {format(jp.date, 'dd/MM')} - {ATTENDANCE_LABELS[jp.type]} às {jp.time}: {jp.notes}
                           </p>
                         ))}
                       </div>
