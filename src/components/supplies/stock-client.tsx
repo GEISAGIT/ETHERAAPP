@@ -13,12 +13,11 @@ import {
     Package, 
     AlertTriangle, 
     ArrowUpCircle, 
-    ArrowDownCircle,
     Box,
     Calendar,
     XCircle,
     CheckCircle2,
-    Plus
+    Hash
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -62,7 +61,8 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
     return data.filter(item => 
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.locationName && item.locationName.toLowerCase().includes(searchTerm.toLowerCase()))
+        (item.locationName && item.locationName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.batch && item.batch.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [data, searchTerm]);
 
@@ -98,7 +98,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Controle de Estoque</h1>
-          <p className="text-muted-foreground">Gerencie o inventário com controle de localização e validade.</p>
+          <p className="text-muted-foreground">Gerencie o inventário com controle de localização, lote e validade.</p>
         </div>
         <div className="flex items-center gap-2">
           {canCreate && (
@@ -145,7 +145,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por item, categoria ou local..."
+            placeholder="Buscar por item, lote ou local..."
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -159,6 +159,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
             <TableHeader>
               <TableRow>
                 <TableHead>Item / Categoria</TableHead>
+                <TableHead>Lote</TableHead>
                 <TableHead>Localização</TableHead>
                 <TableHead className="text-center">Qtd.</TableHead>
                 <TableHead>Validade</TableHead>
@@ -169,7 +170,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
             <TableBody>
               {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                     Nenhum item encontrado no estoque.
                   </TableCell>
                 </TableRow>
@@ -182,6 +183,12 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
                         <div className="flex flex-col">
                           <span className="font-bold text-foreground">{item.name}</span>
                           <span className="text-[10px] uppercase text-muted-foreground">{item.category}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 text-xs font-mono">
+                            <Hash className="h-3 w-3 text-muted-foreground" />
+                            {item.batch || '---'}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -202,7 +209,7 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
                         <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-1.5 text-xs">
                                 <Calendar className="h-3 w-3 text-muted-foreground" />
-                                {item.expiryDate ? format(item.expiryDate.toDate(), 'dd/MM/yy') : 'N/A'}
+                                {item.expiryDate ? format(item.expiryDate.toDate(), 'dd/MM/yy') : '---'}
                             </div>
                             {getExpiryBadge(item.expiryDate)}
                         </div>
@@ -231,15 +238,10 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Gerenciar Item</DropdownMenuLabel>
                               {canEdit && (
-                                <>
-                                  <DropdownMenuItem onClick={() => {
-                                    // Abrir o diálogo de entrada já com o item selecionado poderia ser uma melhoria futura
-                                    setIsEntryOpen(true);
-                                  }}>
-                                    <ArrowUpCircle className="mr-2 h-4 w-4 text-emerald-600" />
-                                    Registrar Entrada
-                                  </DropdownMenuItem>
-                                </>
+                                <DropdownMenuItem onClick={() => setIsEntryOpen(true)}>
+                                  <ArrowUpCircle className="mr-2 h-4 w-4 text-emerald-600" />
+                                  Registrar Entrada
+                                </DropdownMenuItem>
                               )}
                               {canDelete && (
                                 <DropdownMenuItem onClick={() => handleDelete(item)} className="text-red-600 focus:text-red-600">

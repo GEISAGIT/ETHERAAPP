@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Timestamp } from 'firebase/firestore';
@@ -282,6 +281,7 @@ export type StockItem = {
   unit: string;
   locationId: string;
   locationName?: string;
+  batch?: string;
   manufacturingDate?: Timestamp;
   expiryDate?: Timestamp;
   lastRestock?: Timestamp;

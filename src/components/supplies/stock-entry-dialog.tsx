@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, ArrowUpCircle, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2, ArrowUpCircle, Check, ChevronsUpDown, CalendarIcon, Tag, Package } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -39,13 +39,19 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, updateDocumentNonBlocking } from '@/firebase';
-import { doc, increment, serverTimestamp } from 'firebase/firestore';
+import { doc, increment, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Calendar } from '@/components/ui/calendar';
 import type { StockItem } from '@/lib/types';
 
 const formSchema = z.object({
   itemId: z.string().min(1, 'Selecione um item.'),
   addedQuantity: z.coerce.number().positive('A quantidade deve ser maior que zero.'),
+  batch: z.string().min(1, 'Informe o lote da mercadoria.'),
+  manufacturingDate: z.date().optional(),
+  expiryDate: z.date().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -69,6 +75,7 @@ export function StockEntryDialog({
     defaultValues: {
       itemId: '',
       addedQuantity: 0,
+      batch: '',
     },
   });
 
@@ -89,6 +96,9 @@ export function StockEntryDialog({
       
       updateDocumentNonBlocking(stockRef, {
         quantity: increment(values.addedQuantity),
+        batch: values.batch,
+        manufacturingDate: values.manufacturingDate ? Timestamp.fromDate(values.manufacturingDate) : null,
+        expiryDate: values.expiryDate ? Timestamp.fromDate(values.expiryDate) : null,
         updatedAt: serverTimestamp(),
         updatedBy: user.displayName || 'Usuário',
         lastRestock: serverTimestamp(),
@@ -96,7 +106,7 @@ export function StockEntryDialog({
       
       toast({ 
         title: 'Entrada Registrada', 
-        description: `Adicionado ${values.addedQuantity} ${selectedItem.unit} ao item ${selectedItem.name}.` 
+        description: `Adicionado ${values.addedQuantity} ${selectedItem.unit} ao item ${selectedItem.name}. Lote: ${values.batch}` 
       });
       onOpenChange(false);
     } catch (error) {
@@ -107,16 +117,16 @@ export function StockEntryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-headline flex items-center gap-2 text-primary">
             <ArrowUpCircle className="h-5 w-5" />
-            Dar Entrada no Estoque
+            Entrada de Estoque (Reposição)
           </DialogTitle>
-          <DialogDescription>Atualize a quantidade de um item que já possui cadastro.</DialogDescription>
+          <DialogDescription>Atualize o saldo e as informações de lote de um item existente.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="itemId"
@@ -166,7 +176,7 @@ export function StockEntryDialog({
                                 />
                                 <div className="flex flex-col">
                                     <span>{item.name}</span>
-                                    <span className="text-[10px] text-muted-foreground uppercase">{item.category} | Saldo: {item.quantity} {item.unit}</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase">{item.category} | Atual: {item.quantity} {item.unit}</span>
                                 </div>
                               </CommandItem>
                             ))}
@@ -180,24 +190,83 @@ export function StockEntryDialog({
               )}
             />
             
-            <FormField
-              control={form.control}
-              name="addedQuantity"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Quantidade de Entrada</FormLabel>
-                  <FormControl>
-                    <Input 
-                        type="number" 
-                        placeholder="Ex: 10" 
-                        {...field} 
-                        className="text-lg font-bold"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="addedQuantity"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Qtd. Entrada</FormLabel>
+                    <FormControl>
+                        <Input type="number" placeholder="Ex: 10" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="batch"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Número do Lote</FormLabel>
+                    <FormControl>
+                        <Input placeholder="Ex: LT-2024-01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-dashed">
+                <FormField
+                control={form.control}
+                name="manufacturingDate"
+                render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                    <FormLabel>Data de Fabricação</FormLabel>
+                    <Popover modal>
+                        <PopoverTrigger asChild>
+                        <FormControl>
+                            <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                            {field.value ? format(field.value, "dd/MM/yyyy") : <span>DD/MM/AAAA</span>}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                        </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date()} initialFocus locale={ptBR} />
+                        </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="expiryDate"
+                render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                    <FormLabel>Nova Validade</FormLabel>
+                    <Popover modal>
+                        <PopoverTrigger asChild>
+                        <FormControl>
+                            <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                            {field.value ? format(field.value, "dd/MM/yyyy") : <span>DD/MM/AAAA</span>}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                        </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={ptBR} />
+                        </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
 
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="ghost">Cancelar</Button></DialogClose>
