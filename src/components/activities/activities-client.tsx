@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -41,11 +40,12 @@ export function ActivitiesClient({ activities, userProfile }: ActivitiesClientPr
       // 1. Administrador pode ver se a opção "Mostrar Tudo" estiver ativa
       if (isAdmin) return showAllPrivate;
 
-      // 2. Usuário comum só vê se for o emissor ou o responsável
+      // 2. Usuário comum vê se for o emissor, o responsável ou visualizador convidado
       const isRequester = userProfile?.uid === activity.requesterId;
       const isAssignee = userProfile?.uid === activity.assigneeId;
+      const isViewer = activity.viewerIds?.includes(userProfile?.uid || '');
       
-      return isRequester || isAssignee;
+      return isRequester || isAssignee || isViewer;
     });
   }, [activities, searchTerm, userProfile, isAdmin, showAllPrivate]);
 

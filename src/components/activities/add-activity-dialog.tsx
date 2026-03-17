@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useMemo } from 'react';
@@ -12,7 +11,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, Lock } from 'lucide-react';
+import { Loader2, Lock, Users } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -33,13 +32,15 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, useCollection, addDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
 import type { UserManagement } from '@/lib/types';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formSchema = z.object({
   title: z.string().min(3, 'O título deve ter pelo menos 3 caracteres.'),
@@ -47,6 +48,7 @@ const formSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent'] as const),
   assigneeId: z.string().optional(),
   isPrivate: z.boolean().default(false),
+  viewerIds: z.array(z.string()).default([]),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -72,8 +74,11 @@ export function AddActivityDialog({ open, onOpenChange }: { open: boolean, onOpe
       priority: 'medium',
       assigneeId: '',
       isPrivate: false,
+      viewerIds: [],
     },
   });
+
+  const isPrivate = useWatch({ control: form.control, name: 'isPrivate' });
 
   useEffect(() => {
     if (!open) form.reset();
@@ -90,6 +95,7 @@ export function AddActivityDialog({ open, onOpenChange }: { open: boolean, onOpe
         description: values.description,
         priority: values.priority,
         isPrivate: values.isPrivate,
+        viewerIds: values.isPrivate ? values.viewerIds : [],
         status: 'pending',
         requesterId: currentUser.uid,
         requesterName: currentUser.displayName || 'Usuário',
@@ -117,7 +123,7 @@ export function AddActivityDialog({ open, onOpenChange }: { open: boolean, onOpe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-headline">Nova Atividade</DialogTitle>
           <DialogDescription>Solicite uma tarefa para você ou para outro membro da equipe.</DialogDescription>
@@ -194,15 +200,10 @@ export function AddActivityDialog({ open, onOpenChange }: { open: boolean, onOpe
               name="isPrivate"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/30">
-                  <div className="space-y-0.5">
-                    <FormLabel className="flex items-center gap-2">
-                      <Lock className="h-3 w-3 text-amber-600" />
-                      Atividade Privada
-                    </FormLabel>
-                    <FormDescription className="text-[10px]">
-                      Apenas você, o responsável e administradores poderão ver.
-                    </FormDescription>
-                  </div>
+                  <FormLabel className="flex items-center gap-2 cursor-pointer">
+                    <Lock className="h-3 w-3 text-amber-600" />
+                    Privado
+                  </FormLabel>
                   <FormControl>
                     <Switch
                       checked={field.value}
@@ -212,6 +213,36 @@ export function AddActivityDialog({ open, onOpenChange }: { open: boolean, onOpe
                 </FormItem>
               )}
             />
+
+            {isPrivate && (
+              <div className="space-y-3 rounded-lg border p-3 bg-muted/10 animate-in fade-in slide-in-from-top-1">
+                <Label className="text-xs font-bold uppercase flex items-center gap-2 text-muted-foreground">
+                  <Users className="h-3 w-3" />
+                  Visualizadores Adicionais (Opcional)
+                </Label>
+                <ScrollArea className="h-[120px] pr-2">
+                  <div className="space-y-2">
+                    {users?.filter(u => u.uid !== currentUser?.uid).map(u => (
+                      <div key={u.uid} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`viewer-${u.uid}`} 
+                          checked={form.getValues('viewerIds').includes(u.uid)}
+                          onCheckedChange={(checked) => {
+                            const current = form.getValues('viewerIds');
+                            if (checked) {
+                              form.setValue('viewerIds', [...current, u.uid]);
+                            } else {
+                              form.setValue('viewerIds', current.filter(id => id !== u.uid));
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`viewer-${u.uid}`} className="text-xs cursor-pointer">{u.displayName}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
 
             <DialogFooter className="pt-4">
               <DialogClose asChild><Button type="button" variant="ghost">Cancelar</Button></DialogClose>

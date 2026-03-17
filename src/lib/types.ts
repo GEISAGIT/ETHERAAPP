@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Timestamp } from 'firebase/firestore';
@@ -119,6 +118,7 @@ export type UserProfile = {
     permissions: Permissions;
     mustChangePassword?: boolean;
     statusText?: string;
+    id?: string;
 }
 
 export type UserManagement = Omit<UserProfile, 'permissions'>;
@@ -393,6 +393,7 @@ export type Activity = {
   assigneeId?: string;
   assigneeName?: string;
   isPrivate?: boolean;
+  viewerIds?: string[];
   deadline?: Timestamp;
   startDescription?: string;
   completionDescription?: string;
