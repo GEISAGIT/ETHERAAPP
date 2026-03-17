@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +39,8 @@ import type { StockCategory } from '@/lib/types';
 const formSchema = z.object({
   name: z.string().min(2, 'O nome do item é obrigatório.'),
   category: z.string().min(1, 'Selecione uma categoria.'),
+  subCategory: z.string().optional(),
+  derivation: z.string().optional(),
   quantity: z.coerce.number().min(0, 'A quantidade não pode ser negativa.'),
   minQuantity: z.coerce.number().min(0, 'A quantidade mínima não pode ser negativa.'),
   unit: z.string().min(1, 'Unidade é obrigatória.'),
@@ -53,9 +55,9 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
 
   // Buscar categorias de suprimentos
   const categoriesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !open) return null;
     return query(collection(firestore, 'stockCategories'));
-  }, [firestore, user]);
+  }, [firestore, open]);
 
   const { data: categories } = useCollection<StockCategory>(categoriesQuery);
 
@@ -64,17 +66,41 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
     defaultValues: {
       name: '',
       category: '',
+      subCategory: '',
+      derivation: '',
       quantity: 0,
       minQuantity: 5,
       unit: 'un',
     },
   });
 
+  const selectedCategoryName = useWatch({ control: form.control, name: 'category' });
+  const selectedSubCategoryName = useWatch({ control: form.control, name: 'subCategory' });
+
+  const currentCategory = useMemo(() => 
+    categories?.find(c => c.name === selectedCategoryName)
+  , [categories, selectedCategoryName]);
+
+  const currentSubCategory = useMemo(() => 
+    currentCategory?.subCategories?.find(s => s.name === selectedSubCategoryName)
+  , [currentCategory, selectedSubCategoryName]);
+
   useEffect(() => {
     if (!open) {
       form.reset();
     }
   }, [open, form]);
+
+  // Reset dependent fields when category changes
+  useEffect(() => {
+    form.setValue('subCategory', '');
+    form.setValue('derivation', '');
+  }, [selectedCategoryName, form]);
+
+  // Reset dependent field when subcategory changes
+  useEffect(() => {
+    form.setValue('derivation', '');
+  }, [selectedSubCategoryName, form]);
 
   const onSubmit = async (values: FormValues) => {
     if (!user || !firestore) return;
@@ -85,7 +111,6 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
         updatedAt: serverTimestamp(),
         updatedBy: user.displayName || 'Usuário',
         lastRestock: serverTimestamp(),
-        // Inicializa campos vazios que serão preenchidos na entrada
         locationId: '',
         locationName: '',
         batch: '',
@@ -96,7 +121,6 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
       addDocumentNonBlocking(collection(firestore, 'stock'), stockData);
       
       toast({ title: 'Item Cadastrado', description: `${values.name} foi adicionado ao sistema.` });
-      form.reset();
       onOpenChange(false);
     } catch (error) {
       console.error(error);
@@ -106,7 +130,7 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-headline flex items-center gap-2 text-primary">
             <PlusCircle className="h-5 w-5" />
@@ -133,22 +157,58 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Categoria</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormLabel>Categoria Principal</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
                     <SelectContent>
                       {categories?.map(cat => (
                         <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                       ))}
-                      {(!categories || categories.length === 0) && (
-                        <SelectItem value="none" disabled>Nenhuma categoria cadastrada</SelectItem>
-                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="subCategory"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Subcategoria</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCategoryName}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="---" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                        {currentCategory?.subCategories?.map(sub => (
+                            <SelectItem key={sub.id} value={sub.name}>{sub.name}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="derivation"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Derivação / Opção</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSubCategoryName}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="---" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                        {currentSubCategory?.options?.map(opt => (
+                            <SelectItem key={opt.id} value={opt.name}>{opt.name}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <FormField

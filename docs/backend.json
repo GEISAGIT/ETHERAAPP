@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "User": {
@@ -7,99 +6,61 @@
       "type": "object",
       "description": "Represents a user of the ClinicFlow application.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the User entity."
-        },
-        "email": {
-          "type": "string",
-          "description": "The user's email address.",
-          "format": "email"
-        },
-        "fullName": {
-          "type": "string",
-          "description": "The user's full name."
-        },
-        "role": {
-          "type": "string",
-          "description": "The user's role in the application (e.g., 'admin', 'user').",
-          "enum": [
-            "admin",
-            "user"
-          ]
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the user account was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the user account was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "fullName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "email",
-        "fullName",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "email", "fullName", "createdAt", "updatedAt"]
     },
     "Activity": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Activity",
       "type": "object",
-      "description": "Represents a task or activity in the management module.",
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string" },
         "description": { "type": "string" },
-        "status": {
-          "type": "string",
-          "enum": ["pending", "in_progress", "waiting_validation", "completed", "rework"]
-        },
-        "requesterId": { "type": "string" },
-        "requesterName": { "type": "string" },
-        "assigneeId": { "type": "string" },
-        "assigneeName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "waiting_validation", "completed", "rework"] },
         "priority": { "type": "string", "enum": ["low", "medium", "high", "urgent"] },
-        "deadline": { "type": "string", "format": "date-time" },
-        "startDescription": { "type": "string" },
-        "completionDescription": { "type": "string" },
-        "rejectionReason": { "type": "string" },
-        "history": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "content": { "type": "string" },
-              "timestamp": { "type": "string", "format": "date-time" },
-              "userName": { "type": "string" }
-            }
-          }
-        },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "title", "requesterId", "status"]
+        "requesterId": { "type": "string" },
+        "assigneeId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
     },
     "StockCategory": {
       "title": "Stock Category",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "name": { "type": "string" }
+        "name": { "type": "string" },
+        "subCategories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       "required": ["id", "name"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "/activities/{activityId}": {
@@ -112,7 +73,11 @@
     },
     "/stockCategories/{categoryId}": {
       "schema": "#/backend/entities/StockCategory",
-      "description": "Categories for stock items."
+      "description": "Hierarchical categories for stock items."
+    },
+    "/stock/{itemId}": {
+      "schema": { "type": "object" },
+      "description": "Inventory items."
     }
   }
 }

@@ -276,6 +276,8 @@ export type StockItem = {
   id: string;
   name: string;
   category: string;
+  subCategory?: string;
+  derivation?: string;
   quantity: number;
   minQuantity: number;
   unit: string;
@@ -289,9 +291,21 @@ export type StockItem = {
   updatedBy: string;
 }
 
-export type StockCategory = {
+export interface StockOption {
   id: string;
   name: string;
+}
+
+export interface StockSubCategory {
+  id: string;
+  name: string;
+  options: StockOption[];
+}
+
+export interface StockCategory {
+  id: string;
+  name: string;
+  subCategories: StockSubCategory[];
 }
 
 export type CoraToken = {
