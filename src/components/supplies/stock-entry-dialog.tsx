@@ -45,8 +45,8 @@ import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, updateDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, increment, serverTimestamp, Timestamp, query, doc } from 'firebase/firestore';
+import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, serverTimestamp, Timestamp, query } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -54,7 +54,7 @@ import { Calendar } from '@/components/ui/calendar';
 import type { StockItem, StorageLocation } from '@/lib/types';
 
 const formSchema = z.object({
-  itemId: z.string().min(1, 'Selecione um item.'),
+  templateItemId: z.string().min(1, 'Selecione um item modelo.'),
   addedQuantity: z.coerce.number().positive('A quantidade deve ser maior que zero.'),
   locationId: z.string().min(1, 'Selecione o local de armazenamento.'),
   batch: z.string().min(1, 'Informe o lote da mercadoria.'),
@@ -82,6 +82,18 @@ export function StockEntryDialog({
   const { user } = useUser();
   const [comboboxOpen, setComboboxOpen] = useState(false);
 
+  // Agrupar itens únicos para servirem de "template" no cadastro de novos lotes
+  const uniqueTemplates = useMemo(() => {
+    const map = new Map();
+    items.forEach(item => {
+      const key = `${item.name.toLowerCase()}-${item.category.toLowerCase()}`;
+      if (!map.has(key)) {
+        map.set(key, item);
+      }
+    });
+    return Array.from(map.values()) as StockItem[];
+  }, [items]);
+
   // Buscar locais de armazenamento
   const locationsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -93,7 +105,7 @@ export function StockEntryDialog({
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      itemId: initialItem?.id || '',
+      templateItemId: initialItem?.id || '',
       addedQuantity: 0,
       locationId: '',
       batch: '',
@@ -102,22 +114,22 @@ export function StockEntryDialog({
     },
   });
 
-  const selectedItemId = useWatch({ control: form.control, name: 'itemId' });
-  const selectedItem = useMemo(() => 
-    items.find(i => i.id === selectedItemId) || initialItem
-  , [items, selectedItemId, initialItem]);
+  const selectedTemplateId = useWatch({ control: form.control, name: 'templateItemId' });
+  const selectedTemplate = useMemo(() => 
+    items.find(i => i.id === selectedTemplateId) || initialItem
+  , [items, selectedTemplateId, initialItem]);
 
   const isMedication = useMemo(() => 
-    selectedItem?.category.toUpperCase().includes('MEDICAMENTO')
-  , [selectedItem]);
+    selectedTemplate?.category.toUpperCase().includes('MEDICAMENTO')
+  , [selectedTemplate]);
 
   useEffect(() => {
     if (open) {
       form.reset({
-        itemId: initialItem?.id || '',
+        templateItemId: initialItem?.id || '',
         addedQuantity: 0,
         locationId: initialItem?.locationId || '',
-        batch: initialItem?.batch || '',
+        batch: '',
         supplier: initialItem?.supplier || '',
         doseQuantity: initialItem?.doseQuantity || 0,
       });
@@ -128,12 +140,17 @@ export function StockEntryDialog({
     if (!user || !firestore) return;
 
     try {
-      if (!selectedItem) throw new Error('Item não encontrado');
+      if (!selectedTemplate) throw new Error('Item modelo não encontrado');
 
-      const stockRef = doc(firestore, 'stock', values.itemId);
-      
-      const updateData: any = {
-        quantity: increment(values.addedQuantity),
+      // CRIAÇÃO DE UM NOVO REGISTRO PARA O NOVO LOTE/ENDEREÇO
+      const newStockData: any = {
+        name: selectedTemplate.name,
+        category: selectedTemplate.category,
+        subCategory: selectedTemplate.subCategory || '',
+        derivation: selectedTemplate.derivation || '',
+        unit: selectedTemplate.unit,
+        minQuantity: selectedTemplate.minQuantity,
+        quantity: values.addedQuantity,
         locationId: values.locationId,
         locationName: locations?.find(l => l.id === values.locationId)?.name || 'Não definido',
         batch: values.batch,
@@ -146,19 +163,19 @@ export function StockEntryDialog({
       };
 
       if (isMedication) {
-        updateData.doseQuantity = values.doseQuantity;
+        newStockData.doseQuantity = values.doseQuantity;
       }
 
-      updateDocumentNonBlocking(stockRef, updateData);
+      addDocumentNonBlocking(collection(firestore, 'stock'), newStockData);
       
       toast({ 
-        title: 'Entrada Registrada', 
-        description: `Adicionado ${values.addedQuantity} ${selectedItem.unit} ao item ${selectedItem.name}.` 
+        title: 'Lote Cadastrado', 
+        description: `Novo lote ${values.batch} de ${selectedTemplate.name} registrado com sucesso.` 
       });
       onOpenChange(false);
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Erro na Entrada', description: 'Não foi possível atualizar o estoque.' });
+      toast({ variant: 'destructive', title: 'Erro na Entrada', description: 'Não foi possível registrar o novo lote.' });
     }
   };
 
@@ -168,18 +185,20 @@ export function StockEntryDialog({
         <DialogHeader>
           <DialogTitle className="font-headline flex items-center gap-2 text-emerald-600">
             <ArrowUpCircle className="h-5 w-5" />
-            Entrada de Estoque
+            Entrada de Estoque (Novo Lote)
           </DialogTitle>
-          <DialogDescription>O valor informado abaixo será somado ao saldo atual disponível.</DialogDescription>
+          <DialogDescription>
+            Cada entrada gera um novo registro para controle individual de validade e lote.
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="itemId"
+              name="templateItemId"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Item para Reposição</FormLabel>
+                  <FormLabel>Item Modelo (Template)</FormLabel>
                   <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -194,23 +213,23 @@ export function StockEntryDialog({
                         >
                           {field.value
                             ? items.find((item) => item.id === field.value)?.name
-                            : "Selecione o item..."}
+                            : "Selecione o produto..."}
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                       <Command>
-                        <CommandInput placeholder="Pesquisar item..." />
+                        <CommandInput placeholder="Pesquisar produto..." />
                         <CommandList>
-                          <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
+                          <CommandEmpty>Nenhum produto cadastrado.</CommandEmpty>
                           <CommandGroup>
-                            {items.map((item) => (
+                            {uniqueTemplates.map((item) => (
                               <CommandItem
                                 value={item.name}
                                 key={item.id}
                                 onSelect={() => {
-                                  form.setValue("itemId", item.id);
+                                  form.setValue("templateItemId", item.id);
                                   setComboboxOpen(false);
                                 }}
                               >
@@ -224,7 +243,7 @@ export function StockEntryDialog({
                                 />
                                 <div className="flex flex-col">
                                     <span>{item.name}</span>
-                                    <span className="text-[10px] text-muted-foreground uppercase">{item.category} | Saldo: {item.quantity} {item.unit}</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase">{item.category} | Modelo base</span>
                                 </div>
                               </CommandItem>
                             ))}
@@ -244,7 +263,7 @@ export function StockEntryDialog({
                 name="addedQuantity"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Quantidade Final ({selectedItem?.unit || 'un'})</FormLabel>
+                    <FormLabel>Qtd. Recebida ({selectedTemplate?.unit || 'un'})</FormLabel>
                     <FormControl>
                         <Input type="number" placeholder="0" {...field} />
                     </FormControl>
@@ -298,7 +317,6 @@ export function StockEntryDialog({
                       <FormControl>
                         <Input type="number" placeholder="Ex: 5" {...field} />
                       </FormControl>
-                      <p className="text-[9px] text-muted-foreground italic">Apenas informativo. O saldo é controlado pela Quantidade Final acima.</p>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -313,12 +331,11 @@ export function StockEntryDialog({
                 <FormItem>
                   <FormLabel>Local de Armazenamento</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecione o local..." /></SelectTrigger></FormControl>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Onde será guardado?" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {locations?.map(loc => (
                         <SelectItem key={loc.id} value={loc.id}>{loc.name} ({loc.description})</SelectItem>
                       ))}
-                      {(!locations || locations.length === 0) && <SelectItem value="none" disabled>Nenhum local cadastrado</SelectItem>}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -379,7 +396,7 @@ export function StockEntryDialog({
               <DialogClose asChild><Button type="button" variant="ghost">Cancelar</Button></DialogClose>
               <Button type="submit" disabled={form.formState.isSubmitting} className="bg-emerald-600 hover:bg-emerald-700">
                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Confirmar Entrada
+                Cadastrar Lote
               </Button>
             </DialogFooter>
           </form>
