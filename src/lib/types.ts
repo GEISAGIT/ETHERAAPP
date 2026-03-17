@@ -292,7 +292,7 @@ export type StockItem = {
   lastRestock?: Timestamp;
   updatedAt: Timestamp;
   updatedBy: string;
-  vialVolume?: number;
+  vialVolume?: string;
   doseVolume?: number;
 }
 

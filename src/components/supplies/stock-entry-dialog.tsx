@@ -61,7 +61,7 @@ const formSchema = z.object({
   supplier: z.string().min(1, 'Informe o fornecedor.'),
   manufacturingDate: z.date().optional(),
   expiryDate: z.date().optional(),
-  vialVolume: z.coerce.number().optional(),
+  vialVolume: z.string().optional(),
   doseVolume: z.coerce.number().optional(),
 });
 
@@ -88,7 +88,7 @@ export function StockEntryDialog({ open, onOpenChange, items }: { open: boolean,
       locationId: '', 
       batch: '', 
       supplier: '', 
-      vialVolume: 0, 
+      vialVolume: '', 
       doseVolume: 0 
     },
   });
@@ -118,7 +118,7 @@ export function StockEntryDialog({ open, onOpenChange, items }: { open: boolean,
         supplier: values.supplier,
         manufacturingDate: values.manufacturingDate ? Timestamp.fromDate(values.manufacturingDate) : null,
         expiryDate: values.expiryDate ? Timestamp.fromDate(values.expiryDate) : null,
-        vialVolume: values.vialVolume || 0,
+        vialVolume: values.vialVolume || '',
         doseVolume: values.doseVolume || 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -161,7 +161,7 @@ export function StockEntryDialog({ open, onOpenChange, items }: { open: boolean,
                 <FormField control={form.control} name="vialVolume" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs">Volume do frasco (mg/ml)</FormLabel>
-                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                    <FormControl><Input placeholder="Ex: 500mg/10ml" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
