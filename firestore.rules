@@ -31,7 +31,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'view'));
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() && (isMaster() || hasPermission('userManagement', 'view'));
       allow write: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'edit'));
 
       match /coraTokens/{tokenId} {
@@ -50,22 +50,22 @@ service cloud.firestore {
       allow list: if isSignedIn() && (
         isMaster() || 
         hasPermission('hrTimesheet', 'view') || 
-        (resource.data.userId == request.auth.uid && hasPermission('timeCard', 'view'))
+        (resource.data.userId == request.auth.uid && hasPermission('timeTracking', 'view'))
       );
       allow get: if isSignedIn() && (
         isMaster() || 
         resource.data.userId == request.auth.uid || 
         hasPermission('hrTimesheet', 'view') || 
-        hasPermission('timeCard', 'view')
+        hasPermission('timeTracking', 'view')
       );
       allow create: if isSignedIn() && (
         isMaster() || 
         request.resource.data.userId == request.auth.uid || 
         hasPermission('hrTimesheet', 'create') || 
-        hasPermission('timeCard', 'create')
+        hasPermission('timeTracking', 'create')
       );
-      allow update: if isMaster() || hasPermission('hrTimesheet', 'edit') || hasPermission('timeCard', 'edit');
-      allow delete: if isMaster() || hasPermission('hrTimesheet', 'delete') || hasPermission('timeCard', 'delete');
+      allow update: if isMaster() || hasPermission('hrTimesheet', 'edit') || hasPermission('timeTracking', 'edit');
+      allow delete: if isMaster() || hasPermission('hrTimesheet', 'delete') || hasPermission('timeTracking', 'delete');
     }
 
     match /attendanceRecords/{recordId} {
@@ -108,31 +108,33 @@ service cloud.firestore {
       allow read: if isSignedIn() && (isMaster() || hasPermission('contracts', 'view'));
       allow create: if isMaster() || hasPermission('contracts', 'create');
       allow update: if isMaster() || hasPermission('contracts', 'edit');
-      allow delete: if isMaster() || hasPermission('contracts', 'delete'));
+      allow delete: if isMaster() || hasPermission('contracts', 'delete');
     }
 
     match /stock/{docId} {
       allow read: if isSignedIn() && (isMaster() || hasPermission('suppliesStock', 'view'));
       allow create: if isMaster() || hasPermission('suppliesStock', 'create');
       allow update: if isMaster() || hasPermission('suppliesStock', 'edit');
-      allow delete: if isMaster() || hasPermission('suppliesStock', 'delete'));
+      allow delete: if isMaster() || hasPermission('suppliesStock', 'delete');
     }
 
     match /stockCategories/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isMaster() || hasPermission('suppliesStock', 'edit');
+      allow read: if isSignedIn() && (isMaster() || hasPermission('stockCategories', 'view'));
+      allow create: if isMaster() || hasPermission('stockCategories', 'create');
+      allow update: if isMaster() || hasPermission('stockCategories', 'edit');
+      allow delete: if isMaster() || hasPermission('stockCategories', 'delete');
     }
 
     match /storageLocations/{docId} {
       allow read: if isSignedIn() && (isMaster() || hasPermission('addresses', 'view'));
       allow create: if isMaster() || hasPermission('addresses', 'create');
       allow update: if isMaster() || hasPermission('addresses', 'edit');
-      allow delete: if isMaster() || hasPermission('addresses', 'delete'));
+      allow delete: if isMaster() || hasPermission('addresses', 'delete');
     }
 
     match /incomeCategories/{docId} { 
       allow read: if isSignedIn(); 
-      allow write: if isMaster() || hasPermission('expenses', 'edit'); 
+      allow write: if isMaster() || hasPermission('transactions', 'edit'); 
     }
     
     match /expenseCategoryGroups/{docId} { 
@@ -144,7 +146,7 @@ service cloud.firestore {
       allow read: if isSignedIn() && (isMaster() || hasPermission('employees', 'view') || hasPermission('hrTimesheet', 'view')); 
       allow create: if isMaster() || hasPermission('employees', 'create') || hasPermission('hrTimesheet', 'create');
       allow update: if isMaster() || hasPermission('employees', 'edit') || hasPermission('hrTimesheet', 'edit');
-      allow delete: if isMaster() || hasPermission('employees', 'delete') || hasPermission('hrTimesheet', 'delete'));
+      allow delete: if isMaster() || hasPermission('employees', 'delete') || hasPermission('hrTimesheet', 'delete');
     }
     
     match /roles/{docId} { 
