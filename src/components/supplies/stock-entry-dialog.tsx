@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Loader2, ArrowUpCircle, Check, ChevronsUpDown, CalendarIcon, Box } from 'lucide-react';
+import { Loader2, ArrowUpCircle, Check, ChevronsUpDown, CalendarIcon, Box, Pill } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -41,7 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
@@ -60,6 +60,8 @@ const formSchema = z.object({
   batch: z.string().min(1, 'Informe o lote da mercadoria.'),
   manufacturingDate: z.date().optional(),
   expiryDate: z.date().optional(),
+  ampuleQuantity: z.coerce.number().optional(),
+  doseQuantity: z.coerce.number().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -93,8 +95,16 @@ export function StockEntryDialog({
       addedQuantity: 0,
       locationId: '',
       batch: '',
+      ampuleQuantity: 0,
+      doseQuantity: 0,
     },
   });
+
+  const selectedItemId = useWatch({ control: form.control, name: 'itemId' });
+  const selectedItem = useMemo(() => items.find(i => i.id === selectedItemId), [items, selectedItemId]);
+  const isMedication = useMemo(() => 
+    selectedItem?.category.toUpperCase().includes('MEDICAMENTO')
+  , [selectedItem]);
 
   useEffect(() => {
     if (!open) {
@@ -106,24 +116,28 @@ export function StockEntryDialog({
     if (!user || !firestore) return;
 
     try {
-      const selectedItem = items.find(i => i.id === values.itemId);
-      const selectedLocation = locations?.find(l => l.id === values.locationId);
-      
       if (!selectedItem) throw new Error('Item não encontrado');
 
       const stockRef = doc(firestore, 'stock', values.itemId);
       
-      updateDocumentNonBlocking(stockRef, {
+      const updateData: any = {
         quantity: increment(values.addedQuantity),
         locationId: values.locationId,
-        locationName: selectedLocation?.name || 'Não definido',
+        locationName: locations?.find(l => l.id === values.locationId)?.name || 'Não definido',
         batch: values.batch,
         manufacturingDate: values.manufacturingDate ? Timestamp.fromDate(values.manufacturingDate) : null,
         expiryDate: values.expiryDate ? Timestamp.fromDate(values.expiryDate) : null,
         updatedAt: serverTimestamp(),
         updatedBy: user.displayName || 'Usuário',
         lastRestock: serverTimestamp(),
-      });
+      };
+
+      if (isMedication) {
+        updateData.ampuleQuantity = values.ampuleQuantity;
+        updateData.doseQuantity = values.doseQuantity;
+      }
+
+      updateDocumentNonBlocking(stockRef, updateData);
       
       toast({ 
         title: 'Entrada Registrada', 
@@ -239,6 +253,43 @@ export function StockEntryDialog({
                 )}
                 />
             </div>
+
+            {isMedication && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-4">
+                <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
+                  <Pill className="h-4 w-4" />
+                  Composição do Medicamento
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="ampuleQuantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[11px] uppercase text-muted-foreground">Qtd. Ampolas/Frascos</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="Ex: 10" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="doseQuantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[11px] uppercase text-muted-foreground">Volume da Dose (ml/mg)</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="Ex: 5" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
 
             <FormField
               control={form.control}

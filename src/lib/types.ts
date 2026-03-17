@@ -289,6 +289,8 @@ export type StockItem = {
   lastRestock?: Timestamp;
   updatedAt: Timestamp;
   updatedBy: string;
+  ampuleQuantity?: number;
+  doseQuantity?: number;
 }
 
 export interface StockOption {
