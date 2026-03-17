@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -57,6 +58,18 @@
         }
       },
       "required": ["id", "name"]
+    },
+    "ItemCatalog": {
+      "title": "Item Catalog",
+      "type": "object",
+      "description": "Master product catalog definitions (SKUs).",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "unit": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -75,9 +88,13 @@
       "schema": "#/backend/entities/StockCategory",
       "description": "Hierarchical categories for stock items."
     },
-    "/stock/{itemId}": {
+    "/itemCatalog/{itemId}": {
+      "schema": "#/backend/entities/ItemCatalog",
+      "description": "Unique SKUs and item definitions."
+    },
+    "/stock/{batchId}": {
       "schema": { "type": "object" },
-      "description": "Inventory items."
+      "description": "Physical inventory batches."
     }
   }
 }

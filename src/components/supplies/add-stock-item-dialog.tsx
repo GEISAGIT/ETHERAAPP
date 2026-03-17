@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useMemo } from 'react';
@@ -34,14 +35,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, serverTimestamp, query, getDocs } from 'firebase/firestore';
-import type { StockCategory, StockItem } from '@/lib/types';
+import type { StockCategory } from '@/lib/types';
 
 const formSchema = z.object({
   name: z.string().min(2, 'O nome do item é obrigatório.'),
   category: z.string().min(1, 'Selecione uma categoria.'),
   subCategory: z.string().optional(),
   derivation: z.string().optional(),
-  quantity: z.coerce.number().min(0, 'A quantidade não pode ser negativa.'),
   minQuantity: z.coerce.number().min(0, 'A quantidade mínima não pode ser negativa.'),
   unit: z.string().min(1, 'Unidade é obrigatória.'),
 });
@@ -67,7 +67,6 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
       category: '',
       subCategory: '',
       derivation: '',
-      quantity: 0,
       minQuantity: 5,
       unit: 'un',
     },
@@ -85,210 +84,91 @@ export function AddStockItemDialog({ open, onOpenChange }: { open: boolean, onOp
   , [currentCategory, selectedSubCategoryName]);
 
   useEffect(() => {
-    if (!open) {
-      form.reset();
-    }
+    if (!open) form.reset();
   }, [open, form]);
 
-  useEffect(() => {
-    form.setValue('subCategory', '');
-    form.setValue('derivation', '');
-  }, [selectedCategoryName, form]);
-
-  useEffect(() => {
-    form.setValue('derivation', '');
-  }, [selectedSubCategoryName, form]);
-
   const generateAutomaticCode = async (categoryName: string) => {
-    if (!firestore) return '00000';
-    
-    let prefix = '9'; // Outros
+    if (!firestore) return '90001';
+    let prefix = '9';
     const cat = categoryName.toUpperCase();
-    
     if (cat.includes('MEDICAMENTO')) prefix = '1';
     else if (cat.includes('LIMPEZA')) prefix = '2';
     else if (cat.includes('ESCRITÓRIO') || cat.includes('PAPELARIA')) prefix = '3';
     else if (cat.includes('INFRA')) prefix = '4';
 
-    const stockSnap = await getDocs(collection(firestore, 'stock'));
-    const codes = stockSnap.docs
-      .map(doc => (doc.data() as StockItem).code)
-      .filter(code => code?.startsWith(prefix));
-
+    const catalogSnap = await getDocs(collection(firestore, 'itemCatalog'));
+    const codes = catalogSnap.docs.map(doc => doc.data().code as string).filter(c => c?.startsWith(prefix));
     let nextNumber = 1;
     if (codes.length > 0) {
       const numbers = codes.map(c => parseInt(c.substring(1), 10)).filter(n => !isNaN(n));
-      if (numbers.length > 0) {
-        nextNumber = Math.max(...numbers) + 1;
-      }
+      if (numbers.length > 0) nextNumber = Math.max(...numbers) + 1;
     }
-
     return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
   };
 
   const onSubmit = async (values: FormValues) => {
     if (!user || !firestore) return;
-
     try {
       const automaticCode = await generateAutomaticCode(values.category);
-
-      const stockData = {
+      const catalogData = {
         ...values,
         code: automaticCode,
+        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         updatedBy: user.displayName || 'Usuário',
-        lastRestock: serverTimestamp(),
-        locationId: '',
-        locationName: '',
-        batch: '',
-        manufacturingDate: null,
-        expiryDate: null,
       };
-
-      addDocumentNonBlocking(collection(firestore, 'stock'), stockData);
-      
-      toast({ title: 'Item Cadastrado', description: `Item ${automaticCode} - ${values.name} foi adicionado.` });
+      addDocumentNonBlocking(collection(firestore, 'itemCatalog'), catalogData);
+      toast({ title: 'Item Catalogado', description: `SKU ${automaticCode} gerado para ${values.name}.` });
       onOpenChange(false);
     } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Erro ao Adicionar', description: 'Não foi possível salvar o item.' });
+      toast({ variant: 'destructive', title: 'Erro ao Salvar' });
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-headline flex items-center gap-2 text-primary">
-            <PlusCircle className="h-5 w-5" />
-            Cadastrar Novo Item
-          </DialogTitle>
-          <DialogDescription>Identifique o produto. O código SKU será gerado automaticamente pela família.</DialogDescription>
+          <DialogTitle className="font-headline flex items-center gap-2 text-primary"><PlusCircle className="h-5 w-5" /> Novo Item no Catálogo</DialogTitle>
+          <DialogDescription>Crie uma definição global de produto com SKU automático.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome do Item</FormLabel>
-                  <FormControl><Input placeholder="Ex: Luvas de Látex (M)" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Categoria Principal (Família)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {categories?.map(cat => (
-                        <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
+            <FormField control={form.control} name="name" render={({ field }) => (
+                <FormItem><FormLabel>Nome do Produto</FormLabel><FormControl><Input placeholder="Ex: Álcool em Gel 70%" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="category" render={({ field }) => (
+                <FormItem><FormLabel>Categoria (Família)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
+                    <SelectContent>{categories?.map(cat => <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>)}</SelectContent>
+                  </Select><FormMessage /></FormItem>
+            )} />
             <div className="grid grid-cols-2 gap-4">
-                <FormField
-                control={form.control}
-                name="subCategory"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Subcategoria</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCategoryName}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="---" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                        {currentCategory?.subCategories?.map(sub => (
-                            <SelectItem key={sub.id} value={sub.name}>{sub.name}</SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-                <FormField
-                control={form.control}
-                name="derivation"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Derivação / Opção</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSubCategoryName}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="---" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                        {currentSubCategory?.options?.map(opt => (
-                            <SelectItem key={opt.id} value={opt.name}>{opt.name}</SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                <FormField control={form.control} name="subCategory" render={({ field }) => (
+                    <FormItem><FormLabel>Subcategoria</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCategoryName}><FormControl><SelectTrigger><SelectValue placeholder="---" /></SelectTrigger></FormControl>
+                        <SelectContent>{currentCategory?.subCategories?.map(sub => <SelectItem key={sub.id} value={sub.name}>{sub.name}</SelectItem>)}</SelectContent>
+                    </Select><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="derivation" render={({ field }) => (
+                    <FormItem><FormLabel>Derivação</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedSubCategoryName}><FormControl><SelectTrigger><SelectValue placeholder="---" /></SelectTrigger></FormControl>
+                        <SelectContent>{currentSubCategory?.options?.map(opt => <SelectItem key={opt.id} value={opt.name}>{opt.name}</SelectItem>)}</SelectContent>
+                    </Select><FormMessage /></FormItem>
+                )} />
             </div>
-
             <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="quantity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Saldo Inicial</FormLabel>
-                    <FormControl><Input type="number" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="minQuantity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Estoque Mínimo</FormLabel>
-                    <FormControl><Input type="number" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormField control={form.control} name="unit" render={({ field }) => (
+                <FormItem><FormLabel>Unidade</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent><SelectItem value="un">Unidade (un)</SelectItem><SelectItem value="cx">Caixa (cx)</SelectItem><SelectItem value="ml">Mililitros (ml)</SelectItem><SelectItem value="pct">Pacote (pct)</SelectItem></SelectContent>
+                  </Select><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="minQuantity" render={({ field }) => (
+                <FormItem><FormLabel>Estoque Mínimo</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
             </div>
-
-            <FormField
-              control={form.control}
-              name="unit"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Unidade de Medida</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="un">Unidade (un)</SelectItem>
-                      <SelectItem value="cx">Caixa (cx)</SelectItem>
-                      <SelectItem value="ml">Mililitros (ml)</SelectItem>
-                      <SelectItem value="pct">Pacote (pct)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter className="pt-4">
-              <DialogClose asChild><Button type="button" variant="ghost">Cancelar</Button></DialogClose>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Cadastrar Item
-              </Button>
-            </DialogFooter>
+            <DialogFooter><Button type="submit">Cadastrar no Catálogo</Button></DialogFooter>
           </form>
         </Form>
       </DialogContent>

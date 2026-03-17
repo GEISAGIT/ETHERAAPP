@@ -20,6 +20,15 @@ function StockPageContent() {
 
   const { data: userProfile, isLoading: profileLoading } = useDoc<UserProfile>(userDocRef);
 
+  // Consulta de Catálogo (Produtos Base)
+  const catalogQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'itemCatalog'));
+  }, [firestore, user]);
+
+  const { data: catalogItems, isLoading: catalogLoading } = useCollection(catalogQuery);
+
+  // Consulta de Estoque (Lotes Físicos)
   const stockQuery = useMemoFirebase(() => {
     if (!firestore || !user || !userProfile) return null;
     const isAdmin = userProfile.role === 'admin';
@@ -35,7 +44,7 @@ function StockPageContent() {
   const isAdmin = userProfile?.role === 'admin';
   const canView = isAdmin || userProfile?.permissions?.suppliesStock?.view;
 
-  if (profileLoading || stockLoading) {
+  if (profileLoading || stockLoading || catalogLoading) {
     return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
@@ -49,7 +58,13 @@ function StockPageContent() {
     );
   }
 
-  return <StockClient data={stockItems ?? []} userProfile={userProfile} />;
+  return (
+    <StockClient 
+      stockData={stockItems ?? []} 
+      catalogData={catalogItems ?? []}
+      userProfile={userProfile} 
+    />
+  );
 }
 
 export default function StockPage() {

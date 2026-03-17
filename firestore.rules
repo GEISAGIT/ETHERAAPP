@@ -47,47 +47,11 @@ service cloud.firestore {
     }
 
     match /timeEntries/{entryId} {
-      allow list: if isSignedIn() && (
-        isMaster() || 
-        hasPermission('hrTimesheet', 'view') || 
-        (resource.data.userId == request.auth.uid && hasPermission('timeTracking', 'view'))
-      );
-      allow get: if isSignedIn() && (
-        isMaster() || 
-        resource.data.userId == request.auth.uid || 
-        hasPermission('hrTimesheet', 'view') || 
-        hasPermission('timeTracking', 'view')
-      );
-      allow create: if isSignedIn() && (
-        isMaster() || 
-        request.resource.data.userId == request.auth.uid || 
-        hasPermission('hrTimesheet', 'create') || 
-        hasPermission('timeTracking', 'create')
-      );
-      allow update: if isMaster() || hasPermission('hrTimesheet', 'edit') || hasPermission('timeTracking', 'edit');
-      allow delete: if isMaster() || hasPermission('hrTimesheet', 'delete') || hasPermission('timeTracking', 'delete');
+      allow read, write: if isSignedIn() && hasPermission('timeTracking', 'view');
     }
 
     match /attendanceRecords/{recordId} {
-      allow list: if isSignedIn() && (
-        isMaster() || 
-        hasPermission('hrTimesheet', 'view') || 
-        (resource.data.employeeId == request.auth.uid && hasPermission('timeTracking', 'view'))
-      );
-      allow get: if isSignedIn() && (
-        isMaster() || 
-        resource.data.employeeId == request.auth.uid || 
-        hasPermission('hrTimesheet', 'view') || 
-        hasPermission('timeTracking', 'view')
-      );
-      allow create: if isSignedIn() && (
-        isMaster() || 
-        request.resource.data.employeeId == request.auth.uid || 
-        hasPermission('hrTimesheet', 'create') || 
-        hasPermission('timeTracking', 'create')
-      );
-      allow update: if isMaster() || hasPermission('hrTimesheet', 'edit') || hasPermission('timeTracking', 'edit');
-      allow delete: if isMaster() || hasPermission('hrTimesheet', 'delete') || hasPermission('timeTracking', 'delete');
+      allow read, write: if isSignedIn() && hasPermission('timeTracking', 'view');
     }
 
     match /incomes/{docId} {
@@ -104,11 +68,9 @@ service cloud.firestore {
       allow delete: if isMaster() || hasPermission('transactions', 'delete');
     }
 
-    match /contracts/{docId} {
-      allow read: if isSignedIn() && (isMaster() || hasPermission('contracts', 'view'));
-      allow create: if isMaster() || hasPermission('contracts', 'create');
-      allow update: if isMaster() || hasPermission('contracts', 'edit');
-      allow delete: if isMaster() || hasPermission('contracts', 'delete');
+    match /itemCatalog/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isMaster() || hasPermission('suppliesStock', 'edit');
     }
 
     match /stock/{docId} {
