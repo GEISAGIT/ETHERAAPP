@@ -7,11 +7,32 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Clock, MessageSquare, AlertTriangle, CheckCircle2, RotateCcw, User, Eye, Play, Check, X, Lock } from 'lucide-react';
+import { Clock, MessageSquare, AlertTriangle, CheckCircle2, RotateCcw, User, Eye, Play, Check, X, Lock, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ActivityActionDialog } from './activity-action-dialog';
+import { EditActivityDialog } from './edit-activity-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useFirestore, deleteDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 const priorityConfig: Record<ActivityPriority, { label: string; color: string }> = {
   low: { label: 'Baixa', color: 'bg-slate-500/10 text-slate-600' },
@@ -22,6 +43,11 @@ const priorityConfig: Record<ActivityPriority, { label: string; color: string }>
 
 export function ActivityCard({ activity, currentUser }: { activity: Activity, currentUser: UserProfile | null | undefined }) {
   const [actionType, setActionType] = useState<'accept' | 'finish' | 'validate' | 'rework' | 'history' | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  
+  const { toast } = useToast();
+  const firestore = useFirestore();
 
   const getInitials = (name?: string) => {
     if (!name) return '?';
@@ -30,7 +56,15 @@ export function ActivityCard({ activity, currentUser }: { activity: Activity, cu
 
   const isRequester = currentUser?.uid === activity.requesterId;
   const isAssignee = currentUser?.uid === activity.assigneeId;
-  const isFree = !activity.assigneeId;
+  const isAdmin = currentUser?.role === 'admin';
+
+  const handleDelete = () => {
+    if (!firestore) return;
+    const docRef = doc(firestore, 'activities', activity.id);
+    deleteDocumentNonBlocking(docRef);
+    toast({ title: 'Atividade Excluída' });
+    setIsDeleteAlertOpen(false);
+  };
 
   return (
     <>
@@ -41,6 +75,29 @@ export function ActivityCard({ activity, currentUser }: { activity: Activity, cu
         activity={activity} 
         currentUser={currentUser} 
       />
+
+      <EditActivityDialog
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        activity={activity}
+      />
+
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Atividade?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a remover permanentemente a atividade "{activity.title}". Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Confirmar Exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card className={cn(
         "group hover:shadow-md transition-all border-l-4 overflow-hidden",
@@ -66,9 +123,30 @@ export function ActivityCard({ activity, currentUser }: { activity: Activity, cu
                 </TooltipProvider>
               )}
             </div>
-            {activity.status === 'rework' && (
-              <Badge variant="destructive" className="text-[9px] h-4 animate-pulse">RETRABALHO</Badge>
-            )}
+            
+            <div className="flex items-center gap-1">
+              {activity.status === 'rework' && (
+                <Badge variant="destructive" className="text-[9px] h-4 animate-pulse">RETRABALHO</Badge>
+              )}
+              
+              {(isAdmin || isRequester) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 -mt-1 -mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
+                      <Edit className="mr-2 h-3.5 w-3.5" /> Editar Atividade
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsDeleteAlertOpen(true)} className="text-destructive focus:text-destructive">
+                      <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir Atividade
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
           <CardTitle className="text-sm font-bold leading-tight group-hover:text-primary transition-colors cursor-pointer" onClick={() => setActionType('history')}>
             {activity.title}
@@ -91,7 +169,7 @@ export function ActivityCard({ activity, currentUser }: { activity: Activity, cu
                     <TooltipContent><p className="text-xs">Solicitante: {activity.requesterName}</p></TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <span className="text-[10px] font-medium">{activity.requesterName.split(' ')[0]}</span>
+                <span className="text-[10px] font-medium">{activity.requesterName?.split(' ')[0] || 'Desconhecido'}</span>
               </div>
               
               <div className="flex items-center gap-1.5">
@@ -128,7 +206,6 @@ export function ActivityCard({ activity, currentUser }: { activity: Activity, cu
         </CardContent>
 
         <CardFooter className="p-2 bg-muted/20 border-t flex justify-around">
-          {/* Ações baseadas no Status */}
           {activity.status === 'pending' && (
             <button className="flex items-center gap-1 text-[10px] font-bold text-primary hover:bg-primary/10 px-2 py-1 rounded transition-colors" onClick={() => setActionType('accept')}>
               <Play className="h-3 w-3" /> ASSUMIR

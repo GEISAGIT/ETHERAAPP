@@ -31,7 +31,6 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'view'));
-      // Permitimos a listagem para todos os logados para possibilitar a seleção de responsáveis/visualizadores em atividades
       allow list: if isSignedIn();
       allow write: if isSignedIn() && (request.auth.uid == userId || isMaster() || hasPermission('userManagement', 'edit'));
 
@@ -43,8 +42,19 @@ service cloud.firestore {
     match /activities/{activityId} {
       allow read: if isSignedIn() && (isMaster() || hasPermission('activities', 'view'));
       allow create: if isSignedIn() && (isMaster() || hasPermission('activities', 'create'));
-      allow update: if isSignedIn() && (isMaster() || hasPermission('activities', 'edit'));
-      allow delete: if isSignedIn() && (isMaster() || hasPermission('activities', 'delete'));
+      // Permite update se for admin, tiver permissão ou for o criador/responsável
+      allow update: if isSignedIn() && (
+        isMaster() || 
+        hasPermission('activities', 'edit') || 
+        resource.data.requesterId == request.auth.uid || 
+        resource.data.assigneeId == request.auth.uid
+      );
+      // Permite delete se for admin, tiver permissão ou for o criador
+      allow delete: if isSignedIn() && (
+        isMaster() || 
+        hasPermission('activities', 'delete') || 
+        resource.data.requesterId == request.auth.uid
+      );
     }
 
     match /timeEntries/{entryId} {
