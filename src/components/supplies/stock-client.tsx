@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -18,7 +17,8 @@ import {
     Box,
     Calendar,
     XCircle,
-    CheckCircle2
+    CheckCircle2,
+    Plus
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +38,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AddStockItemDialog } from './add-stock-item-dialog';
+import { StockEntryDialog } from './stock-entry-dialog';
 import { useFirestore, deleteDocumentNonBlocking } from '@/firebase';
 import { doc, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -47,6 +48,7 @@ import { cn } from '@/lib/utils';
 export function StockClient({ data, userProfile }: { data: StockItem[], userProfile: UserProfile | null | undefined }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEntryOpen, setIsEntryOpen] = useState(false);
 
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -91,18 +93,27 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
   return (
     <div className="space-y-8">
       <AddStockItemDialog open={isAddOpen} onOpenChange={setIsAddOpen} />
+      <StockEntryDialog open={isEntryOpen} onOpenChange={setIsEntryOpen} items={data} />
 
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">Controle de Estoque</h1>
           <p className="text-muted-foreground">Gerencie o inventário com controle de localização e validade.</p>
         </div>
-        {canCreate && (
-          <Button onClick={() => setIsAddOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Novo Item
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canCreate && (
+            <>
+              <Button variant="outline" onClick={() => setIsEntryOpen(true)}>
+                <ArrowUpCircle className="mr-2 h-4 w-4" />
+                Entrada de Estoque
+              </Button>
+              <Button onClick={() => setIsAddOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Novo Cadastro
+              </Button>
+            </>
+          )}
+        </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -221,13 +232,12 @@ export function StockClient({ data, userProfile }: { data: StockItem[], userProf
                               <DropdownMenuLabel>Gerenciar Item</DropdownMenuLabel>
                               {canEdit && (
                                 <>
-                                  <DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    // Abrir o diálogo de entrada já com o item selecionado poderia ser uma melhoria futura
+                                    setIsEntryOpen(true);
+                                  }}>
                                     <ArrowUpCircle className="mr-2 h-4 w-4 text-emerald-600" />
-                                    Entrada
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <ArrowDownCircle className="mr-2 h-4 w-4 text-amber-600" />
-                                    Saída
+                                    Registrar Entrada
                                   </DropdownMenuItem>
                                 </>
                               )}
