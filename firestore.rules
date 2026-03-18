@@ -42,14 +42,12 @@ service cloud.firestore {
     match /activities/{activityId} {
       allow read: if isSignedIn() && (isMaster() || hasPermission('activities', 'view'));
       allow create: if isSignedIn() && (isMaster() || hasPermission('activities', 'create'));
-      // Permite update se for admin, tiver permissão ou for o criador/responsável
       allow update: if isSignedIn() && (
         isMaster() || 
         hasPermission('activities', 'edit') || 
         resource.data.requesterId == request.auth.uid || 
         resource.data.assigneeId == request.auth.uid
       );
-      // Permite delete se for admin, tiver permissão ou for o criador
       allow delete: if isSignedIn() && (
         isMaster() || 
         hasPermission('activities', 'delete') || 
@@ -57,23 +55,33 @@ service cloud.firestore {
       );
     }
 
+    match /budgets/{budgetId} {
+      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid || hasPermission('budgets', 'view'));
+      allow write: if isSignedIn() && (isMaster() || hasPermission('budgets', 'edit'));
+    }
+
+    match /contracts/{contractId} {
+      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid || hasPermission('transactions', 'view'));
+      allow write: if isSignedIn() && (isMaster() || hasPermission('transactions', 'edit'));
+    }
+
     match /timeEntries/{entryId} {
       allow read, write: if isSignedIn() && hasPermission('timeTracking', 'view');
     }
 
     match /attendanceRecords/{recordId} {
-      allow read, write: if isSignedIn() && hasPermission('timeTracking', 'view');
+      allow read, write: if isSignedIn() && (request.auth.uid == resource.data.employeeId || hasPermission('timeTracking', 'view'));
     }
 
     match /incomes/{docId} {
-      allow read: if isSignedIn() && (isMaster() || hasPermission('transactions', 'view'));
+      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid || hasPermission('transactions', 'view'));
       allow create: if isMaster() || hasPermission('transactions', 'create');
       allow update: if isMaster() || hasPermission('transactions', 'edit');
       allow delete: if isMaster() || hasPermission('transactions', 'delete');
     }
 
     match /expenses/{docId} {
-      allow read: if isSignedIn() && (isMaster() || hasPermission('transactions', 'view'));
+      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid || hasPermission('transactions', 'view'));
       allow create: if isMaster() || hasPermission('transactions', 'create');
       allow update: if isMaster() || hasPermission('transactions', 'edit');
       allow delete: if isMaster() || hasPermission('transactions', 'delete');

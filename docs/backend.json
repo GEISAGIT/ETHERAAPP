@@ -33,6 +33,31 @@
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
+    "Budget": {
+      "title": "Budget",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "amount": { "type": "number" },
+        "spent": { "type": "number" }
+      }
+    },
+    "Contract": {
+      "title": "Contract",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["fixed", "variable"] },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "cancelled", "expired"] },
+        "paymentFrequency": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "StockCategory": {
       "title": "Stock Category",
       "type": "object",
@@ -87,6 +112,14 @@
       "schema": "#/backend/entities/User",
       "description": "User profiles and permissions."
     },
+    "/budgets/{budgetId}": {
+      "schema": "#/backend/entities/Budget",
+      "description": "User financial budgets."
+    },
+    "/contracts/{contractId}": {
+      "schema": "#/backend/entities/Contract",
+      "description": "Recurring contracts and subscriptions."
+    },
     "/stockCategories/{categoryId}": {
       "schema": "#/backend/entities/StockCategory",
       "description": "Hierarchical categories for stock items."
@@ -98,6 +131,14 @@
     "/stock/{batchId}": {
       "schema": { "type": "object" },
       "description": "Physical inventory batches."
+    },
+    "/incomes/{docId}": {
+      "schema": { "type": "object" },
+      "description": "Financial income transactions."
+    },
+    "/expenses/{docId}": {
+      "schema": { "type": "object" },
+      "description": "Financial expense transactions."
     }
   }
 }
