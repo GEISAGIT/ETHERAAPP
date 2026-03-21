@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import type { Patient, Consultation } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, UserRound, Calendar, FileText, ChevronRight, AlertCircle, Phone, Fingerprint } from 'lucide-react';
+import { Search, UserRound, Calendar, FileText, ChevronRight, AlertCircle, Phone, Fingerprint, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
