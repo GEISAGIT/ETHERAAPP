@@ -96,6 +96,7 @@ export type Permissions = {
   addresses: CrudActions;
   // Operacional
   activities: CrudActions;
+  patients: CrudActions;
   // Administração
   upload: CrudActions;
   userManagement: CrudActions;
@@ -401,4 +402,53 @@ export type Activity = {
   history?: ActivityHistoryItem[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
+};
+
+export type PatientStatus = 'active' | 'inactive' | 'death';
+export type Gender = 'male' | 'female' | 'other' | 'not_informed';
+export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+
+export type Patient = {
+  id: string;
+  fullName: string;
+  cpf: string;
+  rg?: string;
+  birthDate: Timestamp;
+  gender: Gender;
+  bloodType?: BloodType;
+  motherName?: string;
+  // Contact
+  email?: string;
+  phone: string;
+  // Address
+  address: {
+    zipCode: string;
+    street: string;
+    number: string;
+    complement?: string;
+    district: string;
+    city: string;
+    state: string;
+  };
+  // Clinical
+  allergies?: string;
+  chronicConditions?: string;
+  clinicalNotes?: string;
+  // Health Insurance
+  insurance?: {
+    provider: string;
+    plan?: string;
+    cardNumber?: string;
+    expirationDate?: Timestamp;
+  };
+  // Emergency
+  emergencyContact?: {
+    name: string;
+    relation: string;
+    phone: string;
+  };
+  status: PatientStatus;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  createdBy: string;
 };

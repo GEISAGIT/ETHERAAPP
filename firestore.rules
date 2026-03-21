@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -55,14 +54,21 @@ service cloud.firestore {
       );
     }
 
+    match /patients/{patientId} {
+      allow read: if isSignedIn() && (isMaster() || hasPermission('patients', 'view'));
+      allow create: if isSignedIn() && (isMaster() || hasPermission('patients', 'create'));
+      allow update: if isSignedIn() && (isMaster() || hasPermission('patients', 'edit'));
+      allow delete: if isSignedIn() && (isMaster() || hasPermission('patients', 'delete'));
+    }
+
     match /budgets/{budgetId} {
       allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid || hasPermission('budgets', 'view'));
       allow write: if isSignedIn() && (isMaster() || hasPermission('budgets', 'edit'));
     }
 
     match /contracts/{contractId} {
-      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid || hasPermission('transactions', 'view'));
-      allow write: if isSignedIn() && (isMaster() || hasPermission('transactions', 'edit'));
+      allow read: if isSignedIn() && (isMaster() || resource.data.userId == request.auth.uid || hasPermission('contracts', 'view') || hasPermission('transactions', 'view'));
+      allow write: if isSignedIn() && (isMaster() || hasPermission('contracts', 'edit') || hasPermission('transactions', 'edit'));
     }
 
     match /timeEntries/{entryId} {

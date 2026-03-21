@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -35,7 +34,8 @@ import {
   MapPin,
   ClipboardList,
   CheckCircle,
-  Tag
+  Tag,
+  UserRoundPlus
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -71,6 +71,7 @@ const suppliesMenuItems = [
 
 const operationMenuItems = [
   { key: 'activities' as MenuItemKey, href: '/activities', label: 'Gestão de Atividades', icon: ClipboardList },
+  { key: 'patients' as MenuItemKey, href: '/operations/patients', label: 'Cadastro de Pacientes', icon: UserRoundPlus },
 ];
 
 const managementMenuItems = [
@@ -234,7 +235,7 @@ export function AppSidebar() {
           </Collapsible>
         )}
 
-        {suppliesItems.length > 0 && (
+        {suppliesMenuItems.length > 0 && (
           <Collapsible asChild defaultOpen={true} className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>

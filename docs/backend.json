@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "User": {
@@ -98,6 +97,21 @@
         "category": { "type": "string" },
         "unit": { "type": "string" }
       }
+    },
+    "Patient": {
+      "title": "Patient",
+      "type": "object",
+      "description": "Comprehensive patient clinical and demographic data.",
+      "properties": {
+        "id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "cpf": { "type": "string" },
+        "birthDate": { "type": "string", "format": "date-time" },
+        "phone": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive", "death"] },
+        "bloodType": { "type": "string" },
+        "allergies": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -139,6 +153,10 @@
     "/expenses/{docId}": {
       "schema": { "type": "object" },
       "description": "Financial expense transactions."
+    },
+    "/patients/{patientId}": {
+      "schema": "#/backend/entities/Patient",
+      "description": "Patient records and clinical history metadata."
     }
   }
 }
