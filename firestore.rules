@@ -61,6 +61,13 @@ service cloud.firestore {
       allow delete: if isSignedIn() && (isMaster() || hasPermission('calendar', 'delete'));
     }
 
+    match /consultations/{consultationId} {
+      allow read: if isSignedIn() && (isMaster() || hasPermission('consultations', 'view'));
+      allow create: if isSignedIn() && (isMaster() || hasPermission('consultations', 'create'));
+      allow update: if isSignedIn() && (isMaster() || hasPermission('consultations', 'edit'));
+      allow delete: if isSignedIn() && (isMaster() || hasPermission('consultations', 'delete'));
+    }
+
     match /patients/{patientId} {
       allow read: if isSignedIn() && (isMaster() || hasPermission('patients', 'view'));
       allow create: if isSignedIn() && (isMaster() || hasPermission('patients', 'create'));
@@ -78,12 +85,12 @@ service cloud.firestore {
       allow write: if isSignedIn() && (isMaster() || hasPermission('contracts', 'edit') || hasPermission('transactions', 'edit'));
     }
 
-    match /timeEntries/{entryId} {
-      allow read, write: if isSignedIn() && hasPermission('timeTracking', 'view');
+    match /attendanceRecords/{recordId} {
+      allow read, write: if isSignedIn() && (request.auth.uid == resource.data.employeeId || isMaster() || hasPermission('timeTracking', 'view'));
     }
 
-    match /attendanceRecords/{recordId} {
-      allow read, write: if isSignedIn() && (request.auth.uid == resource.data.employeeId || hasPermission('timeTracking', 'view'));
+    match /timeEntries/{entryId} {
+      allow read, write: if isSignedIn() && (request.auth.uid == resource.data.userId || isMaster() || hasPermission('timeTracking', 'view'));
     }
 
     match /incomes/{docId} {

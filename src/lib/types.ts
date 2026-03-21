@@ -98,6 +98,7 @@ export type Permissions = {
   activities: CrudActions;
   patients: CrudActions;
   calendar: CrudActions;
+  consultations: CrudActions;
   // Administração
   upload: CrudActions;
   userManagement: CrudActions;
@@ -471,4 +472,30 @@ export type Appointment = {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   createdBy: string;
+};
+
+export type ConsultationStatus = 'draft' | 'completed';
+
+export type Consultation = {
+  id: string;
+  patientId: string;
+  patientName: string;
+  appointmentId: string;
+  professionalId: string;
+  professionalName: string;
+  date: Timestamp;
+  anamnesis: {
+    chiefComplaint: string;
+    historyOfPresentIllness: string;
+    pastMedicalHistory: string;
+    familyHistory: string;
+    socialHistory: string;
+  };
+  physicalExam: string;
+  diagnosis: string;
+  prescription: string;
+  evolution: string;
+  status: ConsultationStatus;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 };
