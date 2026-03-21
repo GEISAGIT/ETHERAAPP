@@ -97,6 +97,7 @@ export type Permissions = {
   // Operacional
   activities: CrudActions;
   patients: CrudActions;
+  calendar: CrudActions;
   // Administração
   upload: CrudActions;
   userManagement: CrudActions;
@@ -448,6 +449,25 @@ export type Patient = {
     phone: string;
   };
   status: PatientStatus;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  createdBy: string;
+};
+
+export type AppointmentStatus = 'scheduled' | 'confirmed' | 'arrived' | 'in_progress' | 'finished' | 'cancelled' | 'no_show';
+
+export type Appointment = {
+  id: string;
+  patientId: string;
+  patientName: string;
+  patientPhone?: string;
+  professionalId: string;
+  professionalName: string;
+  serviceName: string;
+  startTime: Timestamp;
+  endTime: Timestamp;
+  status: AppointmentStatus;
+  notes?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   createdBy: string;

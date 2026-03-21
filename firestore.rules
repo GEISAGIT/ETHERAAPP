@@ -54,6 +54,13 @@ service cloud.firestore {
       );
     }
 
+    match /appointments/{appointmentId} {
+      allow read: if isSignedIn() && (isMaster() || hasPermission('calendar', 'view'));
+      allow create: if isSignedIn() && (isMaster() || hasPermission('calendar', 'create'));
+      allow update: if isSignedIn() && (isMaster() || hasPermission('calendar', 'edit'));
+      allow delete: if isSignedIn() && (isMaster() || hasPermission('calendar', 'delete'));
+    }
+
     match /patients/{patientId} {
       allow read: if isSignedIn() && (isMaster() || hasPermission('patients', 'view'));
       allow create: if isSignedIn() && (isMaster() || hasPermission('patients', 'create'));

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
@@ -11,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Wallet, Briefcase, Settings, ShieldAlert, ChevronDown, ChevronUp, Package, MapPin, ClipboardList } from 'lucide-react';
+import { Loader2, Wallet, Briefcase, Settings, ShieldAlert, ChevronDown, ChevronUp, Package, MapPin, ClipboardList, CalendarDays } from 'lucide-react';
 import type { UserProfile, Permissions, CrudActions } from '@/lib/types';
 import { useEffect, useState, Suspense } from 'react';
 import { defaultPermissions } from '@/lib/data';
@@ -51,7 +50,9 @@ const modules: ModuleConfig[] = [
     title: 'Operacional',
     icon: ClipboardList,
     permissions: [
+      { key: 'calendar', label: 'Agenda Interativa' },
       { key: 'activities', label: 'Gestão de Atividades' },
+      { key: 'patients', label: 'Cadastro de Pacientes' },
     ]
   },
   {

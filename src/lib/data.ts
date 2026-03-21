@@ -26,6 +26,7 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     addresses: fullCrud,
     activities: fullCrud,
     patients: fullCrud,
+    calendar: fullCrud,
   },
   user: {
     home: viewOnly,
@@ -48,6 +49,7 @@ export const defaultPermissions: Record<'admin' | 'user', Permissions> = {
     addresses: noCrud,
     activities: { view: true, create: true, edit: true, delete: false },
     patients: { view: true, create: true, edit: true, delete: false },
+    calendar: { view: true, create: true, edit: true, delete: false },
   },
 };
 

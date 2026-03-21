@@ -35,7 +35,8 @@ import {
   ClipboardList,
   CheckCircle,
   Tag,
-  UserRoundPlus
+  UserRoundPlus,
+  CalendarDays
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore } from '@/firebase';
@@ -70,6 +71,7 @@ const suppliesMenuItems = [
 ];
 
 const operationMenuItems = [
+  { key: 'calendar' as MenuItemKey, href: '/operations/calendar', label: 'Agenda', icon: CalendarDays },
   { key: 'activities' as MenuItemKey, href: '/activities', label: 'Gestão de Atividades', icon: ClipboardList },
   { key: 'patients' as MenuItemKey, href: '/operations/patients', label: 'Cadastro de Pacientes', icon: UserRoundPlus },
 ];

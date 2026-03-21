@@ -32,6 +32,20 @@
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
+    "Appointment": {
+      "title": "Appointment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "professionalId": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["scheduled", "confirmed", "arrived", "in_progress", "finished", "cancelled", "no_show"] }
+      }
+    },
     "Budget": {
       "title": "Budget",
       "type": "object",
@@ -121,6 +135,10 @@
     "/activities/{activityId}": {
       "schema": "#/backend/entities/Activity",
       "description": "Task management activities."
+    },
+    "/appointments/{appointmentId}": {
+      "schema": "#/backend/entities/Appointment",
+      "description": "Clinic appointments and schedules."
     },
     "/users/{userId}": {
       "schema": "#/backend/entities/User",
