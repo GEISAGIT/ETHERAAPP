@@ -59,7 +59,7 @@ const modules: ModuleConfig[] = [
     title: 'Suprimentos',
     icon: Package,
     permissions: [
-      { key: 'suppliesStock', label: 'Cadastro de Itens' },
+      { key: 'suppliesStock', label: 'Lista de Itens' },
       { key: 'stockCategories', label: 'Cadastro de Categorias' },
       { key: 'addresses', label: 'Locais de Armazenamento' },
     ]

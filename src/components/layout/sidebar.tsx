@@ -66,7 +66,7 @@ const hrMenuItems = [
 ];
 
 const suppliesMenuItems = [
-  { key: 'suppliesStock' as MenuItemKey, href: '/supplies/stock', label: 'Cadastro de Itens', icon: Boxes },
+  { key: 'suppliesStock' as MenuItemKey, href: '/supplies/stock', label: 'Lista de Itens', icon: Boxes },
   { key: 'stockCategories' as MenuItemKey, href: '/supplies/categories', label: 'Cadastro de Categorias', icon: Tag },
   { key: 'addresses' as MenuItemKey, href: '/settings/addresses', label: 'Locais de Armazenamento', icon: MapPin },
 ];
