@@ -44,8 +44,8 @@ import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, serverTimestamp, Timestamp, query } from 'firebase/firestore';
+import { useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, doc, serverTimestamp, Timestamp, query } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -63,11 +63,12 @@ const formSchema = z.object({
   expiryDate: z.date().optional(),
   vialVolume: z.string().optional(),
   doseVolume: z.coerce.number().optional(),
+  justification: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
-export function StockEntryDialog({ open, onOpenChange, items }: { open: boolean, onOpenChange: (open: boolean) => void, items: any[] }) {
+export function StockEntryDialog({ open, onOpenChange, items, initialData }: { open: boolean, onOpenChange: (open: boolean) => void, items: any[], initialData?: any }) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -89,7 +90,8 @@ export function StockEntryDialog({ open, onOpenChange, items }: { open: boolean,
       batch: '', 
       supplier: '', 
       vialVolume: '', 
-      doseVolume: 0 
+      doseVolume: 0,
+      justification: ''
     },
   });
 
@@ -98,11 +100,43 @@ export function StockEntryDialog({ open, onOpenChange, items }: { open: boolean,
   const isMedication = useMemo(() => selectedItem?.category?.toUpperCase().includes('MEDICAMENTO'), [selectedItem]);
 
   useEffect(() => {
-    if (open) form.reset();
-  }, [open, form]);
+    if (open) {
+      if (initialData) {
+        form.reset({
+          catalogItemId: initialData.catalogId || '',
+          addedQuantity: initialData.quantity || 0,
+          locationId: initialData.locationId || '',
+          batch: initialData.batch || '',
+          supplier: initialData.supplier || '',
+          manufacturingDate: initialData.manufacturingDate ? initialData.manufacturingDate.toDate() : undefined,
+          expiryDate: initialData.expiryDate ? initialData.expiryDate.toDate() : undefined,
+          vialVolume: initialData.vialVolume || '',
+          doseVolume: initialData.doseVolume || 0,
+          justification: ''
+        });
+      } else {
+        form.reset({ 
+          catalogItemId: '', 
+          addedQuantity: 0, 
+          locationId: '', 
+          batch: '', 
+          supplier: '', 
+          vialVolume: '', 
+          doseVolume: 0,
+          justification: ''
+        });
+      }
+    }
+  }, [open, form, initialData]);
 
   const onSubmit = async (values: FormValues) => {
     if (!user || !firestore || !selectedItem) return;
+
+    if (initialData && (!values.justification || values.justification.trim() === '')) {
+      form.setError('justification', { type: 'manual', message: 'A justificativa é obrigatória para salvar as edições deste lote.' });
+      return;
+    }
+
     try {
       const stockData = {
         catalogId: selectedItem.id,
@@ -120,28 +154,47 @@ export function StockEntryDialog({ open, onOpenChange, items }: { open: boolean,
         expiryDate: values.expiryDate ? Timestamp.fromDate(values.expiryDate) : null,
         vialVolume: values.vialVolume || '',
         doseVolume: values.doseVolume || 0,
-        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         updatedBy: user.displayName || 'Usuário',
       };
-      addDocumentNonBlocking(collection(firestore, 'stock'), stockData);
-      toast({ title: 'Entrada Registrada', description: `Lote ${values.batch} de ${selectedItem.name} adicionado.` });
+      
+      if (initialData?.id) {
+        updateDocumentNonBlocking(doc(firestore, 'stock', initialData.id), stockData);
+
+        const historyData = {
+           stockId: initialData.id,
+           batch: values.batch,
+           code: selectedItem.code,
+           name: selectedItem.name,
+           action: 'EDIT',
+           justification: values.justification,
+           timestamp: serverTimestamp(),
+           user: user.displayName || 'Usuário',
+           userEmail: user.email || ''
+        };
+        addDocumentNonBlocking(collection(firestore, 'stockHistory'), historyData);
+
+        toast({ title: 'Lote Atualizado', description: `Lote ${values.batch} de ${selectedItem.name} atualizado.` });
+      } else {
+        addDocumentNonBlocking(collection(firestore, 'stock'), { ...stockData, createdAt: serverTimestamp() });
+        toast({ title: 'Entrada Registrada', description: `Lote ${values.batch} de ${selectedItem.name} adicionado.` });
+      }
       onOpenChange(false);
-    } catch (e) { toast({ variant: 'destructive', title: 'Erro na Entrada' }); }
+    } catch (e) { toast({ variant: 'destructive', title: 'Erro ao salvar' }); }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-emerald-600 flex items-center gap-2"><ArrowUpCircle className="h-5 w-5" /> Entrada de Estoque</DialogTitle>
-          <DialogDescription>Selecione um item do catálogo para registrar uma nova remessa/lote.</DialogDescription>
+          <DialogTitle className="text-emerald-600 flex items-center gap-2"><ArrowUpCircle className="h-5 w-5" /> {initialData ? "Editar Lote de Estoque" : "Entrada de Estoque"}</DialogTitle>
+          <DialogDescription>{initialData ? "Altere as informações do lote selecionado." : "Selecione um item do catálogo para registrar uma nova remessa/lote."}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={form.control} name="catalogItemId" render={({ field }) => (
                 <FormItem className="flex flex-col"><FormLabel>Item do Catálogo</FormLabel>
-                  <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>{field.value ? items.find(i => i.id === field.value)?.name : "Escolha o produto..."}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger>
+                  <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" disabled={!!initialData} className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>{field.value ? items.find(i => i.id === field.value)?.name : "Escolha o produto..."}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Pesquisar..." /><CommandList><CommandEmpty>Nada encontrado.</CommandEmpty><CommandGroup>{items.map((item) => (
                         <CommandItem value={item.name} key={item.id} onSelect={() => { form.setValue("catalogItemId", item.id); setComboboxOpen(false); }}>
                           <Check className={cn("mr-2 h-4 w-4", item.id === field.value ? "opacity-100" : "opacity-0")} />
@@ -183,13 +236,55 @@ export function StockEntryDialog({ open, onOpenChange, items }: { open: boolean,
             )} />
             <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="manufacturingDate" render={({ field }) => (
-                    <FormItem className="flex flex-col"><FormLabel>Fabricação</FormLabel><Popover modal><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>DD/MM/AAAA</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date()} locale={ptBR} /></PopoverContent></Popover><FormMessage /></FormItem>
+                    <FormItem className="flex flex-col"><FormLabel>Fabricação</FormLabel><FormControl>
+                      <Input 
+                        type="date" 
+                        value={field.value ? format(field.value, 'yyyy-MM-dd') : ''} 
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            const date = new Date(e.target.value + 'T12:00:00');
+                            field.onChange(date);
+                          } else {
+                            field.onChange(undefined);
+                          }
+                        }}
+                        max={format(new Date(), 'yyyy-MM-dd')}
+                        className="w-full text-left font-normal"
+                      />
+                    </FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="expiryDate" render={({ field }) => (
-                    <FormItem className="flex flex-col"><FormLabel>Validade</FormLabel><Popover modal><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>DD/MM/AAAA</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} locale={ptBR} /></PopoverContent></Popover><FormMessage /></FormItem>
+                    <FormItem className="flex flex-col"><FormLabel>Validade</FormLabel><FormControl>
+                      <Input 
+                        type="date" 
+                        value={field.value ? format(field.value, 'yyyy-MM-dd') : ''} 
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            const date = new Date(e.target.value + 'T12:00:00');
+                            field.onChange(date);
+                          } else {
+                            field.onChange(undefined);
+                          }
+                        }}
+                        className="w-full text-left font-normal"
+                      />
+                    </FormControl><FormMessage /></FormItem>
                 )} />
             </div>
-            <DialogFooter className="pt-4"><Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">Registrar Entrada de Lote</Button></DialogFooter>
+            
+            {initialData && (
+              <FormField control={form.control} name="justification" render={({ field }) => (
+                <FormItem className="bg-amber-500/10 p-3 rounded-lg border border-amber-500/20">
+                  <FormLabel className="text-amber-600 font-bold flex items-center gap-1"><ArrowUpCircle className="h-3.5 w-3.5" /> Justificativa da Edição</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Escreva resumidamente o motivo da alteração..." {...field} />
+                  </FormControl>
+                  <FormMessage className="text-amber-600" />
+                </FormItem>
+              )} />
+            )}
+
+            <DialogFooter className="pt-4"><Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">{initialData ? "Salvar Alterações" : "Registrar Entrada de Lote"}</Button></DialogFooter>
           </form>
         </Form>
       </DialogContent>
