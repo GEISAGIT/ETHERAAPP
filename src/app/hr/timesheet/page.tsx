@@ -84,6 +84,13 @@ function HRTimesheetContent() {
   const logoUrl = 'https://firebasestorage.googleapis.com/v0/b/clinicflow-api-banc-3871-3813b.appspot.com/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media';
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [viewMonth, setViewMonth] = useState(format(new Date(), 'MM'));
+  const [viewYear, setViewYear] = useState(format(new Date(), 'yyyy'));
+
+  const viewDate = useMemo(() => {
+    return new Date(parseInt(viewYear), parseInt(viewMonth) - 1, 1);
+  }, [viewMonth, viewYear]);
+
   const [activeTab, setActiveTab] = useState('attendance');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -329,8 +336,8 @@ function HRTimesheetContent() {
 
   const fullHistory = useMemo(() => {
     if (!isClient) return [];
-    const start = startOfMonth(new Date());
-    const end = endOfMonth(new Date());
+    const start = startOfMonth(viewDate);
+    const end = endOfMonth(viewDate);
     const days = eachDayOfInterval({ start, end });
 
     return days.map(day => {
@@ -353,7 +360,7 @@ function HRTimesheetContent() {
 
       return { date: day, records: dayRecords, adjustment: dayAdj };
     });
-  }, [rawAttendance, formData.adjustments, isClient]);
+  }, [rawAttendance, formData.adjustments, isClient, viewDate]);
 
   const monthlySummary = useMemo(() => {
     let totalWorked = 0;
@@ -644,7 +651,7 @@ function HRTimesheetContent() {
           </div>
           <div className="text-right">
             <h2 className="text-lg font-bold uppercase tracking-tight">Espelho de Ponto Mensal</h2>
-            <p className="text-[10pt] font-bold text-primary">{format(new Date(), 'MMMM / yyyy', { locale: ptBR }).toUpperCase()}</p>
+            <p className="text-[10pt] font-bold text-primary">{format(viewDate, 'MMMM / yyyy', { locale: ptBR }).toUpperCase()}</p>
           </div>
         </div>
 
@@ -666,15 +673,51 @@ function HRTimesheetContent() {
 
       <Card className="border-primary/20 shadow-sm print:hidden">
         <CardHeader className="pb-4"><CardTitle className="text-lg flex items-center gap-2"><UserCheck className="h-5 w-5 text-primary" /> Selecione o Colaborador</CardTitle></CardHeader>
-        <CardContent>
-          <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-            <SelectTrigger className="max-w-md"><SelectValue placeholder="Escolha um colaborador para gerenciar..." /></SelectTrigger>
-            <SelectContent>
-              {employees?.map(emp => (
-                <SelectItem key={emp.id} value={emp.id}>{emp.fullName} ({emp.position})</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <CardContent className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 space-y-2">
+            <Label className="text-xs uppercase text-muted-foreground font-bold">Colaborador</Label>
+            <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+              <SelectTrigger><SelectValue placeholder="Escolha um colaborador..." /></SelectTrigger>
+              <SelectContent>
+                {employees?.map(emp => (
+                  <SelectItem key={emp.id} value={emp.id}>{emp.fullName} ({emp.position})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="w-full md:w-48 space-y-2">
+            <Label className="text-xs uppercase text-muted-foreground font-bold">Mês de Referência</Label>
+            <Select value={viewMonth} onValueChange={setViewMonth}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[
+                  { v: '01', l: 'Janeiro' }, { v: '02', l: 'Fevereiro' }, { v: '03', l: 'Março' },
+                  { v: '04', l: 'Abril' }, { v: '05', l: 'Maio' }, { v: '06', l: 'Junho' },
+                  { v: '07', l: 'Julho' }, { v: '08', l: 'Agosto' }, { v: '09', l: 'Setembro' },
+                  { v: '10', l: 'Outubro' }, { v: '11', l: 'Novembro' }, { v: '12', l: 'Dezembro' }
+                ].map(m => (
+                  <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full md:w-32 space-y-2">
+            <Label className="text-xs uppercase text-muted-foreground font-bold">Ano</Label>
+            <Select value={viewYear} onValueChange={setViewYear}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[
+                  new Date().getFullYear(),
+                  new Date().getFullYear() - 1,
+                  new Date().getFullYear() - 2
+                ].map(y => (
+                  <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
