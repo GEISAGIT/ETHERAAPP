@@ -176,7 +176,22 @@ export function StockEntryDialog({ open, onOpenChange, items, initialData }: { o
 
         toast({ title: 'Lote Atualizado', description: `Lote ${values.batch} de ${selectedItem.name} atualizado.` });
       } else {
-        addDocumentNonBlocking(collection(firestore, 'stock'), { ...stockData, createdAt: serverTimestamp() });
+        addDocumentNonBlocking(collection(firestore, 'stock'), { ...stockData, createdAt: serverTimestamp() }).then((docRef) => {
+          if (docRef) {
+            addDocumentNonBlocking(collection(firestore, 'stockHistory'), {
+              stockId: docRef.id,
+              batch: values.batch,
+              code: selectedItem.code,
+              name: selectedItem.name,
+              action: 'IN',
+              quantity: values.addedQuantity,
+              justification: 'Entrada Inicial de Lote',
+              timestamp: serverTimestamp(),
+              user: user.displayName || 'Usuário',
+              userEmail: user.email || ''
+            });
+          }
+        });
         toast({ title: 'Entrada Registrada', description: `Lote ${values.batch} de ${selectedItem.name} adicionado.` });
       }
       onOpenChange(false);

@@ -26,8 +26,8 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, updateDocumentNonBlocking } from '@/firebase';
-import { increment, serverTimestamp, doc } from 'firebase/firestore';
+import { useFirestore, useUser, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { increment, serverTimestamp, doc, collection } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 
 const formSchema = z.object({
@@ -71,6 +71,20 @@ export function StockOutDialog({
         updatedAt: serverTimestamp(),
         updatedBy: user.displayName || 'Usuário',
       });
+
+      addDocumentNonBlocking(collection(firestore, 'stockHistory'), {
+        stockId: initialItem.id,
+        batch: initialItem.batch,
+        code: initialItem.code,
+        name: initialItem.name,
+        action: 'OUT',
+        quantity: values.outQuantity,
+        justification: values.reason,
+        timestamp: serverTimestamp(),
+        user: user.displayName || 'Usuário',
+        userEmail: user.email || ''
+      });
+
       toast({ title: 'Baixa Realizada', description: `Retirado ${values.outQuantity} de ${initialItem.name} do lote ${initialItem.batch}.` });
       onOpenChange(false);
     } catch (e) { toast({ variant: 'destructive', title: 'Erro na Baixa' }); }

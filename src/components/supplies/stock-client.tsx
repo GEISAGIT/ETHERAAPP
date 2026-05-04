@@ -459,9 +459,19 @@ export function StockClient({ stockData, catalogData, userProfile }: StockClient
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">
-                              <Edit2 className="mr-1 h-3 w-3" /> Edição
-                            </Badge>
+                            {log.action === 'IN' ? (
+                              <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-200">
+                                <ArrowUpCircle className="mr-1 h-3 w-3" /> Entrada
+                              </Badge>
+                            ) : log.action === 'OUT' ? (
+                              <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+                                <ArrowDownCircle className="mr-1 h-3 w-3" /> Saída
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">
+                                <Edit2 className="mr-1 h-3 w-3" /> Edição
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col gap-0.5">
@@ -469,6 +479,9 @@ export function StockClient({ stockData, catalogData, userProfile }: StockClient
                               <div className="flex gap-2">
                                 <span className="text-[10px] uppercase text-muted-foreground">Lote: <strong className="font-mono text-primary">{log.batch}</strong></span>
                                 <span className="text-[10px] uppercase text-muted-foreground">SKU: <strong className="font-mono text-primary">{log.code}</strong></span>
+                                {log.quantity && (
+                                  <span className="text-[10px] uppercase text-muted-foreground">Qtd: <strong className="font-mono text-primary">{log.quantity}</strong></span>
+                                )}
                               </div>
                             </div>
                           </TableCell>

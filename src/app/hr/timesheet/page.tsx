@@ -80,14 +80,14 @@ function HRTimesheetContent() {
   const { user } = useUser();
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  
+
   const logoUrl = 'https://firebasestorage.googleapis.com/v0/b/clinicflow-api-banc-3871-3813b.appspot.com/o/uploads%2FjZm8ue98mEO7A0GSDTmExq8HYD82%2Fsimbolo_semfundo_verdeclaro.png?alt=media';
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [activeTab, setActiveTab] = useState('attendance');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  
+
   const [isAdjDialogOpen, setIsAdjDialogOpen] = useState(false);
   const [adjDate, setAdjDate] = useState<Date>(new Date());
   const [adjType, setAdjType] = useState<AdjustmentType>('medical_certificate');
@@ -118,9 +118,9 @@ function HRTimesheetContent() {
 
   const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery);
 
-  const selectedEmployee = useMemo(() => 
+  const selectedEmployee = useMemo(() =>
     employees?.find(e => e.id === selectedEmployeeId) || null
-  , [employees, selectedEmployeeId]);
+    , [employees, selectedEmployeeId]);
 
   const attendanceQuery = useMemoFirebase(() => {
     if (!firestore || !selectedEmployeeId) return null;
@@ -196,7 +196,7 @@ function HRTimesheetContent() {
 
     const updatedAdj = [...(formData.adjustments || []), newAdj];
     handleUpdateField('adjustments', updatedAdj);
-    
+
     const employeeRef = doc(firestore, 'employees', selectedEmployeeId);
     updateDocumentNonBlocking(employeeRef, { adjustments: updatedAdj });
 
@@ -209,7 +209,7 @@ function HRTimesheetContent() {
 
   const handleManualPunch = () => {
     if (!firestore || !selectedEmployee || !user) return;
-    
+
     const [h, m] = manualPunchTime.split(':');
     const punchTimestamp = new Date(manualPunchDate);
     punchTimestamp.setHours(parseInt(h), parseInt(m), 0, 0);
@@ -226,7 +226,7 @@ function HRTimesheetContent() {
     };
 
     addDocumentNonBlocking(collection(firestore, 'attendanceRecords'), recordData);
-    
+
     setIsManualPunchOpen(false);
     setManualPunchNotes('');
     toast({ title: 'Batida Manual Registrada' });
@@ -270,7 +270,7 @@ function HRTimesheetContent() {
     const dayOfWeek = getDay(dayDate);
     const daySchedule = formData.workSchedule?.days[dayOfWeek];
     const isWorkDay = daySchedule?.workDay ?? false;
-    
+
     let expectedMinutes = 0;
     if (isWorkDay) {
       const [sH, sM] = (daySchedule.start || "00:00").split(':').map(Number);
@@ -294,7 +294,7 @@ function HRTimesheetContent() {
     }
 
     let balance = workedMinutes - expectedMinutes;
-    
+
     // Tolerância de 10 minutos (Art. 58, § 1º da CLT)
     // Se o saldo do dia for de até 10 minutos (atrasos ou extras), consideramos como tempo neutro.
     if (isWorkDay && Math.abs(balance) <= 10) {
@@ -332,7 +332,7 @@ function HRTimesheetContent() {
     const start = startOfMonth(new Date());
     const end = endOfMonth(new Date());
     const days = eachDayOfInterval({ start, end });
-    
+
     return days.map(day => {
       const dayStr = format(day, 'yyyy-MM-dd');
       const dayRecords = rawAttendance?.filter(r => {
@@ -344,13 +344,13 @@ function HRTimesheetContent() {
         const tB = b.timestamp instanceof Timestamp ? b.timestamp.toMillis() : (b.timestamp ? new Date(b.timestamp).getTime() : 0);
         return tA - tB;
       }) || [];
-      
+
       const dayAdj = formData.adjustments?.find(a => {
         if (!a.date) return false;
         const adjDateObj = a.date instanceof Timestamp ? a.date.toDate() : new Date(a.date);
         return isSameDay(adjDateObj, day);
       });
-      
+
       return { date: day, records: dayRecords, adjustment: dayAdj };
     });
   }, [rawAttendance, formData.adjustments, isClient]);
@@ -367,7 +367,7 @@ function HRTimesheetContent() {
       totalWorked += stats.worked;
       if (stats.balance > 0) totalCredits += stats.balance;
       if (stats.balance < 0) totalDebits += Math.abs(stats.balance);
-      
+
       if (stats.status === 'Falta') totalAbsences++;
       if (day.adjustment?.type === 'medical_certificate') totalCertificates++;
     });
@@ -389,11 +389,11 @@ function HRTimesheetContent() {
       day.records.forEach(r => {
         if (r.notes || r.manual) {
           const time = format(r.timestamp instanceof Timestamp ? r.timestamp.toDate() : new Date(r.timestamp), 'HH:mm');
-          list.push({ 
-            date: day.date, 
-            type: r.type, 
-            time, 
-            notes: r.notes || 'Marcação Manual / Ajuste Administrativo' 
+          list.push({
+            date: day.date,
+            type: r.type,
+            time,
+            notes: r.notes || 'Marcação Manual / Ajuste Administrativo'
           });
         }
       });
@@ -419,7 +419,7 @@ function HRTimesheetContent() {
 
   const PunchCell = ({ record, dayDate, type }: { record?: AttendanceRecord, dayDate: Date, type: AttendanceType }) => {
     const isJustified = record && (record.manual || record.notes);
-    
+
     return (
       <TableCell className="relative group/cell border-x text-center print:p-0 print:border-x-[1px] min-w-[65px] print:min-w-[40px]">
         {record ? (
@@ -439,9 +439,9 @@ function HRTimesheetContent() {
               </TooltipProvider>
             )}
             <div className="absolute inset-0 bg-background/80 backdrop-blur-[1px] opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center gap-1 print:hidden">
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-6 w-6 text-primary hover:bg-primary/10"
                 onClick={() => {
                   setEditingPunch(record);
@@ -452,9 +452,9 @@ function HRTimesheetContent() {
               >
                 <Edit className="h-3 w-3" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-6 w-6 text-destructive hover:bg-destructive/10"
                 onClick={() => handleDeletePunch(record.id)}
               >
@@ -466,9 +466,9 @@ function HRTimesheetContent() {
           <div className="flex items-center justify-center gap-1">
             <span className="text-[10px] text-muted-foreground opacity-30 print:hidden">--:--</span>
             <div className="absolute inset-0 bg-background/80 opacity-0 group-hover/cell:opacity-100 transition-opacity flex items-center justify-center print:hidden">
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-6 w-6 text-primary hover:bg-primary/10"
                 onClick={() => {
                   setManualPunchDate(dayDate);
@@ -647,14 +647,14 @@ function HRTimesheetContent() {
             <p className="text-[10pt] font-bold text-primary">{format(new Date(), 'MMMM / yyyy', { locale: ptBR }).toUpperCase()}</p>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-3 gap-4 text-[8pt] bg-slate-50 p-2 rounded-md border border-black/20">
           <div className="space-y-1">
-            <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Colaborador:</span><br/><span className="text-[9pt] font-bold">{selectedEmployee?.fullName.toUpperCase()}</span></p>
+            <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Colaborador:</span><br /><span className="text-[9pt] font-bold">{selectedEmployee?.fullName.toUpperCase()}</span></p>
             <p><span className="font-bold text-slate-500 uppercase text-[7pt]">CPF:</span> {selectedEmployee?.cpf}</p>
           </div>
           <div className="space-y-1 border-l border-black/10 pl-4">
-            <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Cargo:</span><br/>{selectedEmployee?.position?.toUpperCase() || '--'}</p>
+            <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Cargo:</span><br />{selectedEmployee?.position?.toUpperCase() || '--'}</p>
             <p><span className="font-bold text-slate-500 uppercase text-[7pt]">Matrícula:</span> {selectedEmployee?.registrationNumber || '--'}</p>
           </div>
           <div className="space-y-1 border-l border-black/10 pl-4 text-right">
@@ -728,7 +728,7 @@ function HRTimesheetContent() {
                             <TableCell className="font-bold border-r border-black pl-4 print:pl-2 whitespace-nowrap overflow-hidden">
                               {format(day.date, "dd/MM (eee)", { locale: ptBR })}
                             </TableCell>
-                            
+
                             <PunchCell record={clockIn} dayDate={day.date} type="clock_in" />
                             <PunchCell record={breakStart} dayDate={day.date} type="break_start" />
                             <PunchCell record={breakEnd} dayDate={day.date} type="break_end" />
@@ -739,10 +739,10 @@ function HRTimesheetContent() {
                               {stats.balance !== 0 ? formatMinutes(stats.balance) : '--:--'}
                             </TableCell>
                             <TableCell className="pl-4 print:pl-2">
-                              <span className={cn("text-[9px] print:text-[6.5pt] uppercase font-semibold", 
-                                stats.status === 'Falta' ? 'text-red-600' : 
-                                stats.status.includes('Atestado') ? 'text-blue-600' : 
-                                stats.status.includes('Descanso') ? 'text-muted-foreground' : 'text-foreground'
+                              <span className={cn("text-[9px] print:text-[6.5pt] uppercase font-semibold",
+                                stats.status === 'Falta' ? 'text-red-600' :
+                                  stats.status.includes('Atestado') ? 'text-blue-600' :
+                                    stats.status.includes('Descanso') ? 'text-muted-foreground' : 'text-foreground'
                               )}>
                                 {stats.status}
                               </span>
@@ -775,7 +775,7 @@ function HRTimesheetContent() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="p-4 print:p-2 bg-primary/5">
                     <h3 className="font-bold text-[11px] mb-1 uppercase tracking-widest text-primary flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4" /> Estatísticas & Avisos
