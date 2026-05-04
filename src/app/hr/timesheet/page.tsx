@@ -21,6 +21,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
@@ -156,6 +157,30 @@ function HRTimesheetContent() {
 
   const handleUpdateField = (field: keyof Employee, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleUpdateScheduleDay = (day: number, config: Partial<DailySchedule>) => {
+    const currentSchedule = formData.workSchedule || DEFAULT_SCHEDULES['5x2'];
+    const updatedDays = {
+      ...currentSchedule.days,
+      [day]: { ...currentSchedule.days[day], ...config }
+    };
+    handleUpdateField('workSchedule', { ...currentSchedule, days: updatedDays });
+  };
+
+  const handleQuickApplySchedule = (start: string, end: string, lunchStart: string, lunchEnd: string) => {
+    const currentSchedule = formData.workSchedule || DEFAULT_SCHEDULES['5x2'];
+    const updatedDays = { ...currentSchedule.days };
+    
+    Object.keys(updatedDays).forEach(dayKey => {
+      const day = parseInt(dayKey);
+      if (updatedDays[day].workDay) {
+        updatedDays[day] = { ...updatedDays[day], start, end, lunchStart, lunchEnd };
+      }
+    });
+
+    handleUpdateField('workSchedule', { ...currentSchedule, days: updatedDays });
+    toast({ title: 'Escala Atualizada', description: 'Horários aplicados a todos os dias úteis.' });
   };
 
   const handleSaveEmployee = () => {
@@ -895,10 +920,127 @@ function HRTimesheetContent() {
               <Card className="lg:col-span-1 border-primary/10">
                 <CardHeader><CardTitle className="text-md flex items-center gap-2"><History className="h-4 w-4 text-primary" /> Escala Contratada</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2"><Label>Modelo de Escala</Label><Select value={formData.workSchedule?.type} onValueChange={(v: WorkScheduleType) => handleUpdateField('workSchedule', DEFAULT_SCHEDULES[v])}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="5x2">5x2 (Seg a Sex)</SelectItem><SelectItem value="6x1">6x1 (Sábado Parcial)</SelectItem><SelectItem value="12x36">12x36 (Plantão)</SelectItem><SelectItem value="custom">Personalizada</SelectItem></SelectContent></Select></div>
+                  <div className="space-y-2">
+                    <Label>Modelo de Escala</Label>
+                    <Select value={formData.workSchedule?.type} onValueChange={(v: WorkScheduleType) => handleUpdateField('workSchedule', DEFAULT_SCHEDULES[v])}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5x2">5x2 (Seg a Sex)</SelectItem>
+                        <SelectItem value="6x1">6x1 (Sábado Parcial)</SelectItem>
+                        <SelectItem value="12x36">12x36 (Plantão)</SelectItem>
+                        <SelectItem value="custom">Personalizada</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.workSchedule && (
+                    <div className="space-y-4 pt-4 border-t">
+                      <Label className="text-xs font-bold uppercase text-primary">Configuração Rápida (Jornada Padrão)</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Entrada</Label>
+                          <Input 
+                            type="time" 
+                            className="h-8 text-xs" 
+                            defaultValue={Object.values(formData.workSchedule.days).find(d => d.workDay)?.start || '08:00'}
+                            onBlur={(e) => {
+                              const start = e.target.value;
+                              const current = Object.values(formData.workSchedule!.days).find(d => d.workDay);
+                              handleQuickApplySchedule(start, current?.end || '18:00', current?.lunchStart || '12:00', current?.lunchEnd || '13:00');
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Saída</Label>
+                          <Input 
+                            type="time" 
+                            className="h-8 text-xs" 
+                            defaultValue={Object.values(formData.workSchedule.days).find(d => d.workDay)?.end || '18:00'}
+                            onBlur={(e) => {
+                              const end = e.target.value;
+                              const current = Object.values(formData.workSchedule!.days).find(d => d.workDay);
+                              handleQuickApplySchedule(current?.start || '08:00', end, current?.lunchStart || '12:00', current?.lunchEnd || '13:00');
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Início Almoço</Label>
+                          <Input 
+                            type="time" 
+                            className="h-8 text-xs" 
+                            defaultValue={Object.values(formData.workSchedule.days).find(d => d.workDay)?.lunchStart || '12:00'}
+                            onBlur={(e) => {
+                              const lStart = e.target.value;
+                              const current = Object.values(formData.workSchedule!.days).find(d => d.workDay);
+                              handleQuickApplySchedule(current?.start || '08:00', current?.end || '18:00', lStart, current?.lunchEnd || '13:00');
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px]">Fim Almoço</Label>
+                          <Input 
+                            type="time" 
+                            className="h-8 text-xs" 
+                            defaultValue={Object.values(formData.workSchedule.days).find(d => d.workDay)?.lunchEnd || '13:00'}
+                            onBlur={(e) => {
+                              const lEnd = e.target.value;
+                              const current = Object.values(formData.workSchedule!.days).find(d => d.workDay);
+                              handleQuickApplySchedule(current?.start || '08:00', current?.end || '18:00', current?.lunchStart || '12:00', lEnd);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2"><Label>Regime de Contratação</Label><Select value={formData.regimeType} onValueChange={v => handleUpdateField('regimeType', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="CLT">CLT (Consolidado)</SelectItem><SelectItem value="PJ">PJ (Prestador)</SelectItem><SelectItem value="intern">Estagiário</SelectItem></SelectContent></Select></div>
                 </CardContent>
               </Card>
+
+              {formData.workSchedule && (
+                <Card className="lg:col-span-3 border-primary/10">
+                  <CardHeader><CardTitle className="text-md flex items-center gap-2"><History className="h-4 w-4 text-primary" /> Detalhamento da Escala por Dia</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[1, 2, 3, 4, 5, 6, 0].map((dayNum) => {
+                        const dayConfig = formData.workSchedule?.days[dayNum] || { workDay: false, start: '', end: '', lunchStart: '', lunchEnd: '' };
+                        const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                        return (
+                          <div key={dayNum} className={cn("p-3 border rounded-lg space-y-3 transition-colors", dayConfig.workDay ? "border-primary/30 bg-primary/5" : "bg-muted/20 opacity-60")}>
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-sm">{dayNames[dayNum]}</span>
+                              <Switch 
+                                checked={dayConfig.workDay} 
+                                onCheckedChange={(checked) => handleUpdateScheduleDay(dayNum, { workDay: checked })}
+                              />
+                            </div>
+                            {dayConfig.workDay && (
+                              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-primary/10">
+                                <div className="space-y-1">
+                                  <Label className="text-[10px]">Entrada</Label>
+                                  <Input type="time" className="h-7 text-[10px]" value={dayConfig.start} onChange={e => handleUpdateScheduleDay(dayNum, { start: e.target.value })} />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px]">Saída</Label>
+                                  <Input type="time" className="h-7 text-[10px]" value={dayConfig.end} onChange={e => handleUpdateScheduleDay(dayNum, { end: e.target.value })} />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px]">Alm. (S)</Label>
+                                  <Input type="time" className="h-7 text-[10px]" value={dayConfig.lunchStart} onChange={e => handleUpdateScheduleDay(dayNum, { lunchStart: e.target.value })} />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px]">Alm. (R)</Label>
+                                  <Input type="time" className="h-7 text-[10px]" value={dayConfig.lunchEnd} onChange={e => handleUpdateScheduleDay(dayNum, { lunchEnd: e.target.value })} />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
 
